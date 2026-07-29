@@ -1,0 +1,43 @@
+{
+  "name": "wechat-layout-workbench",
+  "version": "0.0.0",
+  "private": true,
+  "description": "面向定稿文章的云端公众号智能视觉排版工作台",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": "24.x",
+    "pnpm": "10.x"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build && pnpm build:python",
+    "build:python": "PYTHONPATH=services/docx-worker-python/src python3 -m compileall -q services/docx-worker-python/src",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test && pnpm test:python",
+    "test:python": "PYTHONPATH=services/docx-worker-python/src python3 -m unittest discover -s services/docx-worker-python/tests -p 'test_*.py'",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.4",
+    "@types/node": "24.13.3",
+    "eslint": "9.39.4",
+    "globals": "17.8.0",
+    "prettier": "3.9.6",
+    "turbo": "2.10.7",
+    "tsx": "4.23.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.65.0",
+    "vitest": "4.1.10"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp"
+    ],
+    "overrides": {
+      "vite": "8.0.13"
+    }
+  }
+}
