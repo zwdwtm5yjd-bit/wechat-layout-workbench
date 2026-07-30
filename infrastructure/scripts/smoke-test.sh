@@ -75,18 +75,22 @@ assert_healthy() {
   fi
 }
 
-echo "1/5 检查应用与基础服务健康状态"
+echo "1/6 检查应用与基础服务健康状态"
 for service_name in postgres redis minio mailpit api web worker scheduler; do
   assert_healthy "$service_name"
 done
 
-echo "2/5 验证 PostgreSQL 与 Redis 连接"
+echo "2/6 验证 API 健康检查与 OpenAPI"
+compose exec -T api node -e \
+  "Promise.all(['/health/live','/health/ready','/api/openapi.json'].map(async(path)=>{const response=await fetch('http://127.0.0.1:3001'+path);if(!response.ok)throw new Error(path+' returned '+response.status);const body=await response.json();if(path.startsWith('/health/')&&body.status!=='ok')throw new Error(path+' is not ok');if(path==='/api/openapi.json'&&!body.openapi)throw new Error('OpenAPI document is invalid')})).then(()=>process.exit(0)).catch((error)=>{console.error(error.message);process.exit(1)})"
+
+echo "3/6 验证 PostgreSQL 与 Redis 连接"
 compose exec -T postgres sh -ec \
   'psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1 --command "SELECT 1" >/dev/null'
 compose exec -T redis sh -ec \
   'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping | grep -q PONG'
 
-echo "3/5 写入持久化探针并验证 MinIO 测试对象"
+echo "4/6 写入持久化探针并验证 MinIO 测试对象"
 probe_written=true
 compose exec -T postgres sh -ec \
   'psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1 --command "CREATE TABLE IF NOT EXISTS public.__s0_arch_persistence_probe (id integer PRIMARY KEY, marker text NOT NULL); INSERT INTO public.__s0_arch_persistence_probe (id, marker) VALUES (1, '\''persisted'\'') ON CONFLICT (id) DO UPDATE SET marker = EXCLUDED.marker;" >/dev/null'
@@ -94,7 +98,7 @@ compose exec -T redis sh -ec \
   'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli set __s0_arch_persistence_probe persisted | grep -q OK'
 assert_minio_object
 
-echo "4/5 重启有状态服务并验证数据仍然存在"
+echo "5/6 重启有状态服务并验证数据仍然存在"
 compose restart postgres redis minio
 compose up --detach --wait postgres redis minio
 compose exec -T postgres sh -ec \
@@ -103,7 +107,7 @@ compose exec -T redis sh -ec \
   'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli get __s0_arch_persistence_probe | grep -qx persisted'
 assert_minio_object
 
-echo "5/5 清理探针并确认 API 恢复健康"
+echo "6/6 清理探针并确认 API 恢复健康"
 cleanup_probes
 probe_written=false
 compose up --detach --wait api web worker scheduler

@@ -4,12 +4,12 @@
 
 ## 当前开发状态
 
-当前已完成 `S0-ARCH-001 Monorepo 初始化`、`S0-ARCH-002 Docker 开发环境`
-和 `S0-ARCH-003 配置管理`：
+当前已完成 `S0-ARCH-001 Monorepo 初始化`、`S0-ARCH-002 Docker 开发环境`、
+`S0-ARCH-003 配置管理` 和 `S0-API-001 NestJS 基础框架`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
-- NestJS API 空骨架；
+- NestJS API 基础框架；
 - Node.js Worker 与 Scheduler 空骨架；
 - Python DOCX Worker 服务占位；
 - 共享包边界；
@@ -17,6 +17,11 @@
 - public / server 分层配置入口与 Zod 启动校验；
 - 开发、测试、生产三套配置策略与示例；
 - Secret 默认脱敏与浏览器打包隔离；
+- `/api/v1` 版本前缀、统一响应与全局异常格式；
+- Request ID、Trace ID 与脱敏结构化请求日志；
+- class-validator DTO / Zod DTO 双校验管道；
+- `/health/live`、`/health/ready` 与可扩展就绪探针；
+- 开发环境 Swagger UI 与持续可生成的 OpenAPI JSON；
 - PostgreSQL、Redis、MinIO、Mailpit 本地开发服务；
 - Web、API、Worker、Scheduler 容器化开发进程；
 - 服务健康检查、命名数据卷与持久化验收脚本。
@@ -44,8 +49,15 @@ pnpm dev
 - Web：`http://localhost:3000`；
 - API：`http://localhost:3001`。
 
+API 基础端点：
+
+- 存活检查：`http://localhost:3001/health/live`；
+- 就绪检查：`http://localhost:3001/health/ready`；
+- Swagger UI（非生产）：`http://localhost:3001/api/docs`；
+- OpenAPI JSON：`http://localhost:3001/api/openapi.json`。
+
 缺少数据库、Redis、对象存储或安全密钥时，API、Worker、Scheduler 会在启动前
-给出具体变量名并退出。当前 API 仍只启动 NestJS 应用，不提前提供健康检查或业务路由。
+给出具体变量名并退出。当前 API 尚未实现认证、文章或其他业务路由。
 
 ## Docker 开发环境
 
@@ -77,9 +89,9 @@ pnpm docker:smoke
 pnpm docker:down
 ```
 
-`pnpm docker:smoke` 会验证 PostgreSQL、Redis、MinIO、API 健康状态，并通过重启
-PostgreSQL、Redis、MinIO 检查命名卷的数据持久性。探针数据会在测试结束时清理；
-MinIO 的 `healthcheck.txt` 会保留用于后续检查。
+`pnpm docker:smoke` 会验证 PostgreSQL、Redis、MinIO、API live / ready 与 OpenAPI，
+并通过重启 PostgreSQL、Redis、MinIO 检查命名卷的数据持久性。探针数据会在测试结束时
+清理；MinIO 的 `healthcheck.txt` 会保留用于后续检查。
 
 ## 根级命令
 
@@ -154,6 +166,6 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S0-ARCH-003` 验收通过后，开发总指令指定的下一任务是
-`S0-API-001 NestJS 基础框架`。
+`S0-API-001` 验收通过后，开发总指令指定的下一任务是
+`S0-WEB-001 Next.js 基础框架`。
 完整设计依据见 [docs](./docs/)。

@@ -207,7 +207,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "const net=require('node:net');const socket=net.connect(3001,'127.0.0.1');socket.on('connect',()=>{socket.end();process.exit(0)});socket.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),2000)",
+          "fetch('http://127.0.0.1:3001/health/live').then(async(response)=>{const body=await response.json();if(!response.ok||body.status!=='ok')process.exit(1);process.exit(0)}).catch(()=>process.exit(1))",
         ]
       interval: 5s
       timeout: 3s

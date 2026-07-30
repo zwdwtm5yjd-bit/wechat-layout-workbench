@@ -4,11 +4,14 @@ import { NestFactory } from "@nestjs/core";
 import { loadServerEnvironment } from "@wechat-layout/config/server";
 
 import { AppModule } from "./app.module.js";
+import { configureApplication } from "./configure-application.js";
 
 async function bootstrap(): Promise<void> {
   const configuration = loadServerEnvironment();
   const application = await NestFactory.create(AppModule);
 
+  configureApplication(application, configuration.application.environment);
+  application.enableShutdownHooks();
   await application.listen(configuration.application.apiPort);
 }
 
