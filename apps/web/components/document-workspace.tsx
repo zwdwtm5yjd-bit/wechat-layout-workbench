@@ -1,5 +1,7 @@
 "use client";
 
+import { normalizeDocument } from "@wechat-layout/editor-core";
+import type { DocumentV1 } from "@wechat-layout/document-schema";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -18,9 +20,11 @@ import {
   getArticleDocument,
   saveArticleDocument,
   type ArticleDocument,
+  type DocumentJson,
 } from "../lib/documents/client";
 import { IndexedDbDocumentDraftStore, type LocalDocumentDraft } from "../lib/documents/draft-store";
 import type { RestoreSnapshotResult } from "../lib/snapshots/client";
+import { ArticleEditor } from "./article-editor";
 import { DocumentSaveStatus } from "./document-save-status";
 import { SnapshotPanel } from "./snapshot-panel";
 
@@ -71,8 +75,12 @@ export function DocumentWorkspace({ articleId }: { readonly articleId: string })
 
 function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
   const [controller, setController] = useState<DocumentAutosaveController | null>(null);
+  const [activeDocument, setActiveDocument] = useState<DocumentV1>(() =>
+    normalizeDocument(initial.document),
+  );
   const [recoveredDraft, setRecoveredDraft] = useState<LocalDocumentDraft | null>(null);
   const [localStorageError, setLocalStorageError] = useState<string | null>(null);
+  const [editorError, setEditorError] = useState<string | null>(null);
   const [lastTransactionId, setLastTransactionId] = useState(initial.lastTransactionId);
   const [snapshot, setSnapshot] = useState<DocumentSaveSnapshot>({
     status: "saved",
@@ -108,6 +116,9 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
       .initialize()
       .then((draft) => {
         setRecoveredDraft(draft);
+        if (draft !== null && draft.baseVersion === initial.documentVersion) {
+          setActiveDocument(normalizeDocument(draft.document));
+        }
       })
       .catch((error: unknown) => {
         setLocalStorageError(error instanceof Error ? error.message : "浏览器本地草稿不可用");
@@ -119,12 +130,32 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
     };
   }, [initial]);
 
+  useEffect(() => {
+    if (recoveredDraft !== null && snapshot.status === "saved") {
+      setRecoveredDraft(null);
+    }
+  }, [recoveredDraft, snapshot.status]);
+
   const discardDraft = async () => {
     if (controller === null) {
       return;
     }
     await controller.discardLocalDraft(initial.documentVersion, initial.lastSavedAt);
     setRecoveredDraft(null);
+    setActiveDocument(normalizeDocument(initial.document));
+  };
+
+  const handleDocumentChange = (document: DocumentV1, transactionOrigin: string) => {
+    if (controller === null) {
+      return;
+    }
+
+    setEditorError(null);
+    void controller
+      .queue(document as unknown as DocumentJson, initial.schemaVersion, transactionOrigin)
+      .catch((error: unknown) => {
+        setLocalStorageError(error instanceof Error ? error.message : "浏览器本地草稿保存失败");
+      });
   };
 
   const handleSnapshotRestored = async (result: RestoreSnapshotResult) => {
@@ -141,11 +172,18 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
     }
     setRecoveredDraft(null);
     setLastTransactionId(result.lastTransactionId);
+
+    try {
+      const restored = await getArticleDocument(initial.articleId);
+      setActiveDocument(normalizeDocument(restored.document));
+    } catch (error) {
+      setEditorError(errorMessage(error));
+    }
   };
 
   return (
     <div className="space-y-5">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Link
             className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted hover:text-ink"
@@ -154,9 +192,22 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
             <ArrowLeft aria-hidden="true" size={13} />
             返回文章
           </Link>
-          <p className="mt-4 text-[12px] font-medium text-accent">DOCUMENT SESSION</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">文章文档</h1>
-          <p className="mt-2 text-[13px] text-muted">权威 JSON、乐观锁和本地草稿恢复已连接。</p>
+          <p className="mt-4 text-[12px] font-medium text-accent">VISUAL EDITOR</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">文章视觉编辑</h1>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-muted">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-panel px-2.5 py-1">
+              <FileJson2 aria-hidden="true" size={11} />
+              Schema {initial.schemaVersion}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-panel px-2.5 py-1">
+              <Database aria-hidden="true" size={11} />
+              服务端 v{snapshot.documentVersion}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-panel px-2.5 py-1">
+              <ShieldCheck aria-hidden="true" size={11} />
+              原文{initial.textLocked ? "已锁定" : "未锁定"}
+            </span>
+          </div>
         </div>
         <DocumentSaveStatus snapshot={snapshot} />
       </section>
@@ -164,10 +215,10 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
       {recoveredDraft === null ? null : (
         <section className="flex flex-col gap-3 rounded-control border border-warning/25 bg-warning-soft p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-[12px] font-semibold text-warning">检测到浏览器本地草稿</p>
+            <p className="text-[12px] font-semibold text-warning">已恢复浏览器本地草稿</p>
             <p className="mt-1 text-[11px] leading-5 text-muted">
-              草稿保存于 {new Date(recoveredDraft.savedAt).toLocaleString("zh-CN")}。版本一致时会
-              自动重试；发生冲突时仍会留在本机。
+              草稿保存于 {new Date(recoveredDraft.savedAt).toLocaleString("zh-CN")}
+              。版本一致时已载入画布并自动重试保存；冲突草稿不会覆盖远端内容。
             </p>
           </div>
           {snapshot.status === "conflict" ? (
@@ -190,31 +241,22 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
         </section>
       )}
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <DocumentFact icon={FileJson2} label="Schema" value={initial.schemaVersion} />
-        <DocumentFact icon={Database} label="服务端版本" value={`v${snapshot.documentVersion}`} />
-        <DocumentFact
-          icon={ShieldCheck}
-          label="原文保护"
-          value={initial.textLocked ? "已锁定" : "未锁定"}
-        />
-      </section>
+      {editorError === null ? null : (
+        <section className="rounded-control border border-danger/20 bg-danger-soft p-4 text-[12px] text-danger">
+          编辑器暂未保存本次变更：{editorError}
+        </section>
+      )}
 
-      <section className="rounded-card border border-line bg-panel p-6 shadow-subtle">
-        <div className="mx-auto max-w-2xl py-14 text-center">
-          <span className="mx-auto grid size-12 place-items-center rounded-full bg-accent-soft text-accent">
-            <FileJson2 aria-hidden="true" size={20} />
-          </span>
-          <h2 className="mt-4 text-base font-semibold text-ink">文档保存链路已准备好</h2>
-          <p className="mt-2 text-[12px] leading-6 text-muted">
-            当前文档可安全读取、自动保存并在断网后恢复。可视化编辑画布将在后续编辑器任务中
-            接入这套保存会话。
-          </p>
-          <p className="mt-4 font-mono text-[10px] text-faint">
-            document {initial.documentId} · transaction {lastTransactionId ?? "尚无保存事务"}
-          </p>
-        </div>
-      </section>
+      <ArticleEditor
+        document={activeDocument}
+        editable={controller !== null && snapshot.status !== "conflict"}
+        onChange={handleDocumentChange}
+        onError={setEditorError}
+      />
+
+      <p className="text-center font-mono text-[9px] text-faint">
+        document {initial.documentId} · transaction {lastTransactionId ?? "尚无保存事务"}
+      </p>
 
       <SnapshotPanel
         articleId={initial.articleId}
@@ -222,26 +264,6 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
         onRestored={handleSnapshotRestored}
         saveStatus={snapshot.status}
       />
-    </div>
-  );
-}
-
-function DocumentFact({
-  icon: Icon,
-  label,
-  value,
-}: {
-  readonly icon: typeof Database;
-  readonly label: string;
-  readonly value: string;
-}) {
-  return (
-    <div className="rounded-card border border-line bg-panel p-4 shadow-subtle">
-      <span className="grid size-8 place-items-center rounded-control bg-panel-muted text-muted">
-        <Icon aria-hidden="true" size={15} />
-      </span>
-      <p className="mt-3 text-[10px] font-medium tracking-[0.08em] text-faint uppercase">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
     </div>
   );
 }

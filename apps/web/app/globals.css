@@ -21,7 +21,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -43,6 +45,153 @@ a {
 :focus-visible {
   outline: 3px solid rgb(79 70 229 / 22%);
   outline-offset: 2px;
+}
+
+.editor-canvas-scroll {
+  min-height: 635px;
+}
+
+.editor-canvas-shell {
+  min-height: 860px;
+}
+
+.wechat-article-editor {
+  min-height: 860px;
+  padding: 64px 72px 96px;
+  color: #27272a;
+  font-size: 16px;
+  line-height: 1.8;
+  outline: none;
+}
+
+.wechat-article-editor > [data-block-id] {
+  position: relative;
+  margin-block: 0 20px;
+  border-radius: 4px;
+  transition:
+    box-shadow 120ms ease,
+    background-color 120ms ease;
+}
+
+.wechat-article-editor > [data-block-id]:hover {
+  box-shadow: 0 0 0 1px rgb(79 70 229 / 12%);
+}
+
+.wechat-article-editor > [data-editor-selected="true"],
+.wechat-article-editor > .ProseMirror-selectednode,
+.wechat-article-editor > [data-block-id]:has(.ProseMirror-selectednode) {
+  background: rgb(238 242 255 / 55%);
+  box-shadow: 0 0 0 2px rgb(79 70 229 / 24%);
+}
+
+.wechat-article-editor p.is-editor-empty:first-child::before {
+  float: left;
+  height: 0;
+  color: var(--ui-text-tertiary);
+  content: "输入正文，或从左侧插入区块…";
+  pointer-events: none;
+}
+
+.editor-heading {
+  margin-top: 1.6em;
+  margin-bottom: 0.7em;
+  color: #18181b;
+  font-weight: 700;
+  line-height: 1.38;
+  letter-spacing: -0.025em;
+}
+
+.editor-heading-1 {
+  font-size: 28px;
+}
+
+.editor-heading-2 {
+  font-size: 23px;
+}
+
+.editor-heading-3 {
+  font-size: 19px;
+}
+
+.editor-paragraph {
+  min-height: 1.8em;
+}
+
+.editor-blockquote {
+  padding: 14px 18px;
+  border-left: 3px solid var(--ui-accent);
+  background: #f8f8ff;
+  color: #52525b;
+}
+
+.editor-blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.editor-list {
+  padding-left: 1.5em;
+}
+
+.editor-divider {
+  padding-block: 14px;
+}
+
+.editor-divider hr {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid #d4d4d8;
+}
+
+.editor-semantic-card,
+.editor-brand-footer {
+  padding: 22px;
+  border: 1px solid #e4e4e7;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.editor-atom {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  border: 1px dashed #c7c7cf;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgb(79 70 229 / 4%) 25%, transparent 25%) -12px 0 / 24px 24px,
+    linear-gradient(225deg, rgb(79 70 229 / 4%) 25%, transparent 25%) -12px 0 / 24px 24px,
+    #fafafa;
+}
+
+.editor-atom-label {
+  color: var(--ui-text-secondary);
+  font-size: 12px;
+}
+
+.editor-block-handle {
+  position: absolute;
+  z-index: 4;
+  left: 34px;
+  transition: top 120ms ease;
+}
+
+.is-block-dragging .wechat-article-editor > [data-block-id]:hover {
+  background: var(--ui-accent-soft);
+  box-shadow: inset 0 2px 0 var(--ui-accent);
+}
+
+@media (max-width: 639px) {
+  .wechat-article-editor {
+    min-height: 680px;
+    padding: 44px 28px 72px;
+  }
+
+  .editor-canvas-shell {
+    min-height: 680px;
+  }
+
+  .editor-block-handle {
+    left: 12px;
+  }
 }
 
 .login-visual-grid {

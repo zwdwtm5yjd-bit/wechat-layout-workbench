@@ -19,5 +19,14 @@
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --root . --passWithNoTests"
+  },
+  "dependencies": {
+    "@tiptap/core": "3.29.2",
+    "@tiptap/pm": "3.29.2",
+    "@tiptap/starter-kit": "3.29.2",
+    "@wechat-layout/document-schema": "workspace:*"
+  },
+  "devDependencies": {
+    "jsdom": "29.1.1"
   }
 }
