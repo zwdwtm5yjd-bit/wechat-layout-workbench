@@ -329,6 +329,92 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/resources/{resourceId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取当前用户的资源元数据 */
+    get: operations["ResourceController_get"];
+    put?: never;
+    post?: never;
+    /** 将未被引用的资源移入保留 30 天的回收站 */
+    delete: operations["ResourceController_trash"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/resources/{resourceId}/access-url": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 签发短时私有资源访问地址 */
+    post: operations["ResourceController_createAccessUrl"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/resources/{resourceId}/references": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 列出阻止资源删除的引用 */
+    get: operations["ResourceController_references"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/resources/uploads": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 创建私有图片直传会话，或复用当前用户的相同资源 */
+    post: operations["ResourceController_createUpload"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/resources/uploads/{uploadId}/complete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 校验直传对象并登记资源 */
+    post: operations["ResourceController_completeUpload"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/health/live": {
     parameters: {
       query?: never;
@@ -632,6 +718,9 @@ export interface components {
       timezone: string;
       username: string | null;
     };
+    CompleteResourceUploadDto: {
+      etag: string;
+    };
     ConfirmImportBlockDto: {
       /** @enum {string} */
       role:
@@ -713,6 +802,26 @@ export interface components {
       sourceType: "blank";
       /** @example 未命名文章 */
       title: string;
+    };
+    CreateResourceAccessUrlDto: {
+      /** @default 300 */
+      expiresInSeconds: number;
+      /** @enum {string} */
+      purpose: "editor_preview";
+      /**
+       * @default original
+       * @enum {string}
+       */
+      variant: "original" | "thumbnail";
+    };
+    CreateResourceUploadDto: {
+      /** Format: uuid */
+      accountId?: string | null;
+      filename: string;
+      fileSize: number;
+      /** @enum {string} */
+      mimeType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+      sha256: string;
     };
     CreateSnapshotDto: {
       note?: string | null;
@@ -912,6 +1021,99 @@ export interface components {
       layoutStrength: "light" | "standard" | "strong";
       /** @description 剪贴板纯文本回退，也是原文追踪的优先来源 */
       plainText?: string;
+    };
+    ResourceAccessUrlDto: {
+      /** Format: date-time */
+      expiresAt: string;
+      headers: {
+        [key: string]: string;
+      };
+      url: string;
+    };
+    ResourceAccessUrlResponseDto: {
+      data: components["schemas"]["ResourceAccessUrlDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    ResourceDto: {
+      /** Format: uuid */
+      accountId: string | null;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      deletedAt: string | null;
+      fileExtension: string | null;
+      fileSize: number;
+      height: number | null;
+      /** Format: uuid */
+      id: string;
+      isPrivate: boolean;
+      /** @enum {string} */
+      mimeType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+      originalFilename: string | null;
+      /** Format: date-time */
+      purgeAfter: string | null;
+      resourceType: string;
+      sha256: string;
+      sourceType: string;
+      /** @enum {string} */
+      status: "active" | "trash";
+      thumbnail: components["schemas"]["ResourceThumbnailDto"] | null;
+      /** Format: date-time */
+      updatedAt: string;
+      width: number | null;
+    };
+    ResourceReferenceDto: {
+      blockId: string | null;
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      kind: "article" | "source_document" | "avatar" | "derived_resource";
+      label: string;
+      usageType: string | null;
+    };
+    ResourceReferencesDto: {
+      items: components["schemas"]["ResourceReferenceDto"][];
+      total: number;
+    };
+    ResourceReferencesResponseDto: {
+      data: components["schemas"]["ResourceReferencesDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    ResourceResponseDto: {
+      data: components["schemas"]["ResourceDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    ResourceThumbnailDto: {
+      available: boolean;
+      fileSize: number;
+      height: number;
+      mimeType: string;
+      width: number;
+    };
+    ResourceUploadResponseDto: {
+      data: components["schemas"]["ResourceUploadResultDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    ResourceUploadResultDto: {
+      /** Format: date-time */
+      expiresAt: string | null;
+      headers: {
+        [key: string]: string;
+      };
+      resource: components["schemas"]["ResourceDto"] | null;
+      /** @enum {string} */
+      status: "upload_required" | "deduplicated";
+      /** Format: uuid */
+      uploadId: string | null;
+      uploadUrl: string | null;
     };
     RestoreSnapshotDto: {
       baseVersion: number;
@@ -2160,6 +2362,283 @@ export interface operations {
       };
       /** @description CSRF 校验失败 */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ResourceController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        resourceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResourceResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 资源不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ResourceController_trash: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        resourceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResourceResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 资源不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 资源仍被文章或其他实体引用 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ResourceController_createAccessUrl: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        resourceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateResourceAccessUrlDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResourceAccessUrlResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 资源不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 请求的资源变体不可用 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ResourceController_references: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        resourceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResourceReferencesResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 资源不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ResourceController_createUpload: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateResourceUploadDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResourceUploadResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 相同摘要对应的文件元数据冲突 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ResourceController_completeUpload: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        uploadId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CompleteResourceUploadDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResourceResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 上传会话不存在或已过期 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 上传对象尚未就绪 */
+      409: {
         headers: {
           [name: string]: unknown;
         };

@@ -18,6 +18,11 @@ export interface RedisClient {
   connect(): Promise<unknown>;
   ping(): Promise<string>;
   get(key: string): Promise<string | null>;
+  set(
+    key: string,
+    value: string,
+    options?: Readonly<{ EX?: number; NX?: boolean }>,
+  ): Promise<string | null>;
   ttl(key: string): Promise<number>;
   del(key: string): Promise<number>;
   eval(

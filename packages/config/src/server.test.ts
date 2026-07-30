@@ -32,6 +32,7 @@ describe("parseServerEnvironment", () => {
       imageFileBytes: 20 * 1024 * 1024,
       brandPackageBytes: 100 * 1024 * 1024,
     });
+    expect(configuration.objectStorage.publicEndpoint).toBe("http://localhost:9000");
   });
 
   it("reports missing critical keys without echoing another secret", () => {
@@ -94,6 +95,18 @@ describe("parseServerEnvironment", () => {
         SMTP_HOST: "smtp.example.com",
       }),
     ).toThrow(/PUBLIC_WEB_URL.*HTTPS/);
+
+    expect(() =>
+      parseServerEnvironment({
+        ...validEnvironment,
+        APP_ENV: "production",
+        PUBLIC_WEB_URL: "https://app.example.com",
+        S3_ENDPOINT: "https://storage.internal.example.com",
+        S3_PUBLIC_ENDPOINT: "http://storage.example.com",
+        S3_BUCKET: "wechat-layout-production",
+        SMTP_HOST: "smtp.example.com",
+      }),
+    ).toThrow(/S3_PUBLIC_ENDPOINT.*HTTPS/);
   });
 
   it("rejects application and Node environment mixing", () => {

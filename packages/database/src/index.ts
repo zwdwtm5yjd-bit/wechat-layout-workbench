@@ -14,6 +14,7 @@ export {
   articles,
   articleStatusHistory,
   auditLogs,
+  resources,
   sourceBlocks,
   sourceDocuments,
   userSessions,

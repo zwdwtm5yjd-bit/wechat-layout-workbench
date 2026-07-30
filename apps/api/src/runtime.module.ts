@@ -6,6 +6,7 @@ import { AuthModule } from "./auth/auth.module.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { DocumentModule } from "./documents/document.module.js";
 import { ImportModule } from "./imports/import.module.js";
+import { ResourceModule } from "./resources/resource.module.js";
 import { SnapshotModule } from "./snapshots/snapshot.module.js";
 
 @Module({
@@ -17,6 +18,7 @@ import { SnapshotModule } from "./snapshots/snapshot.module.js";
     DocumentModule,
     SnapshotModule,
     ImportModule,
+    ResourceModule,
   ],
 })
 export class RuntimeModule {}

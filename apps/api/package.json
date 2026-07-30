@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "pnpm --filter @wechat-layout/config build && pnpm --filter @wechat-layout/database build",
+    "predev": "pnpm --filter @wechat-layout/config build && pnpm --filter @wechat-layout/database build && pnpm --filter @wechat-layout/storage-adapter build",
     "dev": "tsx watch src/main.ts",
     "auth:bootstrap-owner": "pnpm --filter @wechat-layout/database build && tsx src/auth/cli/bootstrap-owner.ts",
     "build": "tsc -p tsconfig.build.json",
@@ -22,14 +22,17 @@
     "@wechat-layout/config": "workspace:*",
     "@wechat-layout/database": "workspace:*",
     "@wechat-layout/document-schema": "workspace:*",
+    "@wechat-layout/storage-adapter": "workspace:*",
     "argon2": "0.45.1",
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
     "drizzle-orm": "0.45.2",
+    "file-type": "21.3.4",
     "parse5": "8.0.1",
     "redis": "6.1.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
+    "sharp": "0.34.5",
     "zod": "4.4.3"
   },
   "devDependencies": {

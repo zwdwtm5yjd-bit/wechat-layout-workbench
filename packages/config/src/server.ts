@@ -55,6 +55,7 @@ export const serverEnvironmentSchema = z
       message: "必须是 Redis 连接地址",
     }),
     S3_ENDPOINT: z.url(),
+    S3_PUBLIC_ENDPOINT: z.url(),
     S3_REGION: z.string().trim().min(1),
     S3_BUCKET: z
       .string()
@@ -105,7 +106,7 @@ export const serverEnvironmentSchema = z
     }
 
     if (value.APP_ENV === "production") {
-      for (const key of ["PUBLIC_WEB_URL", "S3_ENDPOINT"] as const) {
+      for (const key of ["PUBLIC_WEB_URL", "S3_ENDPOINT", "S3_PUBLIC_ENDPOINT"] as const) {
         if (!value[key].startsWith("https://")) {
           context.addIssue({
             code: "custom",
@@ -140,6 +141,7 @@ export interface ServerConfiguration {
   readonly redis: Readonly<{ url: SecretValue }>;
   readonly objectStorage: Readonly<{
     endpoint: string;
+    publicEndpoint: string;
     region: string;
     bucket: string;
     accessKeyId: SecretValue;
@@ -191,6 +193,10 @@ export function parseServerEnvironment(input: EnvironmentInput): ServerConfigura
     WORKER_CONCURRENCY: input.WORKER_CONCURRENCY ?? "2",
     SCHEDULER_INTERVAL_SECONDS: input.SCHEDULER_INTERVAL_SECONDS ?? "60",
     S3_ENDPOINT: input.S3_ENDPOINT ?? (isProduction ? undefined : "http://localhost:9000"),
+    S3_PUBLIC_ENDPOINT:
+      input.S3_PUBLIC_ENDPOINT ??
+      input.S3_ENDPOINT ??
+      (isProduction ? undefined : "http://localhost:9000"),
     S3_REGION: input.S3_REGION ?? "us-east-1",
     S3_BUCKET: input.S3_BUCKET ?? (isProduction ? undefined : `wechat-layout-${environment}`),
     SMTP_HOST: input.SMTP_HOST ?? (isProduction ? undefined : "localhost"),
@@ -224,6 +230,7 @@ export function parseServerEnvironment(input: EnvironmentInput): ServerConfigura
     redis: Object.freeze({ url: new SecretValue(value.REDIS_URL) }),
     objectStorage: Object.freeze({
       endpoint: value.S3_ENDPOINT,
+      publicEndpoint: value.S3_PUBLIC_ENDPOINT,
       region: value.S3_REGION,
       bucket: value.S3_BUCKET,
       accessKeyId: new SecretValue(value.S3_ACCESS_KEY_ID),

@@ -68,6 +68,9 @@ importers:
       '@wechat-layout/document-schema':
         specifier: workspace:*
         version: link:../../packages/document-schema
+      '@wechat-layout/storage-adapter':
+        specifier: workspace:*
+        version: link:../../packages/storage-adapter
       argon2:
         specifier: 0.45.1
         version: 0.45.1
@@ -80,6 +83,9 @@ importers:
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(postgres@3.4.9)
+      file-type:
+        specifier: 21.3.4
+        version: 21.3.4
       parse5:
         specifier: 8.0.1
         version: 8.0.1
@@ -92,6 +98,9 @@ importers:
       rxjs:
         specifier: 7.8.2
         version: 7.8.2
+      sharp:
+        specifier: 0.34.5
+        version: 0.34.5
       zod:
         specifier: 4.4.3
         version: 4.4.3
