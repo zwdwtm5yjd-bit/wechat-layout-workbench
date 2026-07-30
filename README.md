@@ -5,8 +5,8 @@
 ## 当前开发状态
 
 当前已完成 `S0-ARCH-001 Monorepo 初始化`、`S0-ARCH-002 Docker 开发环境`、
-`S0-ARCH-003 配置管理`、`S0-API-001 NestJS 基础框架` 和
-`S0-WEB-001 Next.js 基础框架`：
+`S0-ARCH-003 配置管理`、`S0-API-001 NestJS 基础框架`、
+`S0-WEB-001 Next.js 基础框架` 和 `S0-DB-001 数据库基础 Schema`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -31,8 +31,12 @@
 - PostgreSQL、Redis、MinIO、Mailpit 本地开发服务；
 - Web、API、Worker、Scheduler 容器化开发进程；
 - 服务健康检查、命名数据卷与持久化验收脚本。
+- Drizzle ORM、Postgres.js 数据库连接和应用生成 UUIDv7；
+- `auth`、`content`、`operations`、`audit` 基础表及 7 个业务 Schema；
+- SQL 迁移、迁移互斥锁、结构校验和 API 数据库就绪探针；
+- 可重复执行的禁用 Owner 开发种子及测试库回滚/重迁移验收。
 
-本阶段没有实现文章业务、数据库业务表、Tiptap 节点、主题、组件、SVG、微信连接或草稿同步。
+本阶段尚未实现登录、文章 CRUD、Tiptap 节点、主题、组件、SVG、微信连接或草稿同步。
 
 ## 环境要求
 
@@ -47,6 +51,8 @@
 pnpm install
 cp .env.example .env.local
 # 替换 .env.local 中全部 CHANGE_ME
+pnpm db:migrate
+pnpm db:seed
 pnpm dev
 ```
 
@@ -82,7 +88,7 @@ pnpm docker:dev
 
 首次运行会自动生成权限为 `600` 的 `.env.docker`，其中的本地密码和应用密钥不会提交到 Git；
 已有文件会只补齐新增密钥，不会轮换现有凭据。
-该命令构建并启动全部开发服务，等待健康检查通过后输出容器状态。
+该命令会先执行一次性数据库迁移，再启动全部开发服务，等待健康检查通过后输出容器状态。
 
 默认端口：
 
@@ -103,8 +109,24 @@ pnpm docker:down
 ```
 
 `pnpm docker:smoke` 会验证 PostgreSQL、Redis、MinIO、API live / ready、OpenAPI、
-登录页、空工作台和乐观路由保护，并通过重启 PostgreSQL、Redis、MinIO 检查命名卷的
-数据持久性。探针数据会在测试结束时清理；MinIO 的 `healthcheck.txt` 会保留用于后续检查。
+数据库表/外键/索引、登录页、空工作台和乐观路由保护，并通过重启 PostgreSQL、Redis、
+MinIO 检查命名卷的数据持久性。探针数据会在测试结束时清理；MinIO 的
+`healthcheck.txt` 会保留用于后续检查。
+
+数据库命令：
+
+```bash
+pnpm db:generate
+pnpm db:migrate
+pnpm db:check
+pnpm db:seed
+pnpm db:test:migrations
+```
+
+`db:generate` 只生成可审查的 SQL，不直接修改数据库；已提交的历史迁移不得改写。
+`db:seed` 仅用于开发/测试，默认创建一个不可登录的禁用 Owner，凭据由
+`S1-AUTH-001` 初始化。`db:test:migrations` 使用一次性
+`wechat_layout_migration_test` 数据库验证空库迁移、幂等种子、回滚和重迁移，并在结束后清理。
 
 ## 根级命令
 
@@ -114,6 +136,10 @@ pnpm docker:dev
 pnpm docker:smoke
 pnpm docker:down
 pnpm api:generate
+pnpm db:migrate
+pnpm db:check
+pnpm db:seed
+pnpm db:test:migrations
 pnpm build
 pnpm lint
 pnpm typecheck
@@ -154,6 +180,7 @@ packages/
   api-contracts/
   component-registry/
   config/
+  database/                    Drizzle Schema、连接、迁移与种子
   design-tokens/
   document-schema/
   editor-core/
@@ -183,6 +210,6 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S0-WEB-001` 验收通过后，开发总指令指定的下一任务是
-`S0-DB-001 数据库初始化`。
+`S0-DB-001` 验收通过后，开发总指令指定的下一任务是
+`S1-EDITOR-001 文档 Schema V1`。
 完整设计依据见 [docs](./docs/)。

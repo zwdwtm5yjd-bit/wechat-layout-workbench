@@ -1,0 +1,46 @@
+{
+  "name": "@wechat-layout/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "import": "./dist/schema/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "migrations"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "predb:check": "pnpm --filter @wechat-layout/config build",
+    "db:check": "tsx src/cli/check.ts",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "predb:migrate": "pnpm --filter @wechat-layout/config build",
+    "db:migrate": "tsx src/cli/migrate.ts",
+    "predb:reset:test": "pnpm --filter @wechat-layout/config build",
+    "db:reset:test": "tsx src/cli/reset-test.ts",
+    "predb:seed": "pnpm --filter @wechat-layout/config build",
+    "db:seed": "tsx src/cli/seed.ts",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --root . --passWithNoTests"
+  },
+  "dependencies": {
+    "@wechat-layout/config": "workspace:*",
+    "drizzle-orm": "0.45.2",
+    "postgres": "3.4.9",
+    "uuid": "14.0.1"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.31.10"
+  }
+}

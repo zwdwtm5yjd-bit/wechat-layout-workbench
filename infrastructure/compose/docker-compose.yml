@@ -148,6 +148,16 @@ services:
     networks:
       - application
 
+  database-migrate:
+    <<: *node-app
+    restart: "no"
+    command: ["pnpm", "--filter", "@wechat-layout/database", "db:migrate"]
+    environment:
+      <<: *server-application-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   web:
     <<: *node-app
     command:
@@ -193,8 +203,8 @@ services:
       <<: *server-application-environment
       API_PORT: 3001
     depends_on:
-      postgres:
-        condition: service_healthy
+      database-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       minio-init:
@@ -221,8 +231,8 @@ services:
       <<: *server-application-environment
       WORKER_CONCURRENCY: 2
     depends_on:
-      postgres:
-        condition: service_healthy
+      database-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       minio-init:
@@ -247,8 +257,8 @@ services:
       <<: *server-application-environment
       SCHEDULER_INTERVAL_SECONDS: 60
     depends_on:
-      postgres:
-        condition: service_healthy
+      database-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     healthcheck:
