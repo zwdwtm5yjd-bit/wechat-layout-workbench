@@ -100,9 +100,11 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
   };
   const pageHeading = pathname.startsWith("/workspace/articles/")
     ? { description: "自动保存与版本保护", title: "文章文档" }
-    : pathname === "/workspace/articles"
-      ? { description: "搜索、状态与回收站", title: "文章" }
-      : { description: "快速开始与最近工作", title: "工作台" };
+    : pathname.startsWith("/workspace/imports/")
+      ? { description: "安全清洗与结构确认", title: "导入文章" }
+      : pathname === "/workspace/articles"
+        ? { description: "搜索、状态与回收站", title: "文章" }
+        : { description: "快速开始与最近工作", title: "工作台" };
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -299,17 +301,14 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
                 ⌘ K
               </kbd>
             </button>
-            <button
+            <Link
               aria-label="导入文章"
               className="hidden h-9 items-center gap-2 rounded-control border border-line bg-panel px-3 text-[12px] font-medium text-ink transition hover:bg-hover sm:flex"
-              onClick={() => {
-                announceFoundationBoundary("导入文章");
-              }}
-              type="button"
+              href="/workspace/imports/paste"
             >
               <Upload aria-hidden="true" size={15} />
               导入
-            </button>
+            </Link>
             <Link
               className="flex h-9 items-center gap-2 rounded-control bg-accent px-3.5 text-[12px] font-semibold text-white shadow-subtle transition hover:bg-accent-strong"
               href="/workspace/articles?new=1"

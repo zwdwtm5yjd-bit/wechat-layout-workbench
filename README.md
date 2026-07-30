@@ -9,7 +9,7 @@
 `S0-WEB-001 Next.js 基础框架`、`S0-DB-001 数据库基础 Schema` 和
 `S1-EDITOR-001 文档 Schema V1`、`S1-AUTH-001 登录与会话`、
 `S1-ARTICLE-001 文章 CRUD`、`S1-DOC-001 文档保存与乐观锁` 和
-`S1-VERSION-001 快照系统`：
+`S1-VERSION-001 快照系统`、`S1-IMPORT-001 粘贴导入`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -62,8 +62,15 @@
 - 恢复前安全快照、恢复后新版本、文档乐观锁和失败事务全量回滚；
 - PostgreSQL 触发器保护快照不可更新、不可删除，复制文章前自动留存快照；
 - 文档会话内的版本备注、版本预览、恢复确认和恢复后自动保存状态同步。
+- Word / WPS、网页、微信公众号、Markdown、纯文本与 AI 工具剪贴板来源识别；
+- 基于 HTML AST 的脚本、隐藏节点、危险链接与冗余样式清洗，原始 HTML 永不落库；
+- 标题、段落、引用、列表、表格文本与外链图片引用提取，以及稳定 Source Block 追踪；
+- 三种导入清洗模式、清洗统计与可操作的兼容警告；
+- Owner 隔离的导入创建、刷新恢复和完整结构确认接口；
+- 原文/识别结果双栏校对、逐块与批量角色调整、排除和重置；
+- 导入确认的文档乐观锁、事务 ID 幂等重放、状态流转和原子 `after_import` 快照。
 
-本阶段尚未实现 Tiptap 编辑器核心、粘贴/文件导入、主题、组件渲染、SVG 执行、
+本阶段尚未实现 Tiptap 编辑器核心、DOCX 文件导入、资源下载、主题、组件渲染、SVG 执行、
 微信连接或微信草稿同步。
 
 ## 环境要求
@@ -127,11 +134,19 @@ API 基础端点：
 - 只读预览：`POST /api/v1/articles/:articleId/snapshots/:snapshotId/preview`；
 - 乐观锁恢复：`POST /api/v1/articles/:articleId/snapshots/:snapshotId/restore`。
 
+导入端点：
+
+- 创建粘贴导入：`POST /api/v1/imports/paste`；
+- 读取可刷新恢复的结构：`GET /api/v1/imports/:articleId/structure`；
+- 确认完整结构并生成快照：`PUT /api/v1/imports/:articleId/structure`。
+
 Web 基础页面：
 
 - 登录页：`http://localhost:3000/login`；
 - 工作台首页：`http://localhost:3000/workspace`；
 - 文章工作台：`http://localhost:3000/workspace/articles`；
+- 粘贴导入：`http://localhost:3000/workspace/imports/paste`；
+- 结构确认：`http://localhost:3000/workspace/imports/:articleId/structure`；
 - 文档会话：`http://localhost:3000/workspace/articles/:articleId`。
 
 缺少数据库、Redis、对象存储或安全密钥时，API、Worker、Scheduler 会在启动前
@@ -173,8 +188,9 @@ pnpm docker:down
 数据库表/外键/索引、登录页、文章工作台和乐观路由保护，并在真实数据库中完成文章
 新建、发布、复制、回收站、恢复、状态历史以及两客户端并发文档保存的 200/409
 乐观锁验收；同时覆盖手动快照、编辑后快照游离、恢复前安全版本、恢复后新版本、
-陈旧版本恢复回滚、复制前快照和数据库不可变触发器；还会通过重启 PostgreSQL、Redis、
-MinIO 检查命名卷的数据持久性。探针数据会在测试结束时清理；MinIO 的
+陈旧版本恢复回滚、复制前快照和数据库不可变触发器；粘贴导入还会验证危险内容清洗、
+Source Blocks、刷新恢复、结构确认、幂等重放、版本冲突和导入后快照；最后通过重启
+PostgreSQL、Redis、MinIO 检查命名卷的数据持久性。探针数据会在测试结束时清理；MinIO 的
 `healthcheck.txt` 会保留用于后续检查。
 
 数据库命令：
@@ -275,6 +291,6 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S1-VERSION-001` 验收通过后，开发总指令指定的下一任务是
-`S1-IMPORT-001 粘贴导入`。
+`S1-IMPORT-001` 验收通过后，开发总指令指定的下一任务是
+`S1-RESOURCE-001 基础资源服务`。
 完整设计依据见 [docs](./docs/)。

@@ -14,6 +14,8 @@ export {
   articles,
   articleStatusHistory,
   auditLogs,
+  sourceBlocks,
+  sourceDocuments,
   userSessions,
   users,
 } from "./schema/index.js";

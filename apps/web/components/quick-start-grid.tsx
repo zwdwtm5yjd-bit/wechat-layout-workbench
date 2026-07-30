@@ -15,6 +15,7 @@ import { useAppToast } from "./ui/app-toast";
 
 interface QuickStartItem {
   readonly description: string;
+  readonly href?: string;
   readonly icon: LucideIcon;
   readonly label: string;
   readonly shortcut?: string;
@@ -29,12 +30,14 @@ const quickStartItems: readonly QuickStartItem[] = [
   },
   {
     description: "保留标题与段落结构",
+    href: "/workspace/imports/paste?source=word",
     icon: FileText,
     label: "Word / WPS",
     shortcut: "⌘ O",
   },
   {
     description: "直接粘贴定稿正文",
+    href: "/workspace/imports/paste",
     icon: ClipboardPaste,
     label: "粘贴文章",
   },
@@ -69,6 +72,10 @@ export function QuickStartGrid() {
             className="group min-h-28 rounded-card border border-line bg-panel p-4 text-left shadow-subtle transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-raised"
             key={item.label}
             onClick={() => {
+              if (item.href !== undefined) {
+                router.push(item.href);
+                return;
+              }
               if (item.label === "空白排版") {
                 router.push("/workspace/articles?new=1");
                 return;

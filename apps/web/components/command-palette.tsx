@@ -29,6 +29,7 @@ const commands: readonly CommandItem[] = [
   },
   {
     description: "从 Word 或 WPS 导入",
+    href: "/workspace/imports/paste?source=word",
     icon: FileUp,
     label: "导入文章",
   },

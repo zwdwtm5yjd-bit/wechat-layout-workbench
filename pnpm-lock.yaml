@@ -80,6 +80,9 @@ importers:
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(postgres@3.4.9)
+      parse5:
+        specifier: 8.0.1
+        version: 8.0.1
       redis:
         specifier: 6.1.0
         version: 6.1.0

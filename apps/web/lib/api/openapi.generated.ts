@@ -294,6 +294,41 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/imports/{articleId}/structure": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取可刷新恢复的原文与结构识别结果 */
+    get: operations["ImportController_getStructure"];
+    /** 使用乐观锁确认结构并创建导入后不可变快照 */
+    put: operations["ImportController_confirm"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/imports/paste": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 清洗 HTML/纯文本并创建待结构确认的粘贴导入 */
+    post: operations["ImportController_createPaste"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/health/live": {
     parameters: {
       query?: never;
@@ -597,6 +632,67 @@ export interface components {
       timezone: string;
       username: string | null;
     };
+    ConfirmImportBlockDto: {
+      /** @enum {string} */
+      role:
+        | "title"
+        | "subtitle"
+        | "heading_1"
+        | "heading_2"
+        | "heading_3"
+        | "paragraph"
+        | "quote"
+        | "bullet_item"
+        | "ordered_item"
+        | "image_reference"
+        | "excluded";
+      sourceBlockId: string;
+    };
+    ConfirmImportResponseDto: {
+      data: components["schemas"]["ConfirmImportResultDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    ConfirmImportResultDto: {
+      /** Format: uuid */
+      accountId: string | null;
+      /** Format: uuid */
+      articleId: string;
+      blocks: components["schemas"]["ImportStructureBlockDto"][];
+      /** @enum {string} */
+      cleaningMode: "preserve_structure" | "plain_text" | "preserve_compatible";
+      /** @enum {string} */
+      detectedSource:
+        "word" | "wps" | "web" | "wechat" | "markdown" | "plain_text" | "chatgpt" | "claude";
+      /** Format: uuid */
+      documentId: string;
+      documentVersion: number;
+      editorUrl: string;
+      /** Format: date-time */
+      lastSavedAt: string;
+      /** Format: uuid */
+      lastTransactionId: string | null;
+      /** @description 标准化原文，不包含原始 HTML */
+      originalText: string;
+      /** Format: uuid */
+      snapshotId: string;
+      snapshotNumber: number;
+      /** Format: uuid */
+      sourceDocumentId: string;
+      statistics: components["schemas"]["ImportStatisticsDto"];
+      /** @enum {string} */
+      status: "pending_recognition" | "pending_layout";
+      title: string;
+      warnings: components["schemas"]["ImportWarningDto"][];
+    };
+    ConfirmImportStructureDto: {
+      baseVersion: number;
+      blocks: components["schemas"]["ConfirmImportBlockDto"][];
+      /** Format: uuid */
+      lastTransactionId: string;
+      title?: string | null;
+    };
     CreateArticleDto: {
       /** Format: uuid */
       accountId?: string | null;
@@ -661,6 +757,95 @@ export interface components {
       targetAccountId?: string | null;
       title?: string;
     };
+    ImportBlockRelationDto: {
+      alt?: string;
+      listDepth?: number;
+      listStart?: number;
+      originalNumberText?: string;
+      sourceUrl?: string | null;
+      tableCells?: string[];
+    };
+    ImportStatisticsDto: {
+      blockCount: number;
+      characterCount: number;
+      headingCount: number;
+      imageCount: number;
+      removedHiddenNodeCount: number;
+      removedSecurityNodeCount: number;
+      removedStyleCount: number;
+      removedUnsafeLinkCount: number;
+      tableCount: number;
+      wordCount: number;
+    };
+    ImportStructureBlockDto: {
+      orderIndex: number;
+      originalTag?: string | null;
+      relation: components["schemas"]["ImportBlockRelationDto"];
+      /** @enum {string} */
+      role:
+        | "title"
+        | "subtitle"
+        | "heading_1"
+        | "heading_2"
+        | "heading_3"
+        | "paragraph"
+        | "quote"
+        | "bullet_item"
+        | "ordered_item"
+        | "image_reference"
+        | "excluded";
+      sourceBlockId: string;
+      text: string;
+    };
+    ImportStructureDto: {
+      /** Format: uuid */
+      accountId: string | null;
+      /** Format: uuid */
+      articleId: string;
+      blocks: components["schemas"]["ImportStructureBlockDto"][];
+      /** @enum {string} */
+      cleaningMode: "preserve_structure" | "plain_text" | "preserve_compatible";
+      /** @enum {string} */
+      detectedSource:
+        "word" | "wps" | "web" | "wechat" | "markdown" | "plain_text" | "chatgpt" | "claude";
+      /** Format: uuid */
+      documentId: string;
+      documentVersion: number;
+      /** Format: date-time */
+      lastSavedAt: string;
+      /** Format: uuid */
+      lastTransactionId: string | null;
+      /** @description 标准化原文，不包含原始 HTML */
+      originalText: string;
+      /** Format: uuid */
+      sourceDocumentId: string;
+      statistics: components["schemas"]["ImportStatisticsDto"];
+      /** @enum {string} */
+      status: "pending_recognition" | "pending_layout";
+      title: string;
+      warnings: components["schemas"]["ImportWarningDto"][];
+    };
+    ImportStructureResponseDto: {
+      data: components["schemas"]["ImportStructureDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    ImportWarningDto: {
+      /** @enum {string} */
+      code:
+        | "SECURITY_CONTENT_REMOVED"
+        | "HIDDEN_CONTENT_REMOVED"
+        | "UNSAFE_LINK_REMOVED"
+        | "STYLE_CLEANED"
+        | "UNSUPPORTED_STRUCTURE_FLATTENED"
+        | "EXTERNAL_IMAGE_REFERENCE"
+        | "EMPTY_CONTENT_SKIPPED";
+      count: number;
+      message: string;
+      /** @enum {string} */
+      severity: "info" | "warning";
+    };
     LoginDto: {
       /** @example owner@example.com */
       identifier: string;
@@ -693,6 +878,40 @@ export interface components {
     LogoutResultDto: {
       /** @example true */
       revoked: boolean;
+    };
+    PasteImportDto: {
+      /** Format: uuid */
+      accountId?: string | null;
+      /**
+       * @default preserve_structure
+       * @enum {string}
+       */
+      cleaningMode: "preserve_structure" | "plain_text" | "preserve_compatible";
+      /** @default general */
+      contentType: string;
+      /**
+       * @default auto
+       * @enum {string}
+       */
+      detectedSourceHint:
+        | "auto"
+        | "word"
+        | "wps"
+        | "web"
+        | "wechat"
+        | "markdown"
+        | "plain_text"
+        | "chatgpt"
+        | "claude";
+      /** @description 剪贴板提供的 HTML；服务端只保存清洗后的结构和标准化纯文本 */
+      html?: string;
+      /**
+       * @default standard
+       * @enum {string}
+       */
+      layoutStrength: "light" | "standard" | "strong";
+      /** @description 剪贴板纯文本回退，也是原文追踪的优先来源 */
+      plainText?: string;
     };
     RestoreSnapshotDto: {
       baseVersion: number;
@@ -1809,6 +2028,135 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["SessionRevocationResponseDto"];
         };
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ImportController_getStructure: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportStructureResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 导入文章或原文不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ImportController_confirm: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConfirmImportStructureDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConfirmImportResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 导入文章或原文不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文档版本冲突、结构已确认或区块集合不一致 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ImportController_createPaste: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasteImportDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportStructureResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description CSRF 校验失败 */
       403: {
