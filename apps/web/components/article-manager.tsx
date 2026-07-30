@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { Dialog, DropdownMenu } from "radix-ui";
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
 import {
@@ -380,7 +381,16 @@ function ArticleTableRow({ article, busy, onAction }: ArticleItemProps) {
   return (
     <tr className="border-b border-line/80 last:border-0 hover:bg-panel-muted">
       <td className="max-w-sm px-5 py-4">
-        <p className="truncate text-[13px] font-semibold text-ink">{article.title}</p>
+        {article.deletedAt === null ? (
+          <Link
+            className="block truncate text-[13px] font-semibold text-ink hover:text-accent"
+            href={`/workspace/articles/${article.id}`}
+          >
+            {article.title}
+          </Link>
+        ) : (
+          <p className="truncate text-[13px] font-semibold text-ink">{article.title}</p>
+        )}
         <p className="mt-1 truncate text-[11px] text-faint">
           {article.subtitle ?? `${article.contentType} · ${article.sourceType}`}
         </p>
@@ -424,7 +434,16 @@ function ArticleCard({ article, busy, onAction }: ArticleItemProps) {
     <article className="rounded-card border border-line bg-panel p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[13px] font-semibold text-ink">{article.title}</p>
+          {article.deletedAt === null ? (
+            <Link
+              className="block truncate text-[13px] font-semibold text-ink hover:text-accent"
+              href={`/workspace/articles/${article.id}`}
+            >
+              {article.title}
+            </Link>
+          ) : (
+            <p className="truncate text-[13px] font-semibold text-ink">{article.title}</p>
+          )}
           <p className="mt-1 text-[11px] text-faint">{formatTime(article.updatedAt)}</p>
         </div>
         <ArticleActions article={article} busy={busy} onAction={onAction} />

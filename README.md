@@ -8,7 +8,7 @@
 `S0-ARCH-003 配置管理`、`S0-API-001 NestJS 基础框架`、
 `S0-WEB-001 Next.js 基础框架`、`S0-DB-001 数据库基础 Schema` 和
 `S1-EDITOR-001 文档 Schema V1`、`S1-AUTH-001 登录与会话`、
-`S1-ARTICLE-001 文章 CRUD`：
+`S1-ARTICLE-001 文章 CRUD`、`S1-DOC-001 文档保存与乐观锁`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -51,9 +51,14 @@
 - 文章状态流转、状态历史、审计日志和基础搜索筛选；
 - 文章创建/复制时事务化生成独立 Document Schema V1 文档；
 - 响应式文章工作台、状态标签页、搜索、创建与行级操作。
+- Owner 隔离的权威文档读取与保存，以及严格的 Document Schema V1 身份校验；
+- 基于 `documentVersion` 的原子乐观锁、409 冲突详情和事务 ID 幂等重放；
+- 文档版本、内容哈希、文章统计与摘要审计日志的事务化更新；
+- IndexedDB 本地草稿、断网恢复重试、刷新后已提交事务识别与冲突保留；
+- 已保存、保存中、已保存到本地、保存失败和版本冲突五态 UI。
 
-本阶段尚未实现 Tiptap 编辑器核心、文档乐观锁、主题、组件渲染、SVG 执行、
-微信连接或草稿同步。
+本阶段尚未实现 Tiptap 编辑器核心、文档快照、主题、组件渲染、SVG 执行、微信连接或
+微信草稿同步。
 
 ## 环境要求
 
@@ -106,12 +111,15 @@ API 基础端点：
 - 移入回收站与恢复：`DELETE /api/v1/articles/:articleId`、
   `POST /api/v1/articles/:articleId/restore`；
 - 状态历史：`GET /api/v1/articles/:articleId/status-history`。
+- 当前文档：`GET /api/v1/articles/:articleId/document`；
+- 乐观锁保存：`PUT /api/v1/articles/:articleId/document`。
 
 Web 基础页面：
 
 - 登录页：`http://localhost:3000/login`；
 - 工作台首页：`http://localhost:3000/workspace`；
-- 文章工作台：`http://localhost:3000/workspace/articles`。
+- 文章工作台：`http://localhost:3000/workspace/articles`；
+- 文档会话：`http://localhost:3000/workspace/articles/:articleId`。
 
 缺少数据库、Redis、对象存储或安全密钥时，API、Worker、Scheduler 会在启动前
 给出具体变量名并退出。登录页通过认证 API 建立 HttpOnly 会话；工作台先做 Session Cookie
@@ -150,8 +158,9 @@ pnpm docker:down
 
 `pnpm docker:smoke` 会验证 PostgreSQL、Redis、MinIO、API live / ready、OpenAPI、
 数据库表/外键/索引、登录页、文章工作台和乐观路由保护，并在真实数据库中完成文章
-新建、发布、复制、回收站、恢复与状态历史验收；还会通过重启 PostgreSQL、Redis、
-MinIO 检查命名卷的数据持久性。探针数据会在测试结束时清理；MinIO 的
+新建、发布、复制、回收站、恢复、状态历史以及两客户端并发文档保存的 200/409
+乐观锁验收；还会通过重启 PostgreSQL、Redis、MinIO 检查命名卷的数据持久性。探针数据
+会在测试结束时清理；MinIO 的
 `healthcheck.txt` 会保留用于后续检查。
 
 数据库命令：
@@ -252,6 +261,6 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S1-ARTICLE-001` 验收通过后，开发总指令指定的下一任务是
-`S1-DOC-001 文档保存与乐观锁`。
+`S1-DOC-001` 验收通过后，开发总指令指定的下一任务是
+`S1-VERSION-001 快照系统`。
 完整设计依据见 [docs](./docs/)。

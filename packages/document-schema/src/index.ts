@@ -6,5 +6,6 @@ export * from "./migrations/index.js";
 export * from "./nodes/index.js";
 export * from "./schema.js";
 export * from "./serialization.js";
+export * from "./traversal.js";
 export * from "./validation.js";
 export * from "./version.js";

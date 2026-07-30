@@ -54,6 +54,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/articles/{articleId}/document": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取文章的当前权威文档 */
+    get: operations["DocumentController_get"];
+    /** 使用 documentVersion 乐观锁保存文章文档 */
+    put: operations["DocumentController_save"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/articles/{articleId}/duplicate": {
     parameters: {
       query?: never;
@@ -338,6 +356,33 @@ export interface components {
       updatedAt: string;
       wordCount: number;
     };
+    ArticleDocumentDto: {
+      /** Format: uuid */
+      articleId: string;
+      currentTextHash: string | null;
+      document: {
+        [key: string]: unknown;
+      };
+      /** Format: uuid */
+      documentId: string;
+      documentVersion: number;
+      /** Format: date-time */
+      lastSavedAt: string;
+      /** Format: uuid */
+      lastSavedBy: string;
+      /** Format: uuid */
+      lastTransactionId: string | null;
+      originalTextHash: string | null;
+      /** @enum {string} */
+      schemaVersion: "1.0.0";
+      textLocked: boolean;
+    };
+    ArticleDocumentResponseDto: {
+      data: components["schemas"]["ArticleDocumentDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
     ArticleDto: {
       /** Format: uuid */
       accountId: string | null;
@@ -574,6 +619,34 @@ export interface components {
     LogoutResultDto: {
       /** @example true */
       revoked: boolean;
+    };
+    SaveArticleDocumentDto: {
+      baseVersion: number;
+      /** @description 符合 Document Schema V1 的完整文档 JSON */
+      document: {
+        [key: string]: unknown;
+      };
+      /** Format: uuid */
+      lastTransactionId: string;
+      /** @enum {string} */
+      schemaVersion: "1.0.0";
+      /** @example user_style_change */
+      transactionOrigin: string;
+    };
+    SaveArticleDocumentResponseDto: {
+      data: components["schemas"]["SaveArticleDocumentResultDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    SaveArticleDocumentResultDto: {
+      documentVersion: number;
+      /** Format: date-time */
+      lastSavedAt: string;
+      /** Format: uuid */
+      lastTransactionId: string;
+      /** @description 同一事务因网络恢复而安全重放时为 true */
+      replayed: boolean;
     };
     SessionRevocationResponseDto: {
       data: components["schemas"]["SessionRevocationResultDto"];
@@ -894,6 +967,98 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  DocumentController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArticleDocumentResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  DocumentController_save: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SaveArticleDocumentDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SaveArticleDocumentResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description baseVersion 已过期，不会覆盖远端文档 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseOpenApiModel"];
+        };
       };
     };
   };

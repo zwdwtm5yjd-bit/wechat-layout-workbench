@@ -98,8 +98,9 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
       title: `${label}暂未开放`,
     });
   };
-  const pageHeading =
-    pathname === "/workspace/articles"
+  const pageHeading = pathname.startsWith("/workspace/articles/")
+    ? { description: "自动保存与版本保护", title: "文章文档" }
+    : pathname === "/workspace/articles"
       ? { description: "搜索、状态与回收站", title: "文章" }
       : { description: "快速开始与最近工作", title: "工作台" };
 

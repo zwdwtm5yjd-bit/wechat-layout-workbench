@@ -43,6 +43,10 @@ async function write(path, method, cookie, csrfToken, body) {
   });
 }
 
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 try {
   await connection.sql`
     insert into auth.users (
@@ -96,6 +100,78 @@ try {
   assert.equal(created.status, "pending_layout");
   assert.equal(created.documentVersion, 1);
 
+  const documentResponse = await globalThis.fetch(
+    `${apiBaseUrl}/api/v1/articles/${created.id}/document`,
+    {
+      headers: { cookie: sessionCookies },
+    },
+  );
+  const currentDocument = await responseData(documentResponse, 200);
+  assert.equal(currentDocument.documentVersion, 1);
+  const concurrentDocuments = ["Docker 文档乐观锁 A", "Docker 文档乐观锁 B"].map((text, index) => ({
+    ...cloneJson(currentDocument.document),
+    content: {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          attrs: {
+            blockId: `docker_document_block_${index}`,
+            locked: false,
+          },
+          content: [{ type: "text", text }],
+        },
+      ],
+    },
+    meta: {
+      ...cloneJson(currentDocument.document.meta),
+      updatedAt: new Date().toISOString(),
+    },
+  }));
+  const transactionIds = [createUuidV7(), createUuidV7()];
+  const concurrentSaveResponses = await Promise.all(
+    concurrentDocuments.map((document, index) =>
+      write(`/api/v1/articles/${created.id}/document`, "PUT", sessionCookies, login.csrfToken, {
+        baseVersion: 1,
+        schemaVersion: "1.0.0",
+        document,
+        lastTransactionId: transactionIds[index],
+        transactionOrigin: "docker_concurrent_tab",
+      }),
+    ),
+  );
+  assert.deepEqual(concurrentSaveResponses.map((response) => response.status).sort(), [200, 409]);
+  const winnerIndex = concurrentSaveResponses.findIndex((response) => response.status === 200);
+  const loserIndex = winnerIndex === 0 ? 1 : 0;
+  const winningSave = await responseData(concurrentSaveResponses[winnerIndex], 200);
+  const conflictingSave = await concurrentSaveResponses[loserIndex].json();
+  assert.equal(winningSave.documentVersion, 2);
+  assert.equal(conflictingSave.error?.code, "ARTICLE_VERSION_CONFLICT");
+  assert.equal(conflictingSave.error?.details?.currentVersion, 2);
+  assert.equal(conflictingSave.error?.details?.submittedVersion, 1);
+
+  const replayedSave = await responseData(
+    await write(`/api/v1/articles/${created.id}/document`, "PUT", sessionCookies, login.csrfToken, {
+      baseVersion: 1,
+      schemaVersion: "1.0.0",
+      document: concurrentDocuments[winnerIndex],
+      lastTransactionId: transactionIds[winnerIndex],
+      transactionOrigin: "docker_network_retry",
+    }),
+    200,
+  );
+  assert.equal(replayedSave.documentVersion, 2);
+  assert.equal(replayedSave.replayed, true);
+
+  const savedDocument = await responseData(
+    await globalThis.fetch(`${apiBaseUrl}/api/v1/articles/${created.id}/document`, {
+      headers: { cookie: sessionCookies },
+    }),
+    200,
+  );
+  assert.equal(savedDocument.documentVersion, 2);
+  assert.deepEqual(savedDocument.document, concurrentDocuments[winnerIndex]);
+
   const publishResponse = await write(
     `/api/v1/articles/${created.id}`,
     "PATCH",
@@ -144,6 +220,25 @@ try {
   for (const document of documents) {
     assert.equal(document.documentJson.articleId, document.articleId);
   }
+  const [savedDocumentRow] = await connection.sql`
+    select
+      document_version as "documentVersion",
+      last_transaction_id::text as "lastTransactionId",
+      current_text_hash as "currentTextHash"
+    from content.article_documents
+    where article_id = ${created.id}::uuid
+  `;
+  assert.equal(Number(savedDocumentRow.documentVersion), 2);
+  assert.equal(savedDocumentRow.lastTransactionId, transactionIds[winnerIndex]);
+  assert.match(savedDocumentRow.currentTextHash, /^[a-f0-9]{64}$/);
+  const [documentAuditCount] = await connection.sql`
+    select count(*)::int as count
+    from audit.audit_logs
+    where actor_user_id = ${userId}::uuid
+      and article_id = ${created.id}::uuid
+      and action = 'article.document.save'
+  `;
+  assert.equal(documentAuditCount.count, 1);
 
   await responseData(
     await write(`/api/v1/articles/${duplicate.id}`, "DELETE", sessionCookies, login.csrfToken),
