@@ -1,0 +1,3 @@
+export const ARTICLE_REPOSITORY = Symbol("ARTICLE_REPOSITORY");
+
+export const ARTICLE_TRASH_RETENTION_DAYS = 30;

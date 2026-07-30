@@ -9,6 +9,7 @@ import {
   Palette,
   type LucideIcon,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { useAppToast } from "./ui/app-toast";
 
@@ -55,6 +56,7 @@ const quickStartItems: readonly QuickStartItem[] = [
 ];
 
 export function QuickStartGrid() {
+  const router = useRouter();
   const { pushToast } = useAppToast();
 
   return (
@@ -67,6 +69,10 @@ export function QuickStartGrid() {
             className="group min-h-28 rounded-card border border-line bg-panel p-4 text-left shadow-subtle transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-raised"
             key={item.label}
             onClick={() => {
+              if (item.label === "空白排版") {
+                router.push("/workspace/articles?new=1");
+                return;
+              }
               pushToast({
                 description: "入口与交互状态已经就绪，导入和文章能力将在后续任务接入。",
                 title: `${item.label}暂未开放`,

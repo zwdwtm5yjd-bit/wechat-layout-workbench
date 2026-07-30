@@ -1,0 +1,194 @@
+import assert from "node:assert/strict";
+import process from "node:process";
+
+import { createDatabaseConnection, createUuidV7 } from "./packages/database/dist/index.js";
+
+const apiBaseUrl = "http://127.0.0.1:3001";
+const password = "correct-password-secret-marker";
+const passwordHash =
+  "$argon2id$v=19$m=19456,p=1,t=2$FM9dAIf0WYf24OZpTOxpyA$m+jg0HVeC0/KOKRMWP1WXLQCsiYztbr0pSBYtfRELKQ";
+const userId = createUuidV7();
+const email = `article-smoke-${userId}@example.invalid`;
+const connection = createDatabaseConnection(process.env.DATABASE_URL, {
+  applicationName: "article-smoke",
+});
+
+function cookieHeader(response) {
+  return response.headers
+    .getSetCookie()
+    .map((value) => value.split(";", 1)[0])
+    .join("; ");
+}
+
+async function responseData(response, expectedStatus) {
+  const payload = await response.json();
+  assert.equal(
+    response.status,
+    expectedStatus,
+    `${response.url} returned ${response.status}: ${JSON.stringify(payload)}`,
+  );
+  assert.equal(payload.success, true, `${response.url} did not return a success envelope`);
+  return payload.data;
+}
+
+async function write(path, method, cookie, csrfToken, body) {
+  return globalThis.fetch(`${apiBaseUrl}${path}`, {
+    method,
+    headers: {
+      cookie,
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+      "x-csrf-token": csrfToken,
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+}
+
+try {
+  await connection.sql`
+    insert into auth.users (
+      id,
+      email,
+      display_name,
+      password_hash,
+      role,
+      status,
+      timezone,
+      locale
+    )
+    values (
+      ${userId}::uuid,
+      ${email},
+      'Article Smoke',
+      ${passwordHash},
+      'owner',
+      'active',
+      'Asia/Shanghai',
+      'zh-CN'
+    )
+  `;
+
+  const csrfResponse = await globalThis.fetch(`${apiBaseUrl}/api/v1/auth/csrf`);
+  const csrf = await responseData(csrfResponse, 200);
+  const anonymousCookies = cookieHeader(csrfResponse);
+  const loginResponse = await globalThis.fetch(`${apiBaseUrl}/api/v1/auth/login`, {
+    method: "POST",
+    headers: {
+      cookie: anonymousCookies,
+      "content-type": "application/json",
+      "x-csrf-token": csrf.csrfToken,
+    },
+    body: JSON.stringify({
+      identifier: email,
+      password,
+      rememberDevice: false,
+    }),
+  });
+  const login = await responseData(loginResponse, 200);
+  const sessionCookies = cookieHeader(loginResponse);
+
+  const createResponse = await write("/api/v1/articles", "POST", sessionCookies, login.csrfToken, {
+    title: "Docker 文章 CRUD 验收",
+    contentType: "inspection",
+    sourceType: "blank",
+    layoutStrength: "standard",
+  });
+  const created = await responseData(createResponse, 201);
+  assert.equal(created.status, "pending_layout");
+  assert.equal(created.documentVersion, 1);
+
+  const publishResponse = await write(
+    `/api/v1/articles/${created.id}`,
+    "PATCH",
+    sessionCookies,
+    login.csrfToken,
+    { published: true },
+  );
+  const published = await responseData(publishResponse, 200);
+  assert.equal(published.status, "published");
+
+  const listResponse = await globalThis.fetch(
+    `${apiBaseUrl}/api/v1/articles?search=${encodeURIComponent("Docker 文章")}`,
+    {
+      headers: { cookie: sessionCookies },
+    },
+  );
+  const listed = await responseData(listResponse, 200);
+  assert.equal(listed.pagination.total, 1);
+  assert.equal(listed.items[0]?.id, created.id);
+
+  const duplicateResponse = await write(
+    `/api/v1/articles/${created.id}/duplicate`,
+    "POST",
+    sessionCookies,
+    login.csrfToken,
+    {
+      title: "Docker 独立副本",
+      copyMode: "full",
+      contentGroupMode: "independent",
+    },
+  );
+  const duplicate = await responseData(duplicateResponse, 201);
+  assert.notEqual(duplicate.id, created.id);
+  assert.equal(duplicate.status, "pending_layout");
+
+  const documents = await connection.sql`
+    select
+      id::text as id,
+      article_id::text as "articleId",
+      document_json as "documentJson"
+    from content.article_documents
+    where article_id in (${created.id}::uuid, ${duplicate.id}::uuid)
+  `;
+  assert.equal(documents.length, 2);
+  assert.notEqual(documents[0]?.id, documents[1]?.id);
+  for (const document of documents) {
+    assert.equal(document.documentJson.articleId, document.articleId);
+  }
+
+  await responseData(
+    await write(`/api/v1/articles/${duplicate.id}`, "DELETE", sessionCookies, login.csrfToken),
+    200,
+  );
+  const trash = await responseData(
+    await globalThis.fetch(`${apiBaseUrl}/api/v1/articles?status=trash`, {
+      headers: { cookie: sessionCookies },
+    }),
+    200,
+  );
+  assert.equal(
+    trash.items.some((article) => article.id === duplicate.id),
+    true,
+  );
+
+  const restored = await responseData(
+    await write(
+      `/api/v1/articles/${duplicate.id}/restore`,
+      "POST",
+      sessionCookies,
+      login.csrfToken,
+    ),
+    200,
+  );
+  assert.equal(restored.deletedAt, null);
+
+  const history = await responseData(
+    await globalThis.fetch(`${apiBaseUrl}/api/v1/articles/${created.id}/status-history`, {
+      headers: { cookie: sessionCookies },
+    }),
+    200,
+  );
+  assert.equal(
+    history.items.some(
+      (entry) => entry.fromStatus === "pending_layout" && entry.toStatus === "published",
+    ),
+    true,
+  );
+} finally {
+  await connection.sql`delete from audit.audit_logs where actor_user_id = ${userId}::uuid`;
+  await connection.sql`delete from content.article_status_history where created_by = ${userId}::uuid`;
+  await connection.sql`delete from content.article_documents where last_saved_by = ${userId}::uuid`;
+  await connection.sql`delete from content.articles where owner_user_id = ${userId}::uuid`;
+  await connection.sql`delete from auth.user_sessions where user_id = ${userId}::uuid`;
+  await connection.sql`delete from auth.users where id = ${userId}::uuid`;
+  await connection.close();
+}

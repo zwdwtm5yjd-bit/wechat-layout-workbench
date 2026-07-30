@@ -309,6 +309,32 @@ export const articleDocuments = contentSchema.table(
   ],
 );
 
+export const articleStatusHistory = contentSchema.table(
+  "article_status_history",
+  {
+    id: uuid("id").primaryKey(),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "restrict" }),
+    fromStatus: varchar("from_status", { length: 32 }),
+    toStatus: varchar("to_status", { length: 32 }).notNull(),
+    reason: varchar("reason", { length: 200 }).notNull(),
+    source: varchar("source", { length: 32 }).notNull(),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_article_status_history_article_created").on(table.articleId, table.createdAt.desc()),
+    index("idx_article_status_history_actor_created").on(table.createdBy, table.createdAt.desc()),
+    check(
+      "ck_article_status_history_source",
+      sql`${table.source} in ('user', 'system', 'import', 'copy', 'restore')`,
+    ),
+  ],
+);
+
 export const articleSnapshots = contentSchema.table(
   "article_snapshots",
   {
@@ -574,6 +600,7 @@ export const databaseTables = {
   userSessions,
   articles,
   articleDocuments,
+  articleStatusHistory,
   articleSnapshots,
   sourceDocuments,
   sourceBlocks,

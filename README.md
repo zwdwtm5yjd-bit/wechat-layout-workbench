@@ -7,7 +7,8 @@
 当前已完成 `S0-ARCH-001 Monorepo 初始化`、`S0-ARCH-002 Docker 开发环境`、
 `S0-ARCH-003 配置管理`、`S0-API-001 NestJS 基础框架`、
 `S0-WEB-001 Next.js 基础框架`、`S0-DB-001 数据库基础 Schema` 和
-`S1-EDITOR-001 文档 Schema V1`、`S1-AUTH-001 登录与会话`：
+`S1-EDITOR-001 文档 Schema V1`、`S1-AUTH-001 登录与会话`、
+`S1-ARTICLE-001 文章 CRUD`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -45,9 +46,13 @@
 - HttpOnly Session Cookie、生产 Secure、SameSite=Lax 与会话绑定的双提交 CSRF；
 - 当前用户、退出登录、指定会话撤销与即时失效；
 - 登录成功/失败、退出和撤销的审计事件，以及不记录请求正文的密码日志边界；
-- 可重复执行的 Owner 凭据初始化命令、真实登录页面和工作台会话校验。
+- 可重复执行的 Owner 凭据初始化命令、真实登录页面和工作台会话校验；
+- Owner 隔离的文章新建、列表、详情、元数据更新、复制、归档、回收站与恢复；
+- 文章状态流转、状态历史、审计日志和基础搜索筛选；
+- 文章创建/复制时事务化生成独立 Document Schema V1 文档；
+- 响应式文章工作台、状态标签页、搜索、创建与行级操作。
 
-本阶段尚未实现文章 CRUD、Tiptap 编辑器核心、主题、组件渲染、SVG 执行、
+本阶段尚未实现 Tiptap 编辑器核心、文档乐观锁、主题、组件渲染、SVG 执行、
 微信连接或草稿同步。
 
 ## 环境要求
@@ -92,10 +97,21 @@ API 基础端点：
 - 退出登录：`POST /api/v1/auth/logout`；
 - 撤销会话：`DELETE /api/v1/auth/sessions/:sessionId`。
 
+文章端点：
+
+- 列表与新建：`GET|POST /api/v1/articles`；
+- 详情与元数据更新：`GET|PATCH /api/v1/articles/:articleId`；
+- 复制：`POST /api/v1/articles/:articleId/duplicate`；
+- 归档与取消归档：`POST /api/v1/articles/:articleId/archive|unarchive`；
+- 移入回收站与恢复：`DELETE /api/v1/articles/:articleId`、
+  `POST /api/v1/articles/:articleId/restore`；
+- 状态历史：`GET /api/v1/articles/:articleId/status-history`。
+
 Web 基础页面：
 
 - 登录页：`http://localhost:3000/login`；
-- 空工作台：`http://localhost:3000/workspace`。
+- 工作台首页：`http://localhost:3000/workspace`；
+- 文章工作台：`http://localhost:3000/workspace/articles`。
 
 缺少数据库、Redis、对象存储或安全密钥时，API、Worker、Scheduler 会在启动前
 给出具体变量名并退出。登录页通过认证 API 建立 HttpOnly 会话；工作台先做 Session Cookie
@@ -133,7 +149,8 @@ pnpm docker:down
 ```
 
 `pnpm docker:smoke` 会验证 PostgreSQL、Redis、MinIO、API live / ready、OpenAPI、
-数据库表/外键/索引、登录页、空工作台和乐观路由保护，并通过重启 PostgreSQL、Redis、
+数据库表/外键/索引、登录页、文章工作台和乐观路由保护，并在真实数据库中完成文章
+新建、发布、复制、回收站、恢复与状态历史验收；还会通过重启 PostgreSQL、Redis、
 MinIO 检查命名卷的数据持久性。探针数据会在测试结束时清理；MinIO 的
 `healthcheck.txt` 会保留用于后续检查。
 
@@ -235,6 +252,6 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S1-AUTH-001` 验收通过后，开发总指令指定的下一任务是
-`S1-ARTICLE-001 文章 CRUD`。
+`S1-ARTICLE-001` 验收通过后，开发总指令指定的下一任务是
+`S1-DOC-001 文档保存与乐观锁`。
 完整设计依据见 [docs](./docs/)。

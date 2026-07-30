@@ -65,6 +65,9 @@ importers:
       '@wechat-layout/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@wechat-layout/document-schema':
+        specifier: workspace:*
+        version: link:../../packages/document-schema
       argon2:
         specifier: 0.45.1
         version: 0.45.1

@@ -22,6 +22,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { DropdownMenu, Tooltip } from "radix-ui";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -31,14 +32,14 @@ import { ProductMark } from "./product-mark";
 import { useAppToast } from "./ui/app-toast";
 
 interface NavigationItem {
-  readonly active?: boolean;
+  readonly href?: string;
   readonly icon: LucideIcon;
   readonly label: string;
 }
 
 const navigationItems: readonly NavigationItem[] = [
-  { active: true, icon: LayoutDashboard, label: "工作台" },
-  { icon: FileText, label: "文章" },
+  { href: "/workspace", icon: LayoutDashboard, label: "工作台" },
+  { href: "/workspace/articles", icon: FileText, label: "文章" },
   { icon: Paintbrush, label: "主题" },
   { icon: Blocks, label: "组件" },
   { icon: Sparkles, label: "SVG 互动" },
@@ -48,6 +49,7 @@ const navigationItems: readonly NavigationItem[] = [
 ];
 
 export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) {
+  const pathname = usePathname();
   const { pushToast } = useAppToast();
   const collapsed = useWorkspaceUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useWorkspaceUiStore((state) => state.toggleSidebar);
@@ -96,6 +98,10 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
       title: `${label}暂未开放`,
     });
   };
+  const pageHeading =
+    pathname === "/workspace/articles"
+      ? { description: "搜索、状态与回收站", title: "文章" }
+      : { description: "快速开始与最近工作", title: "工作台" };
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -112,31 +118,44 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
         <nav aria-label="主导航" className="flex-1 space-y-1 px-2.5 py-3">
           {navigationItems.map((item) => {
             const Icon = item.icon;
-            const navigationButton = (
-              <button
-                aria-current={item.active ? "page" : undefined}
-                className={`flex h-10 w-full items-center rounded-control text-[13px] font-medium transition ${
-                  collapsed ? "justify-center px-0" : "gap-3 px-3"
-                } ${
-                  item.active
-                    ? "bg-accent-soft text-accent-strong"
-                    : "text-muted hover:bg-hover hover:text-ink"
-                }`}
-                onClick={() => {
-                  if (!item.active) {
+            const active =
+              item.href === "/workspace"
+                ? pathname === item.href
+                : item.href !== undefined &&
+                  (pathname === item.href || pathname.startsWith(`${item.href}/`));
+            const navigationClassName = `flex h-10 w-full items-center rounded-control text-[13px] font-medium transition ${
+              collapsed ? "justify-center px-0" : "gap-3 px-3"
+            } ${
+              active
+                ? "bg-accent-soft text-accent-strong"
+                : "text-muted hover:bg-hover hover:text-ink"
+            }`;
+            const navigationControl =
+              item.href === undefined ? (
+                <button
+                  className={navigationClassName}
+                  onClick={() => {
                     announceFoundationBoundary(item.label);
-                  }
-                }}
-                type="button"
-              >
-                <Icon aria-hidden="true" size={18} strokeWidth={1.9} />
-                {collapsed ? null : <span>{item.label}</span>}
-              </button>
-            );
+                  }}
+                  type="button"
+                >
+                  <Icon aria-hidden="true" size={18} strokeWidth={1.9} />
+                  {collapsed ? null : <span>{item.label}</span>}
+                </button>
+              ) : (
+                <Link
+                  aria-current={active ? "page" : undefined}
+                  className={navigationClassName}
+                  href={item.href}
+                >
+                  <Icon aria-hidden="true" size={18} strokeWidth={1.9} />
+                  {collapsed ? null : <span>{item.label}</span>}
+                </Link>
+              );
 
             return collapsed ? (
               <Tooltip.Root key={item.label}>
-                <Tooltip.Trigger asChild>{navigationButton}</Tooltip.Trigger>
+                <Tooltip.Trigger asChild>{navigationControl}</Tooltip.Trigger>
                 <Tooltip.Portal>
                   <Tooltip.Content
                     className="z-50 rounded-md bg-zinc-900 px-2.5 py-1.5 text-[11px] text-white shadow-raised"
@@ -149,7 +168,7 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
                 </Tooltip.Portal>
               </Tooltip.Root>
             ) : (
-              <div key={item.label}>{navigationButton}</div>
+              <div key={item.label}>{navigationControl}</div>
             );
           })}
         </nav>
@@ -261,8 +280,8 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
               <ProductMark compact />
             </div>
             <div>
-              <p className="text-[15px] font-semibold text-ink">工作台</p>
-              <p className="hidden text-[11px] text-faint sm:block">快速开始与最近工作</p>
+              <p className="text-[15px] font-semibold text-ink">{pageHeading.title}</p>
+              <p className="hidden text-[11px] text-faint sm:block">{pageHeading.description}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -290,17 +309,14 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
               <Upload aria-hidden="true" size={15} />
               导入
             </button>
-            <button
+            <Link
               className="flex h-9 items-center gap-2 rounded-control bg-accent px-3.5 text-[12px] font-semibold text-white shadow-subtle transition hover:bg-accent-strong"
-              onClick={() => {
-                announceFoundationBoundary("新建排版");
-              }}
-              type="button"
+              href="/workspace/articles?new=1"
             >
               <Plus aria-hidden="true" size={15} />
               <span className="hidden sm:inline">新建排版</span>
               <span className="sm:hidden">新建</span>
-            </button>
+            </Link>
             <button
               aria-label="通知"
               className="grid size-9 place-items-center rounded-control border border-line text-muted transition hover:bg-hover hover:text-ink"

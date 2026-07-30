@@ -62,7 +62,7 @@ export function LoginForm() {
   };
 
   return (
-    <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+    <form className="mt-8 space-y-5" method="post" onSubmit={handleSubmit}>
       <div>
         <label className="mb-2 block text-[13px] font-medium text-ink" htmlFor="identifier">
           邮箱或用户名

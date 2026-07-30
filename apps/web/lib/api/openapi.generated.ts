@@ -1,5 +1,127 @@
 // 此文件由 pnpm api:generate 自动生成，请勿手工编辑。
 export interface paths {
+  "/api/v1/articles": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 列出当前用户的文章 */
+    get: operations["ArticleController_list"];
+    put?: never;
+    /** 新建空白文章和独立 Document Schema 文档 */
+    post: operations["ArticleController_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/articles/{articleId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取文章详情 */
+    get: operations["ArticleController_get"];
+    put?: never;
+    post?: never;
+    /** 将文章移入保留 30 天的回收站 */
+    delete: operations["ArticleController_trash"];
+    options?: never;
+    head?: never;
+    /** 更新文章元数据或用户可控状态 */
+    patch: operations["ArticleController_update"];
+    trace?: never;
+  };
+  "/api/v1/articles/{articleId}/archive": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 归档文章 */
+    post: operations["ArticleController_archive"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/articles/{articleId}/duplicate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 复制文章并创建独立文档 */
+    post: operations["ArticleController_duplicate"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/articles/{articleId}/restore": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 从回收站恢复文章 */
+    post: operations["ArticleController_restore"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/articles/{articleId}/status-history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取文章状态历史 */
+    get: operations["ArticleController_history"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/articles/{articleId}/unarchive": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 恢复归档文章原状态 */
+    post: operations["ArticleController_unarchive"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/auth/csrf": {
     parameters: {
       query?: never;
@@ -159,6 +281,194 @@ export interface components {
       /** @example true */
       success: boolean;
     };
+    ArticleDetailDto: {
+      /** Format: uuid */
+      accountId: string | null;
+      /** Format: date-time */
+      archivedAt: string | null;
+      compatibilityScore: number | null;
+      /** @enum {string|null} */
+      compatibilityStatus: "excellent" | "usable" | "risk" | null;
+      /** Format: uuid */
+      contentGroupId: string | null;
+      contentType: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      deletedAt: string | null;
+      /** Format: date-time */
+      deletePurgeAfter: string | null;
+      documentVersion: number | null;
+      /** Format: uuid */
+      id: string;
+      imageCount: number;
+      /** Format: date-time */
+      lastSavedAt: string | null;
+      /** @enum {string} */
+      layoutStrength: "light" | "standard" | "strong";
+      /** Format: date-time */
+      publishedAt: string | null;
+      /** @enum {string} */
+      sourceType: "docx" | "paste" | "web" | "blank" | "copy";
+      /** @enum {string} */
+      status:
+        | "pending_import"
+        | "pending_recognition"
+        | "pending_layout"
+        | "layout_editing"
+        | "pending_check"
+        | "copied"
+        | "synced"
+        | "published"
+        | "archived"
+        | "import_failed"
+        | "recognition_failed"
+        | "save_failed"
+        | "compatibility_failed"
+        | "copy_failed"
+        | "sync_failed";
+      subtitle: string | null;
+      svgCount: number;
+      textLocked: boolean;
+      /** Format: uuid */
+      themeId: string | null;
+      themeVersion: string | null;
+      title: string;
+      /** Format: date-time */
+      updatedAt: string;
+      wordCount: number;
+    };
+    ArticleDto: {
+      /** Format: uuid */
+      accountId: string | null;
+      /** Format: date-time */
+      archivedAt: string | null;
+      compatibilityScore: number | null;
+      /** @enum {string|null} */
+      compatibilityStatus: "excellent" | "usable" | "risk" | null;
+      /** Format: uuid */
+      contentGroupId: string | null;
+      contentType: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      deletedAt: string | null;
+      /** Format: date-time */
+      deletePurgeAfter: string | null;
+      /** Format: uuid */
+      id: string;
+      imageCount: number;
+      /** @enum {string} */
+      layoutStrength: "light" | "standard" | "strong";
+      /** Format: date-time */
+      publishedAt: string | null;
+      /** @enum {string} */
+      sourceType: "docx" | "paste" | "web" | "blank" | "copy";
+      /** @enum {string} */
+      status:
+        | "pending_import"
+        | "pending_recognition"
+        | "pending_layout"
+        | "layout_editing"
+        | "pending_check"
+        | "copied"
+        | "synced"
+        | "published"
+        | "archived"
+        | "import_failed"
+        | "recognition_failed"
+        | "save_failed"
+        | "compatibility_failed"
+        | "copy_failed"
+        | "sync_failed";
+      subtitle: string | null;
+      svgCount: number;
+      textLocked: boolean;
+      /** Format: uuid */
+      themeId: string | null;
+      themeVersion: string | null;
+      title: string;
+      /** Format: date-time */
+      updatedAt: string;
+      wordCount: number;
+    };
+    ArticleListResponseDto: {
+      data: components["schemas"]["ArticleListResultDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    ArticleListResultDto: {
+      items: components["schemas"]["ArticleDto"][];
+      pagination: components["schemas"]["ArticlePaginationDto"];
+    };
+    ArticlePaginationDto: {
+      page: number;
+      pageSize: number;
+      total: number;
+      totalPages: number;
+    };
+    ArticleResponseDto: {
+      data: components["schemas"]["ArticleDetailDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    ArticleStatusHistoryDto: {
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: uuid */
+      createdBy: string;
+      /** @enum {string|null} */
+      fromStatus:
+        | "pending_import"
+        | "pending_recognition"
+        | "pending_layout"
+        | "layout_editing"
+        | "pending_check"
+        | "copied"
+        | "synced"
+        | "published"
+        | "archived"
+        | "import_failed"
+        | "recognition_failed"
+        | "save_failed"
+        | "compatibility_failed"
+        | "copy_failed"
+        | "sync_failed"
+        | null;
+      /** Format: uuid */
+      id: string;
+      reason: string;
+      /** @enum {string} */
+      source: "user" | "system" | "import" | "copy" | "restore";
+      /** @enum {string} */
+      toStatus:
+        | "pending_import"
+        | "pending_recognition"
+        | "pending_layout"
+        | "layout_editing"
+        | "pending_check"
+        | "copied"
+        | "synced"
+        | "published"
+        | "archived"
+        | "import_failed"
+        | "recognition_failed"
+        | "save_failed"
+        | "compatibility_failed"
+        | "copy_failed"
+        | "sync_failed";
+    };
+    ArticleStatusHistoryResponseDto: {
+      data: components["schemas"]["ArticleStatusHistoryResultDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    ArticleStatusHistoryResultDto: {
+      items: components["schemas"]["ArticleStatusHistoryDto"][];
+    };
     AuthUserDto: {
       /** Format: uuid */
       avatarResourceId: string | null;
@@ -172,6 +482,27 @@ export interface components {
       role: "owner" | "editor" | "publisher" | "viewer";
       timezone: string;
       username: string | null;
+    };
+    CreateArticleDto: {
+      /** Format: uuid */
+      accountId?: string | null;
+      /**
+       * @default general
+       * @example inspection
+       */
+      contentType: string;
+      /**
+       * @default standard
+       * @enum {string}
+       */
+      layoutStrength: "light" | "standard" | "strong";
+      /**
+       * @default blank
+       * @enum {string}
+       */
+      sourceType: "blank";
+      /** @example 未命名文章 */
+      title: string;
     };
     CsrfResponseDto: {
       data: components["schemas"]["CsrfResultDto"];
@@ -195,6 +526,21 @@ export interface components {
       /** Format: uuid */
       sessionId: string;
       user: components["schemas"]["AuthUserDto"];
+    };
+    DuplicateArticleDto: {
+      /**
+       * @default same_group
+       * @enum {string}
+       */
+      contentGroupMode: "same_group" | "independent";
+      /**
+       * @default full
+       * @enum {string}
+       */
+      copyMode: "full";
+      /** Format: uuid */
+      targetAccountId?: string | null;
+      title?: string;
     };
     LoginDto: {
       /** @example owner@example.com */
@@ -241,6 +587,23 @@ export interface components {
       /** Format: uuid */
       sessionId: string;
     };
+    UpdateArticleDto: {
+      /** Format: uuid */
+      accountId?: string | null;
+      /** @example inspection */
+      contentType?: string;
+      /** @enum {string} */
+      layoutStrength?: "light" | "standard" | "strong";
+      /** @description 发布标记的便捷写法；不能与 status 同时提交 */
+      published?: boolean;
+      /**
+       * @description 仅允许用户驱动的编辑阶段与发布状态
+       * @enum {string}
+       */
+      status?: "pending_layout" | "layout_editing" | "pending_check" | "published";
+      subtitle?: string | null;
+      title?: string;
+    };
   };
   responses: never;
   parameters: never;
@@ -250,6 +613,482 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  ArticleController_list: {
+    parameters: {
+      query?: {
+        accountId?: string;
+        compatibilityStatus?: "excellent" | "usable" | "risk";
+        contentType?: string;
+        hasSvg?: boolean;
+        page?: number;
+        pageSize?: number;
+        search?: string;
+        sort?: "updated_desc" | "updated_asc" | "created_desc" | "title_asc";
+        status?:
+          | "pending_import"
+          | "pending_recognition"
+          | "pending_layout"
+          | "layout_editing"
+          | "pending_check"
+          | "copied"
+          | "synced"
+          | "published"
+          | "archived"
+          | "import_failed"
+          | "recognition_failed"
+          | "save_failed"
+          | "compatibility_failed"
+          | "copy_failed"
+          | "sync_failed"
+          | "trash";
+        themeId?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArticleListResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ArticleController_create: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateArticleDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArticleResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ArticleController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArticleResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ArticleController_trash: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArticleResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章已在回收站 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ArticleController_update: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateArticleDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArticleResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章状态不允许当前操作 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ArticleController_archive: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArticleResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章状态不允许当前操作 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ArticleController_duplicate: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DuplicateArticleDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArticleResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 回收站文章不能复制 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ArticleController_restore: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArticleResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章不在回收站 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ArticleController_history: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArticleStatusHistoryResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ArticleController_unarchive: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArticleResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章未归档 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   AuthController_csrf: {
     parameters: {
       query?: never;

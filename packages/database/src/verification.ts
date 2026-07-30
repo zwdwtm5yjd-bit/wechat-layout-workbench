@@ -7,6 +7,7 @@ const expectedTables = [
   "content.article_documents",
   "content.article_resources",
   "content.article_snapshots",
+  "content.article_status_history",
   "content.articles",
   "content.resources",
   "content.source_blocks",
@@ -17,6 +18,8 @@ const expectedTables = [
 
 const expectedIndexes = [
   "idx_article_documents_document_json",
+  "idx_article_status_history_actor_created",
+  "idx_article_status_history_article_created",
   "idx_article_resources_article",
   "idx_article_resources_resource",
   "idx_article_resources_snapshot",
@@ -73,6 +76,8 @@ const expectedForeignKeyDeleteActions = new Map<string, "CASCADE" | "RESTRICT">(
   ["article_resources_frozen_by_snapshot_id_article_snapshots_id_fk", "RESTRICT"],
   ["article_snapshots_article_id_articles_id_fk", "RESTRICT"],
   ["article_snapshots_created_by_users_id_fk", "RESTRICT"],
+  ["article_status_history_article_id_articles_id_fk", "RESTRICT"],
+  ["article_status_history_created_by_users_id_fk", "RESTRICT"],
   ["articles_owner_user_id_users_id_fk", "RESTRICT"],
   ["articles_current_snapshot_id_article_snapshots_id_fk", "RESTRICT"],
   ["audit_logs_actor_user_id_users_id_fk", "RESTRICT"],
