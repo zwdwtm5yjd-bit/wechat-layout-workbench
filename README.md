@@ -6,7 +6,8 @@
 
 当前已完成 `S0-ARCH-001 Monorepo 初始化`、`S0-ARCH-002 Docker 开发环境`、
 `S0-ARCH-003 配置管理`、`S0-API-001 NestJS 基础框架`、
-`S0-WEB-001 Next.js 基础框架` 和 `S0-DB-001 数据库基础 Schema`：
+`S0-WEB-001 Next.js 基础框架`、`S0-DB-001 数据库基础 Schema` 和
+`S1-EDITOR-001 文档 Schema V1`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -30,13 +31,18 @@
 - Session Cookie 乐观路由预检和 OpenAPI 类型安全 Client 生成流程；
 - PostgreSQL、Redis、MinIO、Mailpit 本地开发服务；
 - Web、API、Worker、Scheduler 容器化开发进程；
-- 服务健康检查、命名数据卷与持久化验收脚本。
+- 服务健康检查、命名数据卷与持久化验收脚本；
 - Drizzle ORM、Postgres.js 数据库连接和应用生成 UUIDv7；
 - `auth`、`content`、`operations`、`audit` 基础表及 7 个业务 Schema；
 - SQL 迁移、迁移互斥锁、结构校验和 API 数据库就绪探针；
-- 可重复执行的禁用 Owner 开发种子及测试库回滚/重迁移验收。
+- 可重复执行的禁用 Owner 开发种子及测试库回滚/重迁移验收；
+- `doc`、基础文本、列表、图片、语义卡片、品牌页脚和 SVG 占位共 14 种文档节点；
+- bold、italic、underline、strike、颜色、链接和字号共 8 种受控 Marks；
+- Document Schema V1 TypeScript 类型、JSON Schema 2020-12 和 AJV 运行时校验；
+- Block ID 全文唯一校验、Source Block ID 稳定性检查、JSON 往返和版本迁移注册表。
 
-本阶段尚未实现登录、文章 CRUD、Tiptap 节点、主题、组件、SVG、微信连接或草稿同步。
+本阶段尚未实现登录、文章 CRUD、Tiptap 编辑器核心、主题、组件渲染、SVG 执行、
+微信连接或草稿同步。
 
 ## 环境要求
 
@@ -182,7 +188,7 @@ packages/
   config/
   database/                    Drizzle Schema、连接、迁移与种子
   design-tokens/
-  document-schema/
+  document-schema/             Document Schema V1、校验、迁移与 Fixture
   editor-core/
   storage-adapter/
   svg-protocol/
@@ -210,6 +216,6 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S0-DB-001` 验收通过后，开发总指令指定的下一任务是
-`S1-EDITOR-001 文档 Schema V1`。
+`S1-EDITOR-001` 验收通过后，开发总指令指定的下一任务是
+`S1-AUTH-001 登录与会话`。
 完整设计依据见 [docs](./docs/)。
