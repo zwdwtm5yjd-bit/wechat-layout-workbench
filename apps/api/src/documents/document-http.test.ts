@@ -105,6 +105,15 @@ class InMemoryDocumentRepository implements ArticleDocumentRepository {
     articleId,
     accountId: null,
     schemaVersion: "1.0.0",
+    sourceBlocks: [
+      {
+        blockType: "title",
+        orderIndex: 0,
+        sourceBlockId: "source_heading",
+        text: "初始文档",
+        textHash: "a".repeat(64),
+      },
+    ],
     document: documentWithText("初始文档"),
     documentVersion: 1,
     textLocked: true,
@@ -232,10 +241,23 @@ describe("document HTTP flow", () => {
       documentId,
       documentVersion: 1,
       schemaVersion: "1.0.0",
+      sourceBlocks: [
+        expect.objectContaining({
+          sourceBlockId: "source_heading",
+          text: "初始文档",
+        }),
+      ],
       textLocked: true,
     });
 
-    const document = documentWithText("第一个标签页保存");
+    const document = structuredClone(repository.record.document);
+    const heading = document.content.content.find((node) => node.type === "heading");
+    if (heading?.type === "heading") {
+      heading.attrs.styleOverrides = {
+        ...heading.attrs.styleOverrides,
+        marginBottom: 28,
+      };
+    }
     const saved = await supertest(application.getHttpServer())
       .put(`/api/v1/articles/${articleId}/document`)
       .set("x-csrf-token", "test-csrf-token")
@@ -383,6 +405,80 @@ describe("document HTTP flow", () => {
       .set("x-test-user", "other")
       .expect(404);
     expect(hidden.body.error.code).toBe("ARTICLE_NOT_FOUND");
+  });
+
+  it("rejects locked text changes and accepts an explicit unlock before editing", async () => {
+    const lockedDocument = documentWithText("不应写入的锁定文字");
+    const rejected = await supertest(application.getHttpServer())
+      .put(`/api/v1/articles/${articleId}/document`)
+      .set("x-csrf-token", "test-csrf-token")
+      .send({
+        baseVersion: 2,
+        schemaVersion: "1.0.0",
+        document: lockedDocument,
+        lastTransactionId: createUuidV7(),
+        transactionOrigin: "editor.input",
+      })
+      .expect(409);
+
+    expect(rejected.body.error).toMatchObject({
+      code: "ORIGINAL_TEXT_LOCKED",
+      retryable: false,
+      details: {
+        violations: [
+          expect.objectContaining({
+            blockId: "block_heading",
+            code: "LOCKED_TEXT_CHANGED",
+          }),
+        ],
+      },
+    });
+    expect(repository.record.documentVersion).toBe(2);
+
+    const unlockedDocument = structuredClone(repository.record.document);
+    const unlockedHeading = unlockedDocument.content.content.find(
+      (node) => node.type === "heading",
+    );
+    if (unlockedHeading?.type === "heading") {
+      unlockedHeading.attrs.locked = false;
+    }
+    await supertest(application.getHttpServer())
+      .put(`/api/v1/articles/${articleId}/document`)
+      .set("x-csrf-token", "test-csrf-token")
+      .send({
+        baseVersion: 2,
+        schemaVersion: "1.0.0",
+        document: unlockedDocument,
+        lastTransactionId: createUuidV7(),
+        transactionOrigin: "editor.lock",
+      })
+      .expect(200);
+
+    const editableDocument = structuredClone(repository.record.document);
+    const editableHeading = editableDocument.content.content.find(
+      (node) => node.type === "heading",
+    );
+    const inline = editableHeading?.type === "heading" ? editableHeading.content?.[0] : undefined;
+    if (inline?.type === "text") {
+      inline.text = "显式解锁后允许修改";
+    }
+    await supertest(application.getHttpServer())
+      .put(`/api/v1/articles/${articleId}/document`)
+      .set("x-csrf-token", "test-csrf-token")
+      .send({
+        baseVersion: 3,
+        schemaVersion: "1.0.0",
+        document: editableDocument,
+        lastTransactionId: createUuidV7(),
+        transactionOrigin: "editor.input",
+      })
+      .expect(200);
+
+    expect(repository.record.documentVersion).toBe(4);
+    expect(repository.record.document.content.content[0]).toMatchObject({
+      attrs: { locked: false },
+      content: [{ text: "显式解锁后允许修改", type: "text" }],
+    });
   });
 });
 import { isDeepStrictEqual } from "node:util";

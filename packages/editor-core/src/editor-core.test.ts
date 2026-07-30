@@ -2,7 +2,7 @@
 
 import { documentV1Fixture } from "@wechat-layout/document-schema/fixtures";
 import { Editor } from "@tiptap/core";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   canRedo,
@@ -171,5 +171,67 @@ describe("editor core", () => {
     expect(blocks).toHaveLength(1);
     expect(blocks[0]?.type).toBe("paragraph");
     expect(blocks[0]?.blockId).toMatch(/^block_/);
+  });
+
+  it("intercepts typing and deletion in locked source blocks but allows style changes", async () => {
+    const onBlocked = vi.fn();
+    const editor = new Editor({
+      content: documentToEditorContent(documentV1Fixture),
+      extensions: createDocumentExtensions({
+        textLocked: true,
+        onTextMutationBlocked: onBlocked,
+      }),
+    });
+    editors.push(editor);
+    const heading = listTopLevelBlocks(editor)[0]!;
+
+    editor.commands.setTextSelection(2);
+    editor.commands.insertContent("新增文字");
+    await Promise.resolve();
+    expect(editor.state.doc.textContent.startsWith("Document Schema V1")).toBe(true);
+    expect(onBlocked).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          blockId: "block_heading",
+          code: "LOCKED_TEXT_CHANGED",
+        }),
+      ]),
+    );
+
+    expect(editor.commands.setTextSelection({ from: 1, to: 5 })).toBe(true);
+    expect(editor.commands.deleteSelection()).toBe(true);
+    await Promise.resolve();
+    expect(editor.state.doc.textContent.startsWith("Document Schema V1")).toBe(true);
+
+    expect(setTextBlockType(editor, heading.blockId, "heading", 2)).toBe(true);
+    expect(editor.getJSON().content?.[0]?.attrs?.level).toBe(2);
+    expect(editor.commands.setTextSelection({ from: 1, to: 9 })).toBe(true);
+    expect(editor.commands.toggleItalic()).toBe(true);
+    expect(editor.isActive("italic")).toBe(true);
+    expect(selectBlock(editor, heading.blockId)).toBe(true);
+    expect(insertBlockAfterSelection(editor, "divider")).toBe(true);
+    expect(listTopLevelBlocks(editor).some((block) => block.type === "divider")).toBe(true);
+  });
+
+  it("allows editing an unlocked block while document-level protection stays enabled", () => {
+    const content = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          attrs: { blockId: "block_manual", locked: false },
+          content: [{ type: "text", text: "手工区块" }],
+        },
+      ],
+    };
+    const editor = new Editor({
+      content,
+      extensions: createDocumentExtensions({ textLocked: true }),
+    });
+    editors.push(editor);
+
+    editor.commands.setTextSelection(editor.state.doc.content.size - 1);
+    expect(editor.commands.insertContent("可编辑")).toBe(true);
+    expect(editor.state.doc.textContent).toBe("手工区块可编辑");
   });
 });

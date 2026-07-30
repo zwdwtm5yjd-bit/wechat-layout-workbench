@@ -158,6 +158,35 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
       });
   };
 
+  const handleLockChange = async (
+    document: DocumentV1,
+    transactionOrigin: string,
+  ): Promise<boolean> => {
+    if (controller === null) {
+      return false;
+    }
+
+    setEditorError(null);
+    try {
+      await controller.queue(
+        document as unknown as DocumentJson,
+        initial.schemaVersion,
+        transactionOrigin,
+      );
+      await controller.flushNow();
+      const result = controller.getSnapshot();
+      if (result.status !== "saved") {
+        setEditorError(result.errorMessage ?? "锁定状态尚未保存，请稍后重试");
+        return false;
+      }
+      setActiveDocument(document);
+      return true;
+    } catch (error) {
+      setEditorError(error instanceof Error ? error.message : "锁定状态保存失败");
+      return false;
+    }
+  };
+
   const handleSnapshotRestored = async (result: RestoreSnapshotResult) => {
     if (controller === null) {
       setSnapshot({
@@ -250,8 +279,14 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
       <ArticleEditor
         document={activeDocument}
         editable={controller !== null && snapshot.status !== "conflict"}
+        lockActionsEnabled={
+          controller !== null && snapshot.status !== "conflict" && snapshot.status !== "saving"
+        }
         onChange={handleDocumentChange}
         onError={setEditorError}
+        onLockChange={handleLockChange}
+        sourceBlocks={initial.sourceBlocks}
+        textLocked={initial.textLocked}
       />
 
       <p className="text-center font-mono text-[9px] text-faint">

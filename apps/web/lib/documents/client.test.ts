@@ -53,6 +53,7 @@ describe("document client", () => {
           lastTransactionId: null,
           lastSavedBy: "019c0fb5-7d53-7f66-bfb7-f70c0e462604",
           lastSavedAt: "2026-07-30T08:00:00.000Z",
+          sourceBlocks: [],
         },
       }),
     );

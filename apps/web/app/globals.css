@@ -77,6 +77,10 @@ a {
   box-shadow: 0 0 0 1px rgb(79 70 229 / 12%);
 }
 
+.wechat-article-editor > [data-locked="true"] {
+  box-shadow: inset 2px 0 0 rgb(79 70 229 / 24%);
+}
+
 .wechat-article-editor > [data-editor-selected="true"],
 .wechat-article-editor > .ProseMirror-selectednode,
 .wechat-article-editor > [data-block-id]:has(.ProseMirror-selectednode) {

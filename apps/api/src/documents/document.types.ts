@@ -1,5 +1,13 @@
 import type { DocumentV1 } from "@wechat-layout/document-schema";
 
+export interface ArticleDocumentSourceBlock {
+  readonly blockType: string;
+  readonly orderIndex: number;
+  readonly sourceBlockId: string;
+  readonly text: string;
+  readonly textHash: string | null;
+}
+
 export interface ArticleDocumentRecord {
   readonly id: string;
   readonly articleId: string;
@@ -13,6 +21,7 @@ export interface ArticleDocumentRecord {
   readonly lastTransactionId: string | null;
   readonly lastSavedBy: string;
   readonly lastSavedAt: Date;
+  readonly sourceBlocks: readonly ArticleDocumentSourceBlock[];
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }

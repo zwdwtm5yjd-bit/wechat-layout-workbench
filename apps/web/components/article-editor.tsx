@@ -25,7 +25,14 @@ import {
   type EditorSelectionSnapshot,
   type InsertableBlockType,
 } from "@wechat-layout/editor-core";
-import type { DocumentV1 } from "@wechat-layout/document-schema";
+import {
+  collectDocumentEntries,
+  createTextChangeReport,
+  lockAllSourceBlocks,
+  setDocumentBlockLocked,
+  type DocumentV1,
+  type SourceTextBaseline,
+} from "@wechat-layout/document-schema";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import {
   AlignCenter,
@@ -44,6 +51,8 @@ import {
   Heading3,
   Italic,
   ListTree,
+  LockKeyhole,
+  LockOpen,
   Minus,
   Pilcrow,
   Quote,
@@ -70,8 +79,12 @@ import {
 interface ArticleEditorProps {
   readonly document: DocumentV1;
   readonly editable: boolean;
+  readonly lockActionsEnabled: boolean;
   readonly onChange: (document: DocumentV1, transactionOrigin: string) => void;
   readonly onError: (message: string) => void;
+  readonly onLockChange: (document: DocumentV1, transactionOrigin: string) => Promise<boolean>;
+  readonly sourceBlocks: readonly SourceTextBaseline[];
+  readonly textLocked: boolean;
 }
 
 const nodeLabels: Readonly<Record<string, string>> = {
@@ -314,21 +327,48 @@ function OutlineBlock({
   );
 }
 
-export function ArticleEditor({ document, editable, onChange, onError }: ArticleEditorProps) {
-  const extensions = useMemo(() => createDocumentExtensions(), []);
+export function ArticleEditor({
+  document,
+  editable,
+  lockActionsEnabled,
+  onChange,
+  onError,
+  onLockChange,
+  sourceBlocks,
+  textLocked,
+}: ArticleEditorProps) {
   const baseDocumentRef = useRef(document);
+  const sourceDocumentRef = useRef(document);
   const onChangeRef = useRef(onChange);
   const onErrorRef = useRef(onError);
   const externalDocumentRef = useRef(document);
+  const blockedNoticeRef = useRef<(message: string) => void>(() => undefined);
   const [renderRevision, forceRender] = useReducer((value: number) => value + 1, 0);
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [blockHandleTop, setBlockHandleTop] = useState<number | null>(null);
+  const [lockNotice, setLockNotice] = useState<string | null>(null);
+  const [lockMutationPending, setLockMutationPending] = useState(false);
+  const [unlockCandidate, setUnlockCandidate] = useState<string | null>(null);
   const canvasShellRef = useRef<HTMLDivElement>(null);
+  const extensions = useMemo(
+    () =>
+      createDocumentExtensions({
+        textLocked,
+        onTextMutationBlocked: () => {
+          blockedNoticeRef.current("原文已锁定。请先解锁当前区块，再修改文字。");
+        },
+      }),
+    [textLocked],
+  );
 
   baseDocumentRef.current = document;
   onChangeRef.current = onChange;
   onErrorRef.current = onError;
+  blockedNoticeRef.current = setLockNotice;
+  if (sourceDocumentRef.current.documentId !== document.documentId) {
+    sourceDocumentRef.current = document;
+  }
 
   const editor = useEditor({
     content: documentToEditorContent(document),
@@ -369,12 +409,12 @@ export function ArticleEditor({ document, editable, onChange, onError }: Article
   });
 
   useEffect(() => {
-    editor?.setEditable(editable);
-    if (!editable) {
+    editor?.setEditable(editable && !lockMutationPending);
+    if (!editable || lockMutationPending) {
       setDraggedBlockId(null);
       setDropTargetId(null);
     }
-  }, [editable, editor]);
+  }, [editable, editor, lockMutationPending]);
 
   useEffect(() => {
     if (editor === null || externalDocumentRef.current === document) {
@@ -392,6 +432,64 @@ export function ArticleEditor({ document, editable, onChange, onError }: Article
   const selection = editor === null ? null : getEditorSelection(editor);
   const blocks = editor === null ? [] : listTopLevelBlocks(editor);
   const selectedBlockId = selection?.blockId ?? null;
+  let currentDocument = document;
+  if (editor !== null) {
+    try {
+      currentDocument = editorContentToDocument(
+        baseDocumentRef.current,
+        editor.getJSON(),
+        new Date(baseDocumentRef.current.meta.updatedAt),
+      );
+    } catch {
+      currentDocument = document;
+    }
+  }
+  const textChangeReport = createTextChangeReport(
+    sourceDocumentRef.current,
+    currentDocument,
+    sourceBlocks,
+  );
+  const hasUnlockedSourceBlocks = collectDocumentEntries(currentDocument.content).blocks.some(
+    ({ node }) =>
+      node.attrs.locked === false &&
+      (typeof node.attrs.sourceBlockId === "string" ||
+        typeof node.attrs.sourceTextHash === "string"),
+  );
+
+  const persistLockChange = async (nextDocument: DocumentV1) => {
+    if (editor === null || lockMutationPending) {
+      return;
+    }
+
+    setLockMutationPending(true);
+    setLockNotice(null);
+    try {
+      const saved = await onLockChange(nextDocument, EDITOR_TRANSACTION_ORIGIN.lock);
+      if (!saved) {
+        return;
+      }
+      baseDocumentRef.current = nextDocument;
+      externalDocumentRef.current = nextDocument;
+      editor.commands.setContent(documentToEditorContent(nextDocument), {
+        emitUpdate: false,
+        errorOnInvalidContent: true,
+      });
+      if (selectedBlockId !== null) {
+        selectBlock(editor, selectedBlockId);
+      }
+      forceRender();
+    } finally {
+      setLockMutationPending(false);
+    }
+  };
+
+  const unlockBlock = async (blockId: string) => {
+    const nextDocument = setDocumentBlockLocked(currentDocument, blockId, false);
+    setUnlockCandidate(null);
+    if (nextDocument !== null) {
+      await persistLockChange(nextDocument);
+    }
+  };
 
   useLayoutEffect(() => {
     const editorChildren = editor === null ? [] : [...editor.view.dom.children];
@@ -488,6 +586,43 @@ export function ArticleEditor({ document, editable, onChange, onError }: Article
       data-editor-revision={renderRevision}
       onKeyDown={handleKeyboardShortcut}
     >
+      {textLocked ? (
+        <div className="flex flex-col gap-2 border-b border-accent/15 bg-accent-soft px-4 py-2.5 text-[11px] sm:flex-row sm:items-center">
+          <span className="inline-flex items-center gap-2 font-medium text-accent">
+            <LockKeyhole aria-hidden="true" size={13} />
+            原文保护已开启
+          </span>
+          <span className="text-muted">可调整样式和移动区块；改字前需先解锁对应区块。</span>
+          {hasUnlockedSourceBlocks ? (
+            <button
+              className="sm:ml-auto inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-accent/20 bg-panel px-2.5 text-[10px] font-medium text-accent hover:bg-hover disabled:opacity-45"
+              disabled={!lockActionsEnabled || lockMutationPending}
+              onClick={() => {
+                void persistLockChange(lockAllSourceBlocks(currentDocument));
+              }}
+              type="button"
+            >
+              <LockKeyhole aria-hidden="true" size={11} />
+              重新锁定全文
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {lockNotice === null ? null : (
+        <div
+          className="flex items-center justify-between gap-3 border-b border-warning/20 bg-warning-soft px-4 py-2 text-[11px] text-warning"
+          role="status"
+        >
+          <span>{lockNotice}</span>
+          <button
+            className="font-medium underline underline-offset-2"
+            onClick={() => setLockNotice(null)}
+            type="button"
+          >
+            知道了
+          </button>
+        </div>
+      )}
       <div className="grid min-h-[680px] xl:grid-cols-[220px_minmax(0,1fr)_248px]">
         <aside className="border-b border-line bg-panel-muted xl:border-r xl:border-b-0">
           <div className="border-b border-line px-4 py-3">
@@ -621,8 +756,63 @@ export function ArticleEditor({ document, editable, onChange, onError }: Article
                   <p className="mt-1 truncate font-mono text-[9px] text-faint">
                     {selection.blockId}
                   </p>
+                  <p
+                    className={
+                      selection.locked
+                        ? "mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-accent"
+                        : "mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-success"
+                    }
+                  >
+                    {selection.locked ? (
+                      <LockKeyhole aria-hidden="true" size={11} />
+                    ) : (
+                      <LockOpen aria-hidden="true" size={11} />
+                    )}
+                    {selection.locked ? "原文区块已锁定" : "区块文字可编辑"}
+                  </p>
                 </div>
               </div>
+
+              {textLocked && selection.locked ? (
+                <div className="rounded-control border border-warning/20 bg-warning-soft p-3">
+                  {unlockCandidate === selection.blockId ? (
+                    <>
+                      <p className="text-[10px] leading-5 text-warning">
+                        解锁后，后续文字修改会进入差异报告。当前版本会先保存，再开放输入。
+                      </p>
+                      <div className="mt-2 flex gap-1.5">
+                        <button
+                          className="h-8 flex-1 rounded-md bg-warning px-2 text-[10px] font-medium text-white disabled:opacity-45"
+                          disabled={!lockActionsEnabled || lockMutationPending}
+                          onClick={() => {
+                            void unlockBlock(selection.blockId);
+                          }}
+                          type="button"
+                        >
+                          确认解锁
+                        </button>
+                        <button
+                          className="h-8 rounded-md border border-line bg-panel px-2 text-[10px] text-muted"
+                          onClick={() => setUnlockCandidate(null)}
+                          type="button"
+                        >
+                          取消
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <button
+                      className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-warning/25 bg-panel text-[10px] font-medium text-warning hover:bg-hover disabled:opacity-45"
+                      disabled={!lockActionsEnabled || lockMutationPending}
+                      onClick={() => setUnlockCandidate(selection.blockId)}
+                      type="button"
+                    >
+                      <LockOpen aria-hidden="true" size={12} />
+                      解锁当前区块
+                    </button>
+                  )}
+                </div>
+              ) : null}
 
               <div>
                 <p className="text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
@@ -649,6 +839,39 @@ export function ArticleEditor({ document, editable, onChange, onError }: Article
                       type="button"
                     >
                       <Icon aria-hidden="true" size={14} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
+                  段间距
+                </p>
+                <div className="mt-2 grid grid-cols-3 gap-1">
+                  {[
+                    { label: "紧凑", value: 12 },
+                    { label: "标准", value: 20 },
+                    { label: "宽松", value: 32 },
+                  ].map((spacing) => (
+                    <button
+                      aria-label={`${spacing.label}段间距`}
+                      className="h-8 rounded-md border border-line text-[10px] text-muted hover:bg-hover hover:text-ink disabled:opacity-40"
+                      disabled={!editable}
+                      key={spacing.value}
+                      onClick={() => {
+                        const current = selection.attributes.styleOverrides as
+                          Record<string, unknown> | undefined;
+                        updateBlockAttributes(editor, selection.blockId, {
+                          styleOverrides: {
+                            ...current,
+                            marginBottom: spacing.value,
+                          },
+                        });
+                      }}
+                      type="button"
+                    >
+                      {spacing.label}
                     </button>
                   ))}
                 </div>
@@ -709,6 +932,52 @@ export function ArticleEditor({ document, editable, onChange, onError }: Article
               </div>
             </div>
           )}
+          <div className="border-t border-line p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
+                原文变化检测
+              </p>
+              <span
+                className={
+                  textChangeReport.changedCharacters === 0
+                    ? "text-[10px] font-medium text-success"
+                    : "text-[10px] font-medium text-warning"
+                }
+              >
+                {textChangeReport.changedCharacters === 0 ? "文字一致" : "存在变化"}
+              </span>
+            </div>
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px]">
+              <div className="flex justify-between gap-2">
+                <dt className="text-faint">原文字数</dt>
+                <dd className="font-mono text-muted">{textChangeReport.originalCharacters}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-faint">当前字数</dt>
+                <dd className="font-mono text-muted">{textChangeReport.currentCharacters}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-faint">新增</dt>
+                <dd className="font-mono text-muted">+{textChangeReport.addedCharacters}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-faint">删除</dt>
+                <dd className="font-mono text-muted">-{textChangeReport.deletedCharacters}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-faint">修改</dt>
+                <dd className="font-mono text-muted">{textChangeReport.modifiedCharacters}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-faint">样式区块</dt>
+                <dd className="font-mono text-muted">{textChangeReport.styleChangedBlocks}</dd>
+              </div>
+              <div className="col-span-2 flex justify-between gap-2">
+                <dt className="text-faint">新增设计组件</dt>
+                <dd className="font-mono text-muted">{textChangeReport.addedDesignBlocks}</dd>
+              </div>
+            </dl>
+          </div>
         </aside>
       </div>
     </section>

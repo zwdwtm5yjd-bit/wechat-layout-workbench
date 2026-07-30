@@ -565,6 +565,7 @@ export interface components {
       originalTextHash: string | null;
       /** @enum {string} */
       schemaVersion: "1.0.0";
+      sourceBlocks: components["schemas"]["ArticleDocumentSourceBlockDto"][];
       textLocked: boolean;
     };
     ArticleDocumentResponseDto: {
@@ -572,6 +573,13 @@ export interface components {
       meta: components["schemas"]["ApiMetaOpenApiModel"];
       /** @example true */
       success: boolean;
+    };
+    ArticleDocumentSourceBlockDto: {
+      blockType: string;
+      orderIndex: number;
+      sourceBlockId: string;
+      text: string;
+      textHash: string | null;
     };
     ArticleDto: {
       /** Format: uuid */

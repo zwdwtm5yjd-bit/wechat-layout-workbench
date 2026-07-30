@@ -1,6 +1,11 @@
 import { HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { isUuidV7 } from "@wechat-layout/database";
-import { DOCUMENT_SCHEMA_VERSION, validateDocument } from "@wechat-layout/document-schema";
+import {
+  DOCUMENT_SCHEMA_VERSION,
+  validateDocument,
+  validateSourceBlockIdStability,
+  validateTextLockEvolution,
+} from "@wechat-layout/document-schema";
 
 import { ApiException } from "../common/http/api.exception.js";
 import { DOCUMENT_REPOSITORY } from "./document.constants.js";
@@ -54,6 +59,23 @@ function versionConflict(
   });
 }
 
+function originalTextLocked(
+  violations: readonly {
+    readonly blockId: string;
+    readonly code: string;
+    readonly message: string;
+    readonly path: string;
+    readonly sourceBlockId?: string;
+  }[],
+): ApiException {
+  return new ApiException(HttpStatus.CONFLICT, {
+    code: "ORIGINAL_TEXT_LOCKED",
+    message: "原文已锁定，本次文字修改未保存",
+    details: { violations },
+    retryable: false,
+  });
+}
+
 function validateArticleId(articleId: string): void {
   if (!isUuidV7(articleId)) {
     throw invalidRequest([{ path: "articleId", message: "必须是 UUIDv7" }]);
@@ -65,6 +87,7 @@ function toDto(record: ArticleDocumentRecord): ArticleDocumentDto {
     documentId: record.id,
     articleId: record.articleId,
     schemaVersion: record.schemaVersion,
+    sourceBlocks: record.sourceBlocks.map((block) => ({ ...block })),
     documentVersion: record.documentVersion,
     document: record.document as unknown as Readonly<Record<string, unknown>>,
     textLocked: record.textLocked,
@@ -140,6 +163,33 @@ export class DocumentService {
           message: "必须与当前文章文档 ID 一致",
         },
       ]);
+    }
+    if (body.baseVersion === current.documentVersion) {
+      const sourceStability = validateSourceBlockIdStability(current.document, validation.data);
+      if (!sourceStability.success) {
+        throw invalidRequest(
+          sourceStability.errors.map((error) => ({
+            path: `document${error.path}`,
+            message: error.message,
+          })),
+        );
+      }
+      const textLock = validateTextLockEvolution(
+        current.document.content,
+        validation.data.content,
+        current.textLocked,
+      );
+      if (!textLock.success) {
+        throw originalTextLocked(textLock.violations);
+      }
+      if (validation.data.meta.textLocked !== current.document.meta.textLocked) {
+        throw invalidRequest([
+          {
+            path: "document.meta.textLocked",
+            message: "全文锁定状态不能通过文档保存接口修改",
+          },
+        ]);
+      }
     }
 
     const result = await this.repository.save({

@@ -6,10 +6,12 @@ import {
   articles,
   auditLogs,
   createUuidV7,
+  sourceBlocks,
+  sourceDocuments,
   type DatabaseConnection,
 } from "@wechat-layout/database";
 import type { DocumentV1 } from "@wechat-layout/document-schema";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 
 import { DATABASE_CONNECTION } from "../database/database.module.js";
 import type {
@@ -38,26 +40,53 @@ const currentDocumentSelection = {
   updatedAt: articleDocuments.updatedAt,
 };
 
-function toRecord(row: {
-  readonly id: string;
-  readonly articleId: string;
-  readonly accountId: string | null;
-  readonly schemaVersion: string;
-  readonly document: JsonObject;
-  readonly documentVersion: number;
-  readonly textLocked: boolean;
-  readonly originalTextHash: string | null;
-  readonly currentTextHash: string | null;
-  readonly lastTransactionId: string | null;
-  readonly lastSavedBy: string;
-  readonly lastSavedAt: Date;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-}): ArticleDocumentRecord {
+function toRecord(
+  row: {
+    readonly id: string;
+    readonly articleId: string;
+    readonly accountId: string | null;
+    readonly schemaVersion: string;
+    readonly document: JsonObject;
+    readonly documentVersion: number;
+    readonly textLocked: boolean;
+    readonly originalTextHash: string | null;
+    readonly currentTextHash: string | null;
+    readonly lastTransactionId: string | null;
+    readonly lastSavedBy: string;
+    readonly lastSavedAt: Date;
+    readonly createdAt: Date;
+    readonly updatedAt: Date;
+  },
+  sourceBlockRows: ArticleDocumentRecord["sourceBlocks"] = [],
+): ArticleDocumentRecord {
   return {
     ...row,
     document: row.document as unknown as DocumentV1,
+    sourceBlocks: sourceBlockRows,
   };
+}
+
+async function findSourceBlockBaseline(
+  executor: DatabaseConnection["db"],
+  articleId: string,
+): Promise<ArticleDocumentRecord["sourceBlocks"]> {
+  const rows = await executor
+    .select({
+      blockType: sourceBlocks.blockType,
+      orderIndex: sourceBlocks.orderIndex,
+      sourceBlockId: sourceBlocks.sourceBlockId,
+      text: sourceBlocks.textContent,
+      textHash: sourceBlocks.textHash,
+    })
+    .from(sourceBlocks)
+    .innerJoin(sourceDocuments, eq(sourceDocuments.id, sourceBlocks.sourceDocumentId))
+    .where(and(eq(sourceDocuments.articleId, articleId), eq(sourceDocuments.isPrimary, true)))
+    .orderBy(asc(sourceBlocks.orderIndex));
+
+  return rows.map((row) => ({
+    ...row,
+    text: row.text ?? "",
+  }));
 }
 
 function documentSummary(record: {
@@ -102,7 +131,11 @@ export class PostgresDocumentRepository implements ArticleDocumentRepository {
       )
       .limit(1);
 
-    return row === undefined ? null : toRecord(row);
+    if (row === undefined) {
+      return null;
+    }
+
+    return toRecord(row, await findSourceBlockBaseline(this.connection.db, articleId));
   }
 
   async save(input: SaveArticleDocumentInput): Promise<SaveArticleDocumentResult> {

@@ -36,6 +36,23 @@ export class SaveArticleDocumentDto {
   transactionOrigin!: string;
 }
 
+export class ArticleDocumentSourceBlockDto {
+  @ApiProperty({ type: String })
+  blockType!: string;
+
+  @ApiProperty({ minimum: 0, type: Number })
+  orderIndex!: number;
+
+  @ApiProperty({ type: String })
+  sourceBlockId!: string;
+
+  @ApiProperty({ type: String })
+  text!: string;
+
+  @ApiProperty({ nullable: true, type: String })
+  textHash!: string | null;
+}
+
 export class ArticleDocumentDto {
   @ApiProperty({ format: "uuid", type: String })
   documentId!: string;
@@ -45,6 +62,9 @@ export class ArticleDocumentDto {
 
   @ApiProperty({ enum: [DOCUMENT_SCHEMA_VERSION], type: String })
   schemaVersion!: string;
+
+  @ApiProperty({ isArray: true, type: () => ArticleDocumentSourceBlockDto })
+  sourceBlocks!: ArticleDocumentSourceBlockDto[];
 
   @ApiProperty({ minimum: 1, type: Number })
   documentVersion!: number;

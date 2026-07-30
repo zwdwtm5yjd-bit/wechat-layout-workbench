@@ -7,6 +7,8 @@ export type DocumentJson = Readonly<Record<string, unknown>>;
 export type DocumentSchemaVersion =
   components["schemas"]["SaveArticleDocumentDto"]["schemaVersion"];
 
+export type ArticleDocumentSourceBlock = components["schemas"]["ArticleDocumentSourceBlockDto"];
+
 export interface ArticleDocument {
   readonly documentId: string;
   readonly articleId: string;
@@ -19,6 +21,7 @@ export interface ArticleDocument {
   readonly lastTransactionId: string | null;
   readonly lastSavedBy: string;
   readonly lastSavedAt: string;
+  readonly sourceBlocks: readonly ArticleDocumentSourceBlock[];
 }
 
 export interface SaveArticleDocumentInput {

@@ -1,4 +1,9 @@
 import { Extension, Mark, Node, mergeAttributes, type Extensions } from "@tiptap/core";
+import {
+  validateTextLockEvolution,
+  type DocNode,
+  type TextLockViolation,
+} from "@wechat-layout/document-schema";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
@@ -18,6 +23,11 @@ export const BLOCK_NODE_NAMES = [
 ] as const;
 
 export type EditorBlockNodeName = (typeof BLOCK_NODE_NAMES)[number];
+
+export interface DocumentExtensionOptions {
+  readonly onTextMutationBlocked?: (violations: readonly TextLockViolation[]) => void;
+  readonly textLocked?: boolean;
+}
 
 export function createBlockId(): string {
   const randomId =
@@ -199,6 +209,47 @@ const BlockAttributes = Extension.create<{ createId: () => string }>({
                   }),
                 ]);
           },
+        },
+      }),
+    ];
+  },
+});
+
+const OriginalTextLock = Extension.create<{
+  onBlocked: (violations: readonly TextLockViolation[]) => void;
+  textLocked: boolean;
+}>({
+  name: "originalTextLock",
+
+  addOptions() {
+    return {
+      onBlocked: () => undefined,
+      textLocked: false,
+    };
+  },
+
+  addProseMirrorPlugins() {
+    const options = this.options;
+
+    return [
+      new Plugin({
+        key: new PluginKey("originalTextLock"),
+        filterTransaction: (transaction, state) => {
+          if (!transaction.docChanged || !options.textLocked) {
+            return true;
+          }
+
+          const validation = validateTextLockEvolution(
+            state.doc.toJSON() as DocNode,
+            transaction.doc.toJSON() as DocNode,
+            true,
+          );
+          if (validation.success) {
+            return true;
+          }
+
+          queueMicrotask(() => options.onBlocked(validation.violations));
+          return false;
         },
       }),
     ];
@@ -669,7 +720,7 @@ function simpleMark(name: "underline" | "strike", tag: "u" | "s") {
   });
 }
 
-export function createDocumentExtensions(): Extensions {
+export function createDocumentExtensions(options: DocumentExtensionOptions = {}): Extensions {
   return [
     StarterKit.configure({
       blockquote: false,
@@ -706,5 +757,9 @@ export function createDocumentExtensions(): Extensions {
     Link,
     FontSize,
     BlockAttributes,
+    OriginalTextLock.configure({
+      onBlocked: options.onTextMutationBlocked ?? (() => undefined),
+      textLocked: options.textLocked ?? false,
+    }),
   ];
 }

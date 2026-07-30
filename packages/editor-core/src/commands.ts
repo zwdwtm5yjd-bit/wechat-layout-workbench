@@ -17,6 +17,7 @@ export const EDITOR_TRANSACTION_ORIGIN = {
   format: "editor.format",
   insert: "editor.block.insert",
   input: "editor.input",
+  lock: "editor.lock",
   move: "editor.block.move",
 } as const;
 
