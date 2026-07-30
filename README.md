@@ -4,7 +4,8 @@
 
 ## 当前开发状态
 
-当前只完成 `S0-ARCH-001 Monorepo 初始化`：
+当前已完成 `S0-ARCH-001 Monorepo 初始化`，并进入
+`S0-ARCH-002 Docker 开发环境`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -14,6 +15,9 @@
 - 共享包边界；
 - TypeScript、ESLint、Prettier 与 Vitest 基线；
 - 非敏感环境变量 Schema 与示例文件。
+- PostgreSQL、Redis、MinIO、Mailpit 本地开发服务；
+- Web、API、Worker、Scheduler 容器化开发进程；
+- 服务健康检查、命名数据卷与持久化验收脚本。
 
 本阶段没有实现文章业务、数据库业务表、Tiptap 节点、主题、组件、SVG、微信连接或草稿同步。
 
@@ -22,7 +26,7 @@
 - Node.js `24.13.0`；
 - pnpm `10.33.0`；
 - Python `3.14.2`；
-- Docker Desktop 将从 `S0-ARCH-002` 开始使用。
+- Docker Desktop，或 Docker CLI + Colima（均需 Compose v2）。
 
 ## 快速开始
 
@@ -39,10 +43,46 @@ pnpm dev
 
 当前 API 仅启动 NestJS 应用，不提前提供健康检查或业务路由。
 
+## Docker 开发环境
+
+启动 Docker Desktop 或 Colima 后执行：
+
+```bash
+pnpm docker:dev
+```
+
+首次运行会自动生成权限为 `600` 的 `.env.docker`，其中的本地密码不会提交到 Git。
+该命令构建并启动全部开发服务，等待健康检查通过后输出容器状态。
+
+默认端口：
+
+- Web：`3000`；
+- API：`3001`；
+- PostgreSQL：`5432`；
+- Redis：`6379`；
+- MinIO API / Console：`9000` / `9001`；
+- Mailpit SMTP / Web：`1025` / `8025`。
+
+常用命令：
+
+```bash
+pnpm docker:ps
+pnpm docker:logs
+pnpm docker:smoke
+pnpm docker:down
+```
+
+`pnpm docker:smoke` 会验证 PostgreSQL、Redis、MinIO、API 健康状态，并通过重启
+PostgreSQL、Redis、MinIO 检查命名卷的数据持久性。探针数据会在测试结束时清理；
+MinIO 的 `healthcheck.txt` 会保留用于后续检查。
+
 ## 根级命令
 
 ```bash
 pnpm dev
+pnpm docker:dev
+pnpm docker:smoke
+pnpm docker:down
 pnpm build
 pnpm lint
 pnpm typecheck
@@ -106,6 +146,5 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-文档指定的下一任务是 `S0-ARCH-002 Docker 开发环境`。未经确认，不自动开始。
-
+`S0-ARCH-002` 验收通过后，文档指定的下一任务是 `S0-ARCH-003 配置与密钥管理`。
 完整设计依据见 [docs](./docs/)。

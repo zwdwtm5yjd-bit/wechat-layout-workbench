@@ -10,6 +10,12 @@
   },
   "scripts": {
     "dev": "turbo run dev",
+    "docker:dev": "bash infrastructure/scripts/docker-dev.sh up",
+    "docker:down": "bash infrastructure/scripts/docker-dev.sh down",
+    "docker:logs": "bash infrastructure/scripts/docker-dev.sh logs",
+    "docker:ps": "bash infrastructure/scripts/docker-dev.sh ps",
+    "docker:config": "bash infrastructure/scripts/docker-dev.sh config",
+    "docker:smoke": "bash infrastructure/scripts/docker-dev.sh smoke",
     "build": "turbo run build && pnpm build:python",
     "build:python": "PYTHONPATH=services/docx-worker-python/src python3 -m compileall -q services/docx-worker-python/src",
     "lint": "eslint . --max-warnings 0",
