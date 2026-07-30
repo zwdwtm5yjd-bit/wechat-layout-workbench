@@ -23,8 +23,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { DropdownMenu, Tooltip } from "radix-ui";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
+import { getCurrentUser, logout, type AuthUser } from "../lib/auth/client";
 import { useWorkspaceUiStore } from "../stores/workspace-ui-store";
 import { ProductMark } from "./product-mark";
 import { useAppToast } from "./ui/app-toast";
@@ -51,10 +52,43 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
   const collapsed = useWorkspaceUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useWorkspaceUiStore((state) => state.toggleSidebar);
   const setCommandPaletteOpen = useWorkspaceUiStore((state) => state.setCommandPaletteOpen);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     void useWorkspaceUiStore.persist.rehydrate();
+    let active = true;
+
+    void getCurrentUser()
+      .then((session) => {
+        if (active) {
+          setCurrentUser(session.user);
+        }
+      })
+      .catch(() => {
+        const next = `${window.location.pathname}${window.location.search}`;
+        window.location.replace(`/login?next=${encodeURIComponent(next)}`);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
+
+  const handleLogout = async () => {
+    if (loggingOut) {
+      return;
+    }
+
+    setLoggingOut(true);
+    try {
+      await logout();
+    } catch {
+      // 即使服务端会话已过期，也清理当前页面并回到登录入口。
+    } finally {
+      window.location.replace("/login");
+    }
+  };
 
   const announceFoundationBoundary = (label: string) => {
     pushToast({
@@ -158,8 +192,12 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
                 </span>
                 {collapsed ? null : (
                   <span className="min-w-0 text-left">
-                    <span className="block truncate text-[13px] font-medium text-ink">Owner</span>
-                    <span className="block truncate text-[11px] text-faint">私有工作台</span>
+                    <span className="block truncate text-[13px] font-medium text-ink">
+                      {currentUser?.displayName ?? "正在验证…"}
+                    </span>
+                    <span className="block truncate text-[11px] text-faint">
+                      {currentUser?.email ?? "私有工作台"}
+                    </span>
                   </span>
                 )}
               </button>
@@ -172,7 +210,9 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
                 sideOffset={8}
               >
                 <DropdownMenu.Label className="px-2 py-1.5 text-[11px] text-faint">
-                  Owner 账号
+                  {currentUser === null
+                    ? "正在验证会话"
+                    : `${currentUser.displayName} · ${currentUser.role}`}
                 </DropdownMenu.Label>
                 <DropdownMenu.Item
                   className="rounded-md px-2 py-2 text-[13px] text-muted outline-none data-[highlighted]:bg-hover data-[highlighted]:text-ink"
@@ -184,11 +224,13 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
                 </DropdownMenu.Item>
                 <DropdownMenu.Item
                   className="rounded-md px-2 py-2 text-[13px] text-muted outline-none data-[highlighted]:bg-hover data-[highlighted]:text-ink"
-                  onSelect={() => {
-                    announceFoundationBoundary("退出登录");
+                  disabled={loggingOut}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    void handleLogout();
                   }}
                 >
-                  退出登录
+                  {loggingOut ? "正在退出…" : "退出登录"}
                 </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Portal>

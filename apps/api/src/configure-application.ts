@@ -12,7 +12,17 @@ import {
 export function configureApplication(
   application: INestApplication,
   environment: AppEnvironment,
+  publicWebUrl?: string,
 ): void {
+  if (publicWebUrl !== undefined) {
+    application.enableCors({
+      origin: publicWebUrl,
+      credentials: true,
+      allowedHeaders: ["Content-Type", "X-CSRF-Token", "X-Request-ID", "X-Trace-ID"],
+      methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    });
+  }
+
   application.setGlobalPrefix("api/v1", {
     exclude: [
       { path: "health/live", method: RequestMethod.GET },

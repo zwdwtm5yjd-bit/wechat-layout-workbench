@@ -7,7 +7,7 @@
 当前已完成 `S0-ARCH-001 Monorepo 初始化`、`S0-ARCH-002 Docker 开发环境`、
 `S0-ARCH-003 配置管理`、`S0-API-001 NestJS 基础框架`、
 `S0-WEB-001 Next.js 基础框架`、`S0-DB-001 数据库基础 Schema` 和
-`S1-EDITOR-001 文档 Schema V1`：
+`S1-EDITOR-001 文档 Schema V1`、`S1-AUTH-001 登录与会话`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -40,8 +40,14 @@
 - bold、italic、underline、strike、颜色、链接和字号共 8 种受控 Marks；
 - Document Schema V1 TypeScript 类型、JSON Schema 2020-12 和 AJV 运行时校验；
 - Block ID 全文唯一校验、Source Block ID 稳定性检查、JSON 往返和版本迁移注册表。
+- 邮箱/用户名登录、Argon2id 密码哈希与通用错误响应；
+- PostgreSQL 权威会话、Redis 登录限流和随机 Session ID 的 HMAC 存储；
+- HttpOnly Session Cookie、生产 Secure、SameSite=Lax 与会话绑定的双提交 CSRF；
+- 当前用户、退出登录、指定会话撤销与即时失效；
+- 登录成功/失败、退出和撤销的审计事件，以及不记录请求正文的密码日志边界；
+- 可重复执行的 Owner 凭据初始化命令、真实登录页面和工作台会话校验。
 
-本阶段尚未实现登录、文章 CRUD、Tiptap 编辑器核心、主题、组件渲染、SVG 执行、
+本阶段尚未实现文章 CRUD、Tiptap 编辑器核心、主题、组件渲染、SVG 执行、
 微信连接或草稿同步。
 
 ## 环境要求
@@ -59,6 +65,10 @@ cp .env.example .env.local
 # 替换 .env.local 中全部 CHANGE_ME
 pnpm db:migrate
 pnpm db:seed
+read -s BOOTSTRAP_OWNER_PASSWORD
+export BOOTSTRAP_OWNER_PASSWORD
+pnpm auth:bootstrap-owner
+unset BOOTSTRAP_OWNER_PASSWORD
 pnpm dev
 ```
 
@@ -74,15 +84,23 @@ API 基础端点：
 - Swagger UI（非生产）：`http://localhost:3001/api/docs`；
 - OpenAPI JSON：`http://localhost:3001/api/openapi.json`。
 
+认证端点：
+
+- 获取 CSRF Token：`GET /api/v1/auth/csrf`；
+- 登录：`POST /api/v1/auth/login`；
+- 当前用户：`GET /api/v1/auth/me`；
+- 退出登录：`POST /api/v1/auth/logout`；
+- 撤销会话：`DELETE /api/v1/auth/sessions/:sessionId`。
+
 Web 基础页面：
 
 - 登录页：`http://localhost:3000/login`；
 - 空工作台：`http://localhost:3000/workspace`。
 
 缺少数据库、Redis、对象存储或安全密钥时，API、Worker、Scheduler 会在启动前
-给出具体变量名并退出。当前登录页不会提交账号信息；真实登录、Session 校验和 CSRF
-将在 `S1-AUTH-001` 实现。工作台路由当前只按 Session Cookie 是否存在进行无数据访问的
-乐观预检，不作为服务端授权依据。
+给出具体变量名并退出。登录页通过认证 API 建立 HttpOnly 会话；工作台先做 Session Cookie
+乐观路由预检，进入页面后仍会请求 `/api/v1/auth/me` 验证数据库中的权威会话。前端不在
+Local Storage 保存认证 Token。
 
 ## Docker 开发环境
 
@@ -130,8 +148,9 @@ pnpm db:test:migrations
 ```
 
 `db:generate` 只生成可审查的 SQL，不直接修改数据库；已提交的历史迁移不得改写。
-`db:seed` 仅用于开发/测试，默认创建一个不可登录的禁用 Owner，凭据由
-`S1-AUTH-001` 初始化。`db:test:migrations` 使用一次性
+`db:seed` 仅用于开发/测试，默认创建一个不可登录的禁用 Owner。设置至少 12 个字符的
+`BOOTSTRAP_OWNER_PASSWORD` 后执行 `pnpm auth:bootstrap-owner`，会用 Argon2id 创建或
+轮换 Owner 凭据并启用账号；密码不会写入日志。`db:test:migrations` 使用一次性
 `wechat_layout_migration_test` 数据库验证空库迁移、幂等种子、回滚和重迁移，并在结束后清理。
 
 ## 根级命令
@@ -216,6 +235,6 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S1-EDITOR-001` 验收通过后，开发总指令指定的下一任务是
-`S1-AUTH-001 登录与会话`。
+`S1-AUTH-001` 验收通过后，开发总指令指定的下一任务是
+`S1-ARTICLE-001 文章 CRUD`。
 完整设计依据见 [docs](./docs/)。

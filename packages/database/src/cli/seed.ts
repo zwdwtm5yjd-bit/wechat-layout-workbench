@@ -26,7 +26,7 @@ async function main(): Promise<void> {
     });
     process.stdout.write(
       result.created
-        ? `开发 Owner 种子已创建：${result.ownerId}（账号保持禁用，待 S1-AUTH-001 初始化凭据）。\n`
+        ? `开发 Owner 种子已创建：${result.ownerId}（账号保持禁用，请运行 pnpm auth:bootstrap-owner 初始化凭据）。\n`
         : `开发 Owner 种子已存在：${result.ownerId}。\n`,
     );
   } finally {

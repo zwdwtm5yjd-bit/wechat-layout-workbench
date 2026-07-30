@@ -17,6 +17,7 @@
     "docker:config": "bash infrastructure/scripts/docker-dev.sh config",
     "docker:smoke": "bash infrastructure/scripts/docker-dev.sh smoke",
     "api:generate": "pnpm --filter @wechat-layout/web api:generate",
+    "auth:bootstrap-owner": "pnpm --filter @wechat-layout/api auth:bootstrap-owner",
     "db:check": "pnpm --filter @wechat-layout/database db:check",
     "db:generate": "pnpm --filter @wechat-layout/database db:generate",
     "db:migrate": "pnpm --filter @wechat-layout/database db:migrate",
@@ -46,6 +47,7 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "argon2",
       "esbuild",
       "sharp"
     ],

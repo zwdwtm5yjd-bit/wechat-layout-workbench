@@ -10,7 +10,11 @@ async function bootstrap(): Promise<void> {
   const configuration = loadServerEnvironment();
   const application = await NestFactory.create(RuntimeModule);
 
-  configureApplication(application, configuration.application.environment);
+  configureApplication(
+    application,
+    configuration.application.environment,
+    configuration.application.publicWebUrl,
+  );
   application.enableShutdownHooks();
   await application.listen(configuration.application.apiPort);
 }

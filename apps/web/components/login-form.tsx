@@ -2,44 +2,70 @@
 
 import { Check, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { Checkbox } from "radix-ui";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
+import { AuthClientError, login } from "../lib/auth/client";
 import { useAppToast } from "./ui/app-toast";
 
 export function LoginForm() {
   const { pushToast } = useAppToast();
-  const timer = useRef<number | undefined>(undefined);
   const [rememberDevice, setRememberDevice] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(
-    () => () => {
-      if (timer.current !== undefined) {
-        window.clearTimeout(timer.current);
-      }
-    },
-    [],
-  );
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const identifier = String(formData.get("identifier") ?? "");
+    const password = String(formData.get("password") ?? "");
+    const passwordInput = form.elements.namedItem("password");
+
+    setErrorMessage(null);
     setSubmitting(true);
-    timer.current = window.setTimeout(() => {
-      setSubmitting(false);
-      pushToast({
-        description: "登录接口、会话和 CSRF 将在 S1-AUTH-001 接入；当前不会发送账号信息。",
-        title: "登录服务尚未接入",
-        tone: "warning",
+
+    try {
+      await login({
+        identifier,
+        password,
+        rememberDevice,
       });
-    }, 450);
+
+      pushToast({
+        description: "会话已建立，正在进入工作台。",
+        title: "登录成功",
+        tone: "success",
+      });
+
+      const requestedPath = new URLSearchParams(window.location.search).get("next");
+      const destination =
+        requestedPath?.startsWith("/workspace") === true ? requestedPath : "/workspace";
+      window.location.assign(destination);
+    } catch (error) {
+      if (passwordInput instanceof HTMLInputElement) {
+        passwordInput.value = "";
+      }
+
+      if (error instanceof AuthClientError) {
+        setErrorMessage(
+          error.retryAfterSeconds === undefined
+            ? error.message
+            : `${error.message}（约 ${Math.ceil(error.retryAfterSeconds / 60)} 分钟）`,
+        );
+      } else {
+        setErrorMessage("无法连接认证服务，请稍后重试");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
       <div>
-        <label className="mb-2 block text-[13px] font-medium text-ink" htmlFor="email">
-          邮箱
+        <label className="mb-2 block text-[13px] font-medium text-ink" htmlFor="identifier">
+          邮箱或用户名
         </label>
         <div className="relative">
           <Mail
@@ -50,11 +76,13 @@ export function LoginForm() {
           <input
             autoComplete="username"
             className="h-11 w-full rounded-control border border-line bg-panel pr-3 pl-10 text-sm text-ink shadow-subtle outline-none transition placeholder:text-faint hover:border-line-strong focus:border-accent focus:ring-3 focus:ring-indigo-100"
-            id="email"
-            name="email"
-            placeholder="name@example.com"
+            disabled={submitting}
+            id="identifier"
+            maxLength={320}
+            name="identifier"
+            placeholder="owner@example.com"
             required
-            type="email"
+            type="text"
           />
         </div>
       </div>
@@ -67,7 +95,7 @@ export function LoginForm() {
             className="text-[12px] font-medium text-accent transition hover:text-accent-strong"
             onClick={() => {
               pushToast({
-                description: "密码重置流程将在认证任务中与邮件服务一并接入。",
+                description: "账号恢复与邮件验证将在后续账号安全任务中接入。",
                 title: "忘记密码暂未开放",
               });
             }}
@@ -86,7 +114,9 @@ export function LoginForm() {
             autoComplete="current-password"
             className="h-11 w-full rounded-control border border-line bg-panel pr-11 pl-10 text-sm text-ink shadow-subtle outline-none transition placeholder:text-faint hover:border-line-strong focus:border-accent focus:ring-3 focus:ring-indigo-100"
             id="password"
-            minLength={12}
+            disabled={submitting}
+            maxLength={256}
+            minLength={8}
             name="password"
             placeholder="输入你的密码"
             required
@@ -123,6 +153,14 @@ export function LoginForm() {
         </Checkbox.Root>
         记住这台设备
       </label>
+      {errorMessage === null ? null : (
+        <p
+          className="rounded-control border border-red-200 bg-red-50 px-3.5 py-3 text-[12px] leading-5 text-red-700"
+          role="alert"
+        >
+          {errorMessage}
+        </p>
+      )}
       <button
         className="flex h-11 w-full items-center justify-center rounded-control bg-accent px-4 text-sm font-semibold text-white shadow-subtle transition hover:bg-accent-strong disabled:cursor-wait disabled:opacity-70"
         disabled={submitting}
@@ -131,7 +169,7 @@ export function LoginForm() {
         {submitting ? "正在登录…" : "登录"}
       </button>
       <div className="rounded-control border border-indigo-100 bg-accent-soft px-3.5 py-3 text-[12px] leading-5 text-indigo-800">
-        当前是基础框架阶段。登录表单不会发送或保存你的账号信息。
+        密码只发送到私有部署的认证服务；浏览器仅保存 HttpOnly Session Cookie。
       </div>
     </form>
   );

@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { decideRouteAccess, sessionCookieName } from "./lib/auth/route-policy";
 
 export function proxy(request: NextRequest): NextResponse {
-  // 这里只做无数据访问的乐观预检；安全会话校验由 S1-AUTH-001 的数据访问层实现。
+  // 这里只做无数据访问的乐观预检；工作台加载后会向 API 校验数据库中的权威会话。
   const sessionHint = request.cookies.get(sessionCookieName)?.value;
   const decision = decideRouteAccess(request.nextUrl.pathname, Boolean(sessionHint));
 

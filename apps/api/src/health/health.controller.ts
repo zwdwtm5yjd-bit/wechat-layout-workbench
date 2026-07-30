@@ -3,11 +3,13 @@ import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { HealthCheck, HealthCheckService, type HealthCheckResult } from "@nestjs/terminus";
 
 import { RawResponse } from "../common/http/raw-response.decorator.js";
+import { PublicRoute } from "../auth/auth.decorators.js";
 import { ReadinessRegistry } from "./readiness-registry.service.js";
 
 @ApiTags("health")
 @Controller("health")
 @RawResponse()
+@PublicRoute()
 export class HealthController {
   constructor(
     @Inject(HealthCheckService)
