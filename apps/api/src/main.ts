@@ -1,15 +1,19 @@
 import "reflect-metadata";
 
 import { NestFactory } from "@nestjs/core";
-import { parseRuntimeEnvironment } from "@wechat-layout/config";
+import { loadServerEnvironment } from "@wechat-layout/config/server";
 
 import { AppModule } from "./app.module.js";
 
 async function bootstrap(): Promise<void> {
-  const environment = parseRuntimeEnvironment(process.env);
+  const configuration = loadServerEnvironment();
   const application = await NestFactory.create(AppModule);
 
-  await application.listen(environment.API_PORT);
+  await application.listen(configuration.application.apiPort);
 }
 
-void bootstrap();
+void bootstrap().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : "未知启动错误";
+  process.stderr.write(`API 启动失败：${message}\n`);
+  process.exitCode = 1;
+});

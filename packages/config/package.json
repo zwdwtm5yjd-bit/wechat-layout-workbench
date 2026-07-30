@@ -8,7 +8,19 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./public": {
+      "types": "./dist/public.d.ts",
+      "import": "./dist/public.js",
+      "default": "./dist/public.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "browser": "./dist/server.browser.js",
+      "import": "./dist/server.js",
+      "default": "./dist/server.js"
     }
   },
   "files": [
@@ -22,5 +34,8 @@
   },
   "dependencies": {
     "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1"
   }
 }

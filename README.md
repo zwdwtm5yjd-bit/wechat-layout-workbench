@@ -4,8 +4,8 @@
 
 ## 当前开发状态
 
-当前已完成 `S0-ARCH-001 Monorepo 初始化`，并进入
-`S0-ARCH-002 Docker 开发环境`：
+当前已完成 `S0-ARCH-001 Monorepo 初始化`、`S0-ARCH-002 Docker 开发环境`
+和 `S0-ARCH-003 配置管理`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -14,7 +14,9 @@
 - Python DOCX Worker 服务占位；
 - 共享包边界；
 - TypeScript、ESLint、Prettier 与 Vitest 基线；
-- 非敏感环境变量 Schema 与示例文件。
+- public / server 分层配置入口与 Zod 启动校验；
+- 开发、测试、生产三套配置策略与示例；
+- Secret 默认脱敏与浏览器打包隔离；
 - PostgreSQL、Redis、MinIO、Mailpit 本地开发服务；
 - Web、API、Worker、Scheduler 容器化开发进程；
 - 服务健康检查、命名数据卷与持久化验收脚本。
@@ -33,6 +35,7 @@
 ```bash
 pnpm install
 cp .env.example .env.local
+# 替换 .env.local 中全部 CHANGE_ME
 pnpm dev
 ```
 
@@ -41,7 +44,8 @@ pnpm dev
 - Web：`http://localhost:3000`；
 - API：`http://localhost:3001`。
 
-当前 API 仅启动 NestJS 应用，不提前提供健康检查或业务路由。
+缺少数据库、Redis、对象存储或安全密钥时，API、Worker、Scheduler 会在启动前
+给出具体变量名并退出。当前 API 仍只启动 NestJS 应用，不提前提供健康检查或业务路由。
 
 ## Docker 开发环境
 
@@ -51,7 +55,8 @@ pnpm dev
 pnpm docker:dev
 ```
 
-首次运行会自动生成权限为 `600` 的 `.env.docker`，其中的本地密码不会提交到 Git。
+首次运行会自动生成权限为 `600` 的 `.env.docker`，其中的本地密码和应用密钥不会提交到 Git；
+已有文件会只补齐新增密钥，不会轮换现有凭据。
 该命令构建并启动全部开发服务，等待健康检查通过后输出容器状态。
 
 默认端口：
@@ -139,12 +144,16 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 配置与安全
 
-- `.env.example` 只包含公开的本地默认值；
+- `.env.example`、`.env.test.example`、`.env.production.example` 只提供变量结构和占位值；
 - `.env`、`.env.local`、`.env.test`、`.env.production` 均被 Git 忽略；
+- 配置按 `.env` → `.env.<环境>` → 本机覆盖 → 进程环境变量的顺序加载，进程变量优先级最高；
+- 生产构建与运行必须显式设置 `APP_ENV=production`，并使用 HTTPS 公开地址；
+- `@wechat-layout/config` 默认入口只导出公开配置，服务端必须显式使用 `/server` 入口；
 - 数据库密码、Session 密钥、对象存储密钥和微信凭据不得写入代码、文档、前端或日志；
-- 完整配置管理将在 `S0-ARCH-003` 中实现。
+- 服务端 Secret 在字符串化、JSON 序列化和 Node.js 检查输出中默认显示为 `[REDACTED]`。
 
 ## 下一步
 
-`S0-ARCH-002` 验收通过后，文档指定的下一任务是 `S0-ARCH-003 配置与密钥管理`。
+`S0-ARCH-003` 验收通过后，开发总指令指定的下一任务是
+`S0-API-001 NestJS 基础框架`。
 完整设计依据见 [docs](./docs/)。

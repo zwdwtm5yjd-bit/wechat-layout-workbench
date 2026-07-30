@@ -6,10 +6,6 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 project_root="$(cd "$script_dir/../.." && pwd)"
 env_file="$project_root/.env.docker"
 
-if [[ -f "$env_file" ]]; then
-  exit 0
-fi
-
 if ! command -v openssl >/dev/null 2>&1; then
   echo "无法生成本地开发密钥：未找到 openssl。" >&2
   exit 1
@@ -19,9 +15,43 @@ umask 077
 temp_file="$(mktemp "$project_root/.env.docker.tmp.XXXXXX")"
 trap 'rm -f "$temp_file"' EXIT
 
+if [[ -f "$env_file" ]]; then
+  cp "$env_file" "$temp_file"
+  updated=false
+
+  for key in \
+    SESSION_SECRET \
+    CSRF_SECRET \
+    FIELD_ENCRYPTION_KEY \
+    ASSET_SIGNING_KEY \
+    BACKUP_ENCRYPTION_KEY; do
+    if ! grep -q "^${key}=" "$temp_file"; then
+      if [[ "$updated" == false ]]; then
+        echo >>"$temp_file"
+      fi
+      printf '%s=%s\n' "$key" "$(openssl rand -hex 32)" >>"$temp_file"
+      updated=true
+    fi
+  done
+
+  if [[ "$updated" == true ]]; then
+    chmod 600 "$temp_file"
+    mv "$temp_file" "$env_file"
+    trap - EXIT
+    echo "已为现有 .env.docker 补充缺失的应用密钥（原有凭据未变更）。"
+  fi
+
+  exit 0
+fi
+
 postgres_password="$(openssl rand -hex 24)"
 redis_password="$(openssl rand -hex 24)"
 minio_password="$(openssl rand -hex 24)"
+session_secret="$(openssl rand -hex 32)"
+csrf_secret="$(openssl rand -hex 32)"
+field_encryption_key="$(openssl rand -hex 32)"
+asset_signing_key="$(openssl rand -hex 32)"
+backup_encryption_key="$(openssl rand -hex 32)"
 
 {
   echo "COMPOSE_PROJECT_NAME=wechat-layout"
@@ -44,6 +74,12 @@ minio_password="$(openssl rand -hex 24)"
   echo "MINIO_ROOT_USER=wechat_layout"
   echo "MINIO_ROOT_PASSWORD=$minio_password"
   echo "MINIO_BUCKET=wechat-layout-dev"
+  echo
+  echo "SESSION_SECRET=$session_secret"
+  echo "CSRF_SECRET=$csrf_secret"
+  echo "FIELD_ENCRYPTION_KEY=$field_encryption_key"
+  echo "ASSET_SIGNING_KEY=$asset_signing_key"
+  echo "BACKUP_ENCRYPTION_KEY=$backup_encryption_key"
 } >"$temp_file"
 
 mv "$temp_file" "$env_file"

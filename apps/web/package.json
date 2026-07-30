@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "predev": "pnpm --filter @wechat-layout/config build",
     "dev": "next dev --port 3000",
+    "prebuild": "pnpm --filter @wechat-layout/config build",
     "build": "next build",
     "start": "next start --port 3000",
     "lint": "eslint . --max-warnings 0",
@@ -11,6 +13,7 @@
     "test": "vitest run --root . --passWithNoTests"
   },
   "dependencies": {
+    "@wechat-layout/config": "workspace:*",
     "next": "16.2.12",
     "react": "19.2.8",
     "react-dom": "19.2.8"

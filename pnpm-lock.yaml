@@ -63,10 +63,17 @@ importers:
         specifier: 7.8.2
         version: 7.8.2
 
-  apps/scheduler: {}
+  apps/scheduler:
+    dependencies:
+      '@wechat-layout/config':
+        specifier: workspace:*
+        version: link:../../packages/config
 
   apps/web:
     dependencies:
+      '@wechat-layout/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       next:
         specifier: 16.2.12
         version: 16.2.12(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -87,7 +94,11 @@ importers:
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.17)
 
-  apps/worker: {}
+  apps/worker:
+    dependencies:
+      '@wechat-layout/config':
+        specifier: workspace:*
+        version: link:../../packages/config
 
   packages/api-contracts: {}
 
@@ -98,6 +109,10 @@ importers:
       zod:
         specifier: 4.4.3
         version: 4.4.3
+    devDependencies:
+      esbuild:
+        specifier: 0.28.1
+        version: 0.28.1
 
   packages/design-tokens: {}
 
