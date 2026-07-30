@@ -16,6 +16,7 @@
     "docker:ps": "bash infrastructure/scripts/docker-dev.sh ps",
     "docker:config": "bash infrastructure/scripts/docker-dev.sh config",
     "docker:smoke": "bash infrastructure/scripts/docker-dev.sh smoke",
+    "api:generate": "pnpm --filter @wechat-layout/web api:generate",
     "build": "turbo run build && pnpm build:python",
     "build:python": "PYTHONPATH=services/docx-worker-python/src python3 -m compileall -q services/docx-worker-python/src",
     "lint": "eslint . --max-warnings 0",

@@ -5,7 +5,8 @@
 ## 当前开发状态
 
 当前已完成 `S0-ARCH-001 Monorepo 初始化`、`S0-ARCH-002 Docker 开发环境`、
-`S0-ARCH-003 配置管理` 和 `S0-API-001 NestJS 基础框架`：
+`S0-ARCH-003 配置管理`、`S0-API-001 NestJS 基础框架` 和
+`S0-WEB-001 Next.js 基础框架`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -22,6 +23,11 @@
 - class-validator DTO / Zod DTO 双校验管道；
 - `/health/live`、`/health/ready` 与可扩展就绪探针；
 - 开发环境 Swagger UI 与持续可生成的 OpenAPI JSON；
+- Tailwind CSS 系统 UI 变量和 Radix UI 无障碍交互基础；
+- TanStack Query 服务端状态 Provider 与 Zustand 本地 UI 状态；
+- 登录外壳、响应式空工作台和 224 / 72px 可折叠导航；
+- Toast、全局命令面板、应用错误边界与 404 恢复页面；
+- Session Cookie 乐观路由预检和 OpenAPI 类型安全 Client 生成流程；
 - PostgreSQL、Redis、MinIO、Mailpit 本地开发服务；
 - Web、API、Worker、Scheduler 容器化开发进程；
 - 服务健康检查、命名数据卷与持久化验收脚本。
@@ -56,8 +62,15 @@ API 基础端点：
 - Swagger UI（非生产）：`http://localhost:3001/api/docs`；
 - OpenAPI JSON：`http://localhost:3001/api/openapi.json`。
 
+Web 基础页面：
+
+- 登录页：`http://localhost:3000/login`；
+- 空工作台：`http://localhost:3000/workspace`。
+
 缺少数据库、Redis、对象存储或安全密钥时，API、Worker、Scheduler 会在启动前
-给出具体变量名并退出。当前 API 尚未实现认证、文章或其他业务路由。
+给出具体变量名并退出。当前登录页不会提交账号信息；真实登录、Session 校验和 CSRF
+将在 `S1-AUTH-001` 实现。工作台路由当前只按 Session Cookie 是否存在进行无数据访问的
+乐观预检，不作为服务端授权依据。
 
 ## Docker 开发环境
 
@@ -89,9 +102,9 @@ pnpm docker:smoke
 pnpm docker:down
 ```
 
-`pnpm docker:smoke` 会验证 PostgreSQL、Redis、MinIO、API live / ready 与 OpenAPI，
-并通过重启 PostgreSQL、Redis、MinIO 检查命名卷的数据持久性。探针数据会在测试结束时
-清理；MinIO 的 `healthcheck.txt` 会保留用于后续检查。
+`pnpm docker:smoke` 会验证 PostgreSQL、Redis、MinIO、API live / ready、OpenAPI、
+登录页、空工作台和乐观路由保护，并通过重启 PostgreSQL、Redis、MinIO 检查命名卷的
+数据持久性。探针数据会在测试结束时清理；MinIO 的 `healthcheck.txt` 会保留用于后续检查。
 
 ## 根级命令
 
@@ -100,6 +113,7 @@ pnpm dev
 pnpm docker:dev
 pnpm docker:smoke
 pnpm docker:down
+pnpm api:generate
 pnpm build
 pnpm lint
 pnpm typecheck
@@ -122,6 +136,9 @@ Python 服务占位验证：
 ```bash
 PYTHONPATH=services/docx-worker-python/src python3 -m docx_worker
 ```
+
+API 启动后执行 `pnpm api:generate`，会读取 `/api/openapi.json` 并刷新 Web 使用的
+OpenAPI 类型。生成文件不可手工编辑。
 
 ## 目录
 
@@ -166,6 +183,6 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S0-API-001` 验收通过后，开发总指令指定的下一任务是
-`S0-WEB-001 Next.js 基础框架`。
+`S0-WEB-001` 验收通过后，开发总指令指定的下一任务是
+`S0-DB-001 数据库初始化`。
 完整设计依据见 [docs](./docs/)。

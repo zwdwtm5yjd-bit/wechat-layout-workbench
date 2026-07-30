@@ -175,7 +175,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:3000/').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:3000/login').then(async(response)=>{const body=await response.text();if(!response.ok||!body.includes('登录你的工作台'))process.exit(1);process.exit(0)}).catch(()=>process.exit(1))",
         ]
       interval: 5s
       timeout: 3s

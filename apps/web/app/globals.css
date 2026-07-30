@@ -1,71 +1,131 @@
-:root {
-  color-scheme: light;
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  background: #f7f7f5;
-  color: #18181b;
-}
+@import "tailwindcss";
+@import "../styles/tokens.css";
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  min-width: 320px;
+  background: var(--ui-canvas);
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-}
-
-main {
-  display: grid;
-  min-height: 100vh;
-  place-items: center;
-  padding: 32px;
-}
-
-section {
-  width: min(100%, 720px);
-  padding: 48px;
-  border: 1px solid #e4e4e7;
-  border-radius: 20px;
-  background: #ffffff;
-  box-shadow: 0 18px 60px rgb(24 24 27 / 8%);
-}
-
-p {
-  margin: 0 0 12px;
-  color: #71717a;
-}
-
-h1 {
-  margin: 0 0 16px;
-  font-size: clamp(2rem, 5vw, 3.5rem);
-  letter-spacing: -0.04em;
-  line-height: 1.05;
-}
-
-.status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 20px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: #eef2ff;
-  color: #4338ca;
+  background: var(--ui-canvas);
+  color: var(--ui-text);
+  font-family: var(--ui-font-sans);
   font-size: 14px;
-  font-weight: 600;
+  text-rendering: optimizeLegibility;
 }
 
-.status::before {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #4f46e5;
-  content: "";
+button,
+input {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled),
+a {
+  cursor: pointer;
+}
+
+::selection {
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent-strong);
+}
+
+:focus-visible {
+  outline: 3px solid rgb(79 70 229 / 22%);
+  outline-offset: 2px;
+}
+
+.login-visual-grid {
+  background-image:
+    linear-gradient(rgb(255 255 255 / 7%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 7%) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black, transparent 92%);
+}
+
+.dialog-overlay[data-state="open"] {
+  animation: fade-in 150ms ease-out;
+}
+
+.dialog-content[data-state="open"] {
+  animation: dialog-in 180ms ease-out;
+}
+
+.toast-root[data-state="open"] {
+  animation: toast-in 180ms ease-out;
+}
+
+.toast-root[data-state="closed"] {
+  animation: toast-out 140ms ease-in;
+}
+
+.toast-root[data-swipe="move"] {
+  transform: translateX(var(--radix-toast-swipe-move-x));
+}
+
+.toast-root[data-swipe="cancel"] {
+  transform: translateX(0);
+  transition: transform 180ms ease-out;
+}
+
+.toast-root[data-swipe="end"] {
+  animation: toast-swipe-out 120ms ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+}
+
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+}
+
+@keyframes toast-swipe-out {
+  from {
+    transform: translateX(var(--radix-toast-swipe-end-x));
+  }
+
+  to {
+    transform: translateX(110%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
