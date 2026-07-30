@@ -12,7 +12,7 @@ async function main(): Promise<void> {
   try {
     const result = await verifyDatabaseSchema(connection);
     process.stdout.write(
-      `数据库结构验收通过：${result.tableCount} 张表、${result.indexCount} 个索引、${result.foreignKeyCount} 个外键、${result.migrationCount} 个迁移。\n`,
+      `数据库结构验收通过：${result.tableCount} 张表、${result.indexCount} 个索引、${result.foreignKeyCount} 个外键、${result.migrationCount} 个迁移、${result.snapshotImmutabilityTriggerCount} 个快照不可变触发器。\n`,
     );
   } finally {
     await connection.close();

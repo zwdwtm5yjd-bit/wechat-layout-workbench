@@ -8,7 +8,8 @@
 `S0-ARCH-003 配置管理`、`S0-API-001 NestJS 基础框架`、
 `S0-WEB-001 Next.js 基础框架`、`S0-DB-001 数据库基础 Schema` 和
 `S1-EDITOR-001 文档 Schema V1`、`S1-AUTH-001 登录与会话`、
-`S1-ARTICLE-001 文章 CRUD`、`S1-DOC-001 文档保存与乐观锁`：
+`S1-ARTICLE-001 文章 CRUD`、`S1-DOC-001 文档保存与乐观锁` 和
+`S1-VERSION-001 快照系统`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -40,7 +41,7 @@
 - `doc`、基础文本、列表、图片、语义卡片、品牌页脚和 SVG 占位共 14 种文档节点；
 - bold、italic、underline、strike、颜色、链接和字号共 8 种受控 Marks；
 - Document Schema V1 TypeScript 类型、JSON Schema 2020-12 和 AJV 运行时校验；
-- Block ID 全文唯一校验、Source Block ID 稳定性检查、JSON 往返和版本迁移注册表。
+- Block ID 全文唯一校验、Source Block ID 稳定性检查、JSON 往返和版本迁移注册表；
 - 邮箱/用户名登录、Argon2id 密码哈希与通用错误响应；
 - PostgreSQL 权威会话、Redis 登录限流和随机 Session ID 的 HMAC 存储；
 - HttpOnly Session Cookie、生产 Secure、SameSite=Lax 与会话绑定的双提交 CSRF；
@@ -50,15 +51,20 @@
 - Owner 隔离的文章新建、列表、详情、元数据更新、复制、归档、回收站与恢复；
 - 文章状态流转、状态历史、审计日志和基础搜索筛选；
 - 文章创建/复制时事务化生成独立 Document Schema V1 文档；
-- 响应式文章工作台、状态标签页、搜索、创建与行级操作。
+- 响应式文章工作台、状态标签页、搜索、创建与行级操作；
 - Owner 隔离的权威文档读取与保存，以及严格的 Document Schema V1 身份校验；
 - 基于 `documentVersion` 的原子乐观锁、409 冲突详情和事务 ID 幂等重放；
 - 文档版本、内容哈希、文章统计与摘要审计日志的事务化更新；
 - IndexedDB 本地草稿、断网恢复重试、刷新后已提交事务识别与冲突保留；
-- 已保存、保存中、已保存到本地、保存失败和版本冲突五态 UI。
+- 已保存、保存中、已保存到本地、保存失败和版本冲突五态 UI；
+- Owner 隔离的手动快照、自动快照钩子、时间倒序版本列表和只读预览；
+- 快照内固化 Document Schema V1、主题、品牌、资源清单与包版本清单；
+- 恢复前安全快照、恢复后新版本、文档乐观锁和失败事务全量回滚；
+- PostgreSQL 触发器保护快照不可更新、不可删除，复制文章前自动留存快照；
+- 文档会话内的版本备注、版本预览、恢复确认和恢复后自动保存状态同步。
 
-本阶段尚未实现 Tiptap 编辑器核心、文档快照、主题、组件渲染、SVG 执行、微信连接或
-微信草稿同步。
+本阶段尚未实现 Tiptap 编辑器核心、粘贴/文件导入、主题、组件渲染、SVG 执行、
+微信连接或微信草稿同步。
 
 ## 环境要求
 
@@ -114,6 +120,13 @@ API 基础端点：
 - 当前文档：`GET /api/v1/articles/:articleId/document`；
 - 乐观锁保存：`PUT /api/v1/articles/:articleId/document`。
 
+快照端点：
+
+- 版本列表与手动创建：`GET|POST /api/v1/articles/:articleId/snapshots`；
+- 版本详情：`GET /api/v1/articles/:articleId/snapshots/:snapshotId`；
+- 只读预览：`POST /api/v1/articles/:articleId/snapshots/:snapshotId/preview`；
+- 乐观锁恢复：`POST /api/v1/articles/:articleId/snapshots/:snapshotId/restore`。
+
 Web 基础页面：
 
 - 登录页：`http://localhost:3000/login`；
@@ -159,8 +172,9 @@ pnpm docker:down
 `pnpm docker:smoke` 会验证 PostgreSQL、Redis、MinIO、API live / ready、OpenAPI、
 数据库表/外键/索引、登录页、文章工作台和乐观路由保护，并在真实数据库中完成文章
 新建、发布、复制、回收站、恢复、状态历史以及两客户端并发文档保存的 200/409
-乐观锁验收；还会通过重启 PostgreSQL、Redis、MinIO 检查命名卷的数据持久性。探针数据
-会在测试结束时清理；MinIO 的
+乐观锁验收；同时覆盖手动快照、编辑后快照游离、恢复前安全版本、恢复后新版本、
+陈旧版本恢复回滚、复制前快照和数据库不可变触发器；还会通过重启 PostgreSQL、Redis、
+MinIO 检查命名卷的数据持久性。探针数据会在测试结束时清理；MinIO 的
 `healthcheck.txt` 会保留用于后续检查。
 
 数据库命令：
@@ -261,6 +275,6 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S1-DOC-001` 验收通过后，开发总指令指定的下一任务是
-`S1-VERSION-001 快照系统`。
+`S1-VERSION-001` 验收通过后，开发总指令指定的下一任务是
+`S1-IMPORT-001 粘贴导入`。
 完整设计依据见 [docs](./docs/)。

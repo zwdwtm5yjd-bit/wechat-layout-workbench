@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
   articleDocuments,
+  articleSnapshots,
   articles,
   articleStatusHistory,
   auditLogs,
@@ -24,6 +25,7 @@ import {
 } from "drizzle-orm";
 
 import { DATABASE_CONNECTION } from "../database/database.module.js";
+import { buildSnapshotManifests } from "../snapshots/snapshot-manifest.js";
 import { ARTICLE_TRASH_RETENTION_DAYS } from "./article.constants.js";
 import type {
   ArticleCompatibilityStatus,
@@ -41,6 +43,7 @@ import type {
 } from "./article.types.js";
 
 type JsonObject = Record<string, unknown>;
+type JsonValue = JsonObject | readonly unknown[];
 
 function asJsonObject(value: unknown): JsonObject {
   return value as JsonObject;
@@ -396,7 +399,8 @@ export class PostgresArticleRepository implements ArticleRepository {
             isNull(articles.deletedAt),
           ),
         )
-        .limit(1);
+        .limit(1)
+        .for("update");
 
       if (sourceArticle === undefined) {
         return false;
@@ -406,7 +410,69 @@ export class PostgresArticleRepository implements ArticleRepository {
         .select()
         .from(articleDocuments)
         .where(eq(articleDocuments.articleId, articleId))
+        .limit(1)
+        .for("update");
+      if (sourceDocument === undefined) {
+        throw new Error("源文章文档不存在，无法创建复制前快照");
+      }
+
+      const sourceDocumentJson = sourceDocument.documentJson as unknown as DocumentV1;
+      const manifests = buildSnapshotManifests(sourceDocumentJson, sourceArticle);
+      const [latestSnapshot] = await transaction
+        .select({ snapshotNumber: articleSnapshots.snapshotNumber })
+        .from(articleSnapshots)
+        .where(eq(articleSnapshots.articleId, articleId))
+        .orderBy(desc(articleSnapshots.snapshotNumber))
         .limit(1);
+      const sourceSnapshotId = createUuidV7();
+      const sourceSnapshotNumber = (latestSnapshot?.snapshotNumber ?? 0) + 1;
+      await transaction.insert(articleSnapshots).values({
+        id: sourceSnapshotId,
+        articleId,
+        snapshotNumber: sourceSnapshotNumber,
+        reason: "before_copy",
+        documentSchemaVersion: sourceDocument.schemaVersion,
+        documentJson: sourceDocument.documentJson,
+        themeId: sourceArticle.themeId,
+        themeVersion: sourceArticle.themeVersion,
+        brandVersionId: sourceArticle.brandVersionId,
+        resourceManifest: manifests.resourceManifest as unknown as JsonValue,
+        packageManifest: manifests.packageManifest as unknown as JsonValue,
+        textHash: sourceDocument.currentTextHash,
+        compatibilityScore: sourceArticle.compatibilityScore,
+        note: "复制文章前自动保存",
+        createdBy: input.context.actorUserId,
+        createdAt: now,
+      });
+      await transaction
+        .update(articles)
+        .set({
+          currentSnapshotId: sourceSnapshotId,
+          updatedAt: now,
+        })
+        .where(eq(articles.id, articleId));
+      await transaction.insert(auditLogs).values({
+        id: createUuidV7(),
+        actorUserId: input.context.actorUserId,
+        actorType: "user",
+        action: "article.snapshot.create",
+        targetType: "article_snapshot",
+        targetId: sourceSnapshotId,
+        accountId: sourceArticle.accountId,
+        articleId,
+        requestId: input.context.requestId,
+        traceId: input.context.traceId,
+        beforeSummary: null,
+        afterSummary: {
+          snapshotId: sourceSnapshotId,
+          snapshotNumber: sourceSnapshotNumber,
+          reason: "before_copy",
+          documentSchemaVersion: sourceDocument.schemaVersion,
+          textHash: sourceDocument.currentTextHash,
+        },
+        metadataJson: {},
+      });
+
       const targetAccountId =
         input.targetAccountId === undefined ? sourceArticle.accountId : input.targetAccountId;
       const [duplicate] = await transaction
@@ -442,16 +508,13 @@ export class PostgresArticleRepository implements ArticleRepository {
         throw new Error("文章副本创建失败");
       }
 
-      const document =
-        sourceDocument === undefined
-          ? emptyDocument(duplicateDocumentId, duplicateArticleId, targetAccountId, now)
-          : duplicateDocument(
-              sourceDocument.documentJson,
-              duplicateDocumentId,
-              duplicateArticleId,
-              targetAccountId,
-              now,
-            );
+      const document = duplicateDocument(
+        sourceDocument.documentJson,
+        duplicateDocumentId,
+        duplicateArticleId,
+        targetAccountId,
+        now,
+      );
       await transaction.insert(articleDocuments).values({
         id: duplicateDocumentId,
         articleId: duplicateArticleId,
@@ -480,6 +543,7 @@ export class PostgresArticleRepository implements ArticleRepository {
         mutationAuditValues(duplicate, input.context, "article.duplicate", null, {
           ...articleSummary(duplicate),
           sourceArticleId: articleId,
+          sourceSnapshotId,
         }),
       );
       return true;

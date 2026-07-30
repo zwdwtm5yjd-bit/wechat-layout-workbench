@@ -9,6 +9,8 @@ export { createUuidV7, isUuidV7, type UuidV7 } from "./id.js";
 export { defaultMigrationsFolder, migrateDatabase, resetTestDatabase } from "./migrations.js";
 export {
   articleDocuments,
+  articleResources,
+  articleSnapshots,
   articles,
   articleStatusHistory,
   auditLogs,

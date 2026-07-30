@@ -199,6 +199,7 @@ export class PostgresDocumentRepository implements ArticleDocumentRepository {
           wordCount: input.statistics.wordCount,
           imageCount: input.statistics.imageCount,
           svgCount: input.statistics.svgCount,
+          currentSnapshotId: null,
           updatedAt: now,
         })
         .where(and(eq(articles.id, input.articleId), eq(articles.ownerUserId, input.ownerUserId)));

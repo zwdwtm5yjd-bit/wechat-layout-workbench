@@ -15,6 +15,13 @@
       "when": 1785386099183,
       "tag": "0001_article-status-history",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785392850572,
+      "tag": "0002_snapshot-immutability",
+      "breakpoints": true
     }
   ]
 }

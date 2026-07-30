@@ -106,6 +106,75 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/articles/{articleId}/snapshots": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 按时间倒序列出文章的不可变快照 */
+    get: operations["SnapshotController_list"];
+    put?: never;
+    /** 为当前权威文档创建手动快照 */
+    post: operations["SnapshotController_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/articles/{articleId}/snapshots/{snapshotId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取不可变快照详情 */
+    get: operations["SnapshotController_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/articles/{articleId}/snapshots/{snapshotId}/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 读取快照的只读预览数据 */
+    post: operations["SnapshotController_preview"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/articles/{articleId}/snapshots/{snapshotId}/restore": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 创建安全快照后恢复目标版本 */
+    post: operations["SnapshotController_restore"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/articles/{articleId}/status-history": {
     parameters: {
       query?: never;
@@ -549,6 +618,11 @@ export interface components {
       /** @example 未命名文章 */
       title: string;
     };
+    CreateSnapshotDto: {
+      note?: string | null;
+      /** @enum {string} */
+      reason: "manual";
+    };
     CsrfResponseDto: {
       data: components["schemas"]["CsrfResultDto"];
       meta: components["schemas"]["ApiMetaOpenApiModel"];
@@ -620,6 +694,30 @@ export interface components {
       /** @example true */
       revoked: boolean;
     };
+    RestoreSnapshotDto: {
+      baseVersion: number;
+      /** Format: uuid */
+      lastTransactionId: string;
+      /** @enum {string} */
+      mode: "replace_current";
+    };
+    RestoreSnapshotResponseDto: {
+      data: components["schemas"]["RestoreSnapshotResultDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    RestoreSnapshotResultDto: {
+      documentVersion: number;
+      /** Format: date-time */
+      lastSavedAt: string;
+      /** Format: uuid */
+      lastTransactionId: string;
+      /** Format: uuid */
+      restoredFromSnapshotId: string;
+      restoredSnapshot: components["schemas"]["SnapshotSummaryDto"];
+      safetySnapshot: components["schemas"]["SnapshotSummaryDto"];
+    };
     SaveArticleDocumentDto: {
       baseVersion: number;
       /** @description 符合 Document Schema V1 的完整文档 JSON */
@@ -659,6 +757,111 @@ export interface components {
       revoked: boolean;
       /** Format: uuid */
       sessionId: string;
+    };
+    SnapshotDetailDto: {
+      /** Format: uuid */
+      articleId: string;
+      /** Format: uuid */
+      brandVersionId: string | null;
+      compatibilityRuleVersion: string | null;
+      compatibilityScore: number | null;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: uuid */
+      createdBy: string;
+      document: {
+        [key: string]: unknown;
+      };
+      documentSchemaVersion: string;
+      htmlHash: string | null;
+      /** Format: uuid */
+      id: string;
+      isCurrent: boolean;
+      note: string | null;
+      packageCount: number;
+      packageManifest: components["schemas"]["SnapshotPackageManifestEntryDto"][];
+      /** @enum {string} */
+      reason:
+        | "manual"
+        | "after_import"
+        | "before_theme_apply"
+        | "before_copy"
+        | "before_restore"
+        | "restored";
+      rendererVersion: string | null;
+      resourceCount: number;
+      resourceManifest: components["schemas"]["SnapshotResourceManifestEntryDto"][];
+      snapshotNumber: number;
+      textHash: string | null;
+      /** Format: uuid */
+      themeId: string | null;
+      themeVersion: string | null;
+    };
+    SnapshotListResponseDto: {
+      data: components["schemas"]["SnapshotListResultDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    SnapshotListResultDto: {
+      items: components["schemas"]["SnapshotSummaryDto"][];
+      pagination: components["schemas"]["SnapshotPaginationDto"];
+    };
+    SnapshotPackageManifestEntryDto: {
+      /** @enum {string} */
+      kind: "theme" | "brand" | "component" | "brand_footer" | "svg";
+      packageId: string;
+      version: string | null;
+    };
+    SnapshotPaginationDto: {
+      page: number;
+      pageSize: number;
+      total: number;
+      totalPages: number;
+    };
+    SnapshotResourceManifestEntryDto: {
+      references: components["schemas"]["SnapshotResourceReferenceDto"][];
+      resourceId: string;
+    };
+    SnapshotResourceReferenceDto: {
+      blockId: string;
+      usageType: string;
+    };
+    SnapshotResponseDto: {
+      data: components["schemas"]["SnapshotDetailDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    SnapshotSummaryDto: {
+      /** Format: uuid */
+      articleId: string;
+      /** Format: uuid */
+      brandVersionId: string | null;
+      compatibilityScore: number | null;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: uuid */
+      createdBy: string;
+      documentSchemaVersion: string;
+      /** Format: uuid */
+      id: string;
+      isCurrent: boolean;
+      note: string | null;
+      packageCount: number;
+      /** @enum {string} */
+      reason:
+        | "manual"
+        | "after_import"
+        | "before_theme_apply"
+        | "before_copy"
+        | "before_restore"
+        | "restored";
+      resourceCount: number;
+      snapshotNumber: number;
+      /** Format: uuid */
+      themeId: string | null;
+      themeVersion: string | null;
     };
     UpdateArticleDto: {
       /** Format: uuid */
@@ -1160,6 +1363,226 @@ export interface operations {
         content?: never;
       };
       /** @description 文章不在回收站 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  SnapshotController_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SnapshotListResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  SnapshotController_create: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateSnapshotDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SnapshotResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  SnapshotController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        articleId: string;
+        snapshotId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SnapshotResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章或快照不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  SnapshotController_preview: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+        snapshotId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SnapshotResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章或快照不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  SnapshotController_restore: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+        snapshotId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RestoreSnapshotDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RestoreSnapshotResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章或快照不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文档版本冲突或快照无效 */
       409: {
         headers: {
           [name: string]: unknown;

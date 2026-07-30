@@ -20,7 +20,9 @@ import {
   type ArticleDocument,
 } from "../lib/documents/client";
 import { IndexedDbDocumentDraftStore, type LocalDocumentDraft } from "../lib/documents/draft-store";
+import type { RestoreSnapshotResult } from "../lib/snapshots/client";
 import { DocumentSaveStatus } from "./document-save-status";
+import { SnapshotPanel } from "./snapshot-panel";
 
 function errorMessage(error: unknown): string {
   return error instanceof DocumentClientError ? error.message : "文档读取失败，请稍后重试";
@@ -71,6 +73,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
   const [controller, setController] = useState<DocumentAutosaveController | null>(null);
   const [recoveredDraft, setRecoveredDraft] = useState<LocalDocumentDraft | null>(null);
   const [localStorageError, setLocalStorageError] = useState<string | null>(null);
+  const [lastTransactionId, setLastTransactionId] = useState(initial.lastTransactionId);
   const [snapshot, setSnapshot] = useState<DocumentSaveSnapshot>({
     status: "saved",
     documentVersion: initial.documentVersion,
@@ -122,6 +125,22 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
     }
     await controller.discardLocalDraft(initial.documentVersion, initial.lastSavedAt);
     setRecoveredDraft(null);
+  };
+
+  const handleSnapshotRestored = async (result: RestoreSnapshotResult) => {
+    if (controller === null) {
+      setSnapshot({
+        status: "saved",
+        documentVersion: result.documentVersion,
+        lastSavedAt: result.lastSavedAt,
+        errorMessage: null,
+        conflict: null,
+      });
+    } else {
+      await controller.discardLocalDraft(result.documentVersion, result.lastSavedAt);
+    }
+    setRecoveredDraft(null);
+    setLastTransactionId(result.lastTransactionId);
   };
 
   return (
@@ -192,11 +211,17 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
             接入这套保存会话。
           </p>
           <p className="mt-4 font-mono text-[10px] text-faint">
-            document {initial.documentId} · transaction{" "}
-            {initial.lastTransactionId ?? "尚无保存事务"}
+            document {initial.documentId} · transaction {lastTransactionId ?? "尚无保存事务"}
           </p>
         </div>
       </section>
+
+      <SnapshotPanel
+        articleId={initial.articleId}
+        documentVersion={snapshot.documentVersion}
+        onRestored={handleSnapshotRestored}
+        saveStatus={snapshot.status}
+      />
     </div>
   );
 }

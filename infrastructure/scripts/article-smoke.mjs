@@ -172,6 +172,106 @@ try {
   assert.equal(savedDocument.documentVersion, 2);
   assert.deepEqual(savedDocument.document, concurrentDocuments[winnerIndex]);
 
+  const manualSnapshot = await responseData(
+    await write(
+      `/api/v1/articles/${created.id}/snapshots`,
+      "POST",
+      sessionCookies,
+      login.csrfToken,
+      {
+        reason: "manual",
+        note: "Docker 快照恢复点",
+      },
+    ),
+    201,
+  );
+  assert.equal(manualSnapshot.snapshotNumber, 1);
+  assert.equal(manualSnapshot.reason, "manual");
+  assert.equal(manualSnapshot.isCurrent, true);
+  assert.equal(Array.isArray(manualSnapshot.resourceManifest), true);
+  assert.equal(Array.isArray(manualSnapshot.packageManifest), true);
+  const manualSnapshotDocument = cloneJson(manualSnapshot.document);
+
+  const postSnapshotTransactionId = createUuidV7();
+  const postSnapshotSave = await responseData(
+    await write(`/api/v1/articles/${created.id}/document`, "PUT", sessionCookies, login.csrfToken, {
+      baseVersion: 2,
+      schemaVersion: "1.0.0",
+      document: concurrentDocuments[loserIndex],
+      lastTransactionId: postSnapshotTransactionId,
+      transactionOrigin: "docker_after_snapshot",
+    }),
+    200,
+  );
+  assert.equal(postSnapshotSave.documentVersion, 3);
+  const manualAfterEdit = await responseData(
+    await globalThis.fetch(
+      `${apiBaseUrl}/api/v1/articles/${created.id}/snapshots/${manualSnapshot.id}`,
+      {
+        headers: { cookie: sessionCookies },
+      },
+    ),
+    200,
+  );
+  assert.equal(manualAfterEdit.isCurrent, false);
+  assert.deepEqual(manualAfterEdit.document, manualSnapshotDocument);
+
+  const restoreTransactionId = createUuidV7();
+  const restoredSnapshotResult = await responseData(
+    await write(
+      `/api/v1/articles/${created.id}/snapshots/${manualSnapshot.id}/restore`,
+      "POST",
+      sessionCookies,
+      login.csrfToken,
+      {
+        mode: "replace_current",
+        baseVersion: 3,
+        lastTransactionId: restoreTransactionId,
+      },
+    ),
+    200,
+  );
+  assert.equal(restoredSnapshotResult.documentVersion, 4);
+  assert.equal(restoredSnapshotResult.safetySnapshot.reason, "before_restore");
+  assert.equal(restoredSnapshotResult.safetySnapshot.isCurrent, false);
+  assert.equal(restoredSnapshotResult.restoredSnapshot.reason, "restored");
+  assert.equal(restoredSnapshotResult.restoredSnapshot.isCurrent, true);
+
+  const restoredDocument = await responseData(
+    await globalThis.fetch(`${apiBaseUrl}/api/v1/articles/${created.id}/document`, {
+      headers: { cookie: sessionCookies },
+    }),
+    200,
+  );
+  assert.equal(restoredDocument.documentVersion, 4);
+  assert.deepEqual(restoredDocument.document.content, manualSnapshotDocument.content);
+
+  const snapshotCountBeforeConflict = await connection.sql`
+    select count(*)::int as count
+    from content.article_snapshots
+    where article_id = ${created.id}::uuid
+  `;
+  const staleRestore = await write(
+    `/api/v1/articles/${created.id}/snapshots/${manualSnapshot.id}/restore`,
+    "POST",
+    sessionCookies,
+    login.csrfToken,
+    {
+      mode: "replace_current",
+      baseVersion: 3,
+      lastTransactionId: createUuidV7(),
+    },
+  );
+  const staleRestoreBody = await staleRestore.json();
+  assert.equal(staleRestore.status, 409);
+  assert.equal(staleRestoreBody.error?.code, "ARTICLE_VERSION_CONFLICT");
+  const snapshotCountAfterConflict = await connection.sql`
+    select count(*)::int as count
+    from content.article_snapshots
+    where article_id = ${created.id}::uuid
+  `;
+  assert.equal(snapshotCountAfterConflict[0]?.count, snapshotCountBeforeConflict[0]?.count);
+
   const publishResponse = await write(
     `/api/v1/articles/${created.id}`,
     "PATCH",
@@ -206,6 +306,17 @@ try {
   const duplicate = await responseData(duplicateResponse, 201);
   assert.notEqual(duplicate.id, created.id);
   assert.equal(duplicate.status, "pending_layout");
+  const snapshotsAfterDuplicate = await responseData(
+    await globalThis.fetch(`${apiBaseUrl}/api/v1/articles/${created.id}/snapshots`, {
+      headers: { cookie: sessionCookies },
+    }),
+    200,
+  );
+  assert.deepEqual(
+    snapshotsAfterDuplicate.items.map((snapshot) => snapshot.reason),
+    ["before_copy", "restored", "before_restore", "manual"],
+  );
+  assert.equal(snapshotsAfterDuplicate.items[0]?.isCurrent, true);
 
   const documents = await connection.sql`
     select
@@ -228,8 +339,8 @@ try {
     from content.article_documents
     where article_id = ${created.id}::uuid
   `;
-  assert.equal(Number(savedDocumentRow.documentVersion), 2);
-  assert.equal(savedDocumentRow.lastTransactionId, transactionIds[winnerIndex]);
+  assert.equal(Number(savedDocumentRow.documentVersion), 4);
+  assert.equal(savedDocumentRow.lastTransactionId, restoreTransactionId);
   assert.match(savedDocumentRow.currentTextHash, /^[a-f0-9]{64}$/);
   const [documentAuditCount] = await connection.sql`
     select count(*)::int as count
@@ -238,7 +349,42 @@ try {
       and article_id = ${created.id}::uuid
       and action = 'article.document.save'
   `;
-  assert.equal(documentAuditCount.count, 1);
+  assert.equal(documentAuditCount.count, 2);
+  const [snapshotAuditCount] = await connection.sql`
+    select count(*)::int as count
+    from audit.audit_logs
+    where actor_user_id = ${userId}::uuid
+      and article_id = ${created.id}::uuid
+      and action in ('article.snapshot.create', 'article.snapshot.restore')
+  `;
+  assert.equal(snapshotAuditCount.count, 3);
+
+  await assert.rejects(
+    connection.sql`
+      update content.article_snapshots
+      set note = '不应允许修改'
+      where id = ${manualSnapshot.id}::uuid
+    `,
+    (error) => error?.code === "55000",
+  );
+  await assert.rejects(
+    connection.sql`
+      delete from content.article_snapshots
+      where id = ${manualSnapshot.id}::uuid
+    `,
+    (error) => error?.code === "55000",
+  );
+  const immutableManualSnapshot = await responseData(
+    await globalThis.fetch(
+      `${apiBaseUrl}/api/v1/articles/${created.id}/snapshots/${manualSnapshot.id}`,
+      {
+        headers: { cookie: sessionCookies },
+      },
+    ),
+    200,
+  );
+  assert.equal(immutableManualSnapshot.note, "Docker 快照恢复点");
+  assert.deepEqual(immutableManualSnapshot.document, manualSnapshotDocument);
 
   await responseData(
     await write(`/api/v1/articles/${duplicate.id}`, "DELETE", sessionCookies, login.csrfToken),
@@ -281,6 +427,19 @@ try {
 } finally {
   await connection.sql`delete from audit.audit_logs where actor_user_id = ${userId}::uuid`;
   await connection.sql`delete from content.article_status_history where created_by = ${userId}::uuid`;
+  await connection.sql.begin(async (transaction) => {
+    await transaction`
+      update content.articles
+      set current_snapshot_id = null
+      where owner_user_id = ${userId}::uuid
+    `;
+    await transaction`alter table content.article_snapshots disable trigger trg_article_snapshots_immutable`;
+    await transaction`
+      delete from content.article_snapshots
+      where created_by = ${userId}::uuid
+    `;
+    await transaction`alter table content.article_snapshots enable trigger trg_article_snapshots_immutable`;
+  });
   await connection.sql`delete from content.article_documents where last_saved_by = ${userId}::uuid`;
   await connection.sql`delete from content.articles where owner_user_id = ${userId}::uuid`;
   await connection.sql`delete from auth.user_sessions where user_id = ${userId}::uuid`;

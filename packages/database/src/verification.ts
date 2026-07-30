@@ -114,6 +114,7 @@ export interface DatabaseVerification {
   readonly indexCount: number;
   readonly foreignKeyCount: number;
   readonly migrationCount: number;
+  readonly snapshotImmutabilityTriggerCount: number;
 }
 
 function difference(expected: readonly string[], actual: ReadonlySet<string>): string[] {
@@ -177,6 +178,13 @@ export async function verifyDatabaseSchema(
     from drizzle.__drizzle_migrations
   `;
   const migrationCount = migrationRows[0]?.count ?? 0;
+  const snapshotTriggerRows = await connection.sql<{ readonly count: number }[]>`
+    select count(*)::integer as count
+    from pg_trigger
+    where tgname = 'trg_article_snapshots_immutable'
+      and not tgisinternal
+  `;
+  const snapshotImmutabilityTriggerCount = snapshotTriggerRows[0]?.count ?? 0;
 
   const problems = [
     missingTables.length > 0 ? `缺少表：${missingTables.join(", ")}` : undefined,
@@ -189,6 +197,9 @@ export async function verifyDatabaseSchema(
       ? `主键不是无默认值 UUID：${invalidIdentifierColumns.join(", ")}`
       : undefined,
     migrationCount < 1 ? "没有已应用的数据库迁移" : undefined,
+    snapshotImmutabilityTriggerCount !== 1
+      ? `快照不可变触发器数量错误：${snapshotImmutabilityTriggerCount}/1`
+      : undefined,
   ].filter((problem): problem is string => problem !== undefined);
 
   if (problems.length > 0) {
@@ -200,5 +211,6 @@ export async function verifyDatabaseSchema(
     indexCount: expectedIndexes.length,
     foreignKeyCount: expectedForeignKeyDeleteActions.size,
     migrationCount,
+    snapshotImmutabilityTriggerCount,
   };
 }
