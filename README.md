@@ -12,7 +12,8 @@
 `S1-VERSION-001 快照系统`、`S1-IMPORT-001 粘贴导入` 和
 `S1-RESOURCE-001 基础资源服务`、`S1-EDITOR-002 Tiptap 编辑器核心` 和
 `S1-EDITOR-003 原文锁定`、`S1-THEME-001 Token 引擎` 和
-`S1-COMPONENT-001 组件注册中心`、`S1-RENDER-001 微信 HTML Renderer 核心`：
+`S1-COMPONENT-001 组件注册中心`、`S1-RENDER-001 微信 HTML Renderer 核心` 和
+`S1-COMPAT-001 兼容规则基础`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -104,9 +105,13 @@
 - 标准、安全和静态三种输出模式，以及 SVG 静态备用图基础降级；
 - 全内联 CSS、确定性 HTML、输出 SHA-256、Renderer 版本和资源/组件清单；
 - 渲染前后原文哈希校验，以及缺失资源、缺失组件和高风险样式的安全退化。
+- 版本化微信兼容规则包，以及 Document JSON / Renderer HTML 双层检查；
+- HTML 标签、属性、CSS、URL、图片、布局、组件和 SVG 静态降级规则；
+- 0—100 兼容评分、严重/警告/建议分组、确定性 Issue ID 和 Block ID 定位；
+- 严重问题阻止正式复制，以及不修改权威文档的安全自动修复预览。
 
 本阶段尚未实现资源管理 UI、DOCX 文件导入、基础主题包与主题应用、基础组件包、微信
-兼容评分与自动修复、SVG 执行、微信连接或微信草稿同步。
+兼容报告持久化与 UI、SVG 执行、微信连接或微信草稿同步。
 
 ## 环境要求
 
@@ -338,6 +343,5 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S1-RENDER-001` 验收通过后，开发总指令指定的下一任务是
-`S1-COMPAT-001 兼容规则基础`。
+`S1-COMPAT-001` 验收通过后，下一任务是 `S1-COPY-001 一键复制`。
 完整设计依据见 [docs](./docs/)。

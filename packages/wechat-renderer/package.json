@@ -23,6 +23,7 @@
   "dependencies": {
     "@wechat-layout/component-registry": "workspace:*",
     "@wechat-layout/design-tokens": "workspace:*",
-    "@wechat-layout/document-schema": "workspace:*"
+    "@wechat-layout/document-schema": "workspace:*",
+    "parse5": "8.0.1"
   }
 }

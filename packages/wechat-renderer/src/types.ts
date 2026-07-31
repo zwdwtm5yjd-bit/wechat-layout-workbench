@@ -5,6 +5,8 @@ import type {
 } from "@wechat-layout/design-tokens";
 import type { DocumentValidationError } from "@wechat-layout/document-schema";
 
+import type { WECHAT_COMPATIBILITY_RULE_VERSION } from "./compatibility-version.js";
+
 export const WECHAT_RENDERER_VERSION = "1.0.0" as const;
 export const WECHAT_OUTPUT_MODES = ["standard", "wechat_safe", "static"] as const;
 
@@ -45,6 +47,7 @@ export interface WechatRenderWarning {
 
 export interface WechatRenderManifest {
   readonly componentVersions: readonly string[];
+  readonly compatibilityRuleVersion: typeof WECHAT_COMPATIBILITY_RULE_VERSION;
   readonly documentSchemaVersion: string;
   readonly rendererVersion: typeof WECHAT_RENDERER_VERSION;
   readonly resourceIds: readonly string[];

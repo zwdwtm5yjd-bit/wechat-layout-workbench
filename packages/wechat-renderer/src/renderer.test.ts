@@ -218,6 +218,7 @@ describe("WechatHtmlRenderer", () => {
     expect(Object.isFrozen(result)).toBe(true);
     expect(result.manifest).toEqual({
       componentVersions: [],
+      compatibilityRuleVersion: "1.0.0",
       documentSchemaVersion: "1.0.0",
       rendererVersion: WECHAT_RENDERER_VERSION,
       resourceIds: ["resource_image", "resource_svg_fallback"],

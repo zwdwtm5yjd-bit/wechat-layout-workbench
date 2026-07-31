@@ -286,6 +286,9 @@ importers:
       '@wechat-layout/document-schema':
         specifier: workspace:*
         version: link:../document-schema
+      parse5:
+        specifier: 8.0.1
+        version: 8.0.1
 
 packages:
 

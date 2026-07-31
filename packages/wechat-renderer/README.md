@@ -13,6 +13,7 @@
 - 图片与链接只接受不含凭据、不指向本机/私网的公网 HTTPS URL；
 - 缺失或非法图片生成可读占位，缺失组件保留标题、正文和页脚；
 - 输出携带 Renderer 版本、SHA-256、资源清单、组件精确版本清单和原文完整性哈希。
+- Renderer Manifest 和兼容报告均绑定当前兼容规则版本。
 
 ## 输出模式
 
@@ -48,4 +49,34 @@ console.log(result.textIntegrity.unchanged);
 `expectedSourceTextHash`。无效文档、Token 或原文哈希不匹配时，`tryRender` 返回结构化问题，
 `render` 抛出 `WechatRenderError`。
 
-本包不负责兼容评分、问题自动修复、Clipboard API、微信素材上传或草稿同步。
+## 兼容检查
+
+`WechatCompatibilityEngine` 同时扫描 Document JSON 和最终 Renderer HTML：
+
+```ts
+import { WechatCompatibilityEngine } from "@wechat-layout/wechat-renderer";
+
+const engine = new WechatCompatibilityEngine();
+const { renderResult, report } = engine.check({
+  document,
+  mode: "standard",
+  resources,
+});
+
+if (!report.canCopy) {
+  console.log(report.issues);
+}
+```
+
+报告包含：
+
+- 0—100 兼容评分、`passed / warning / failed` 状态和严重度计数；
+- 规则版本、Renderer 版本、Document/HTML 哈希；
+- 确定性 Issue ID、规则 ID、分类、路径和 Block ID；
+- 自动修复能力及正式复制是否允许。
+
+严重问题会返回 `canCopy: false`。`previewFixes` 和 `previewHtmlFixes` 只生成深冻结修复预览，
+不会直接修改权威文档；当前安全修复包括移除非法链接 Mark、约束超宽图片、删除危险标签和
+事件属性、清理非法样式，以及展开未验证但可保留正文的 HTML 容器。
+
+本包不负责兼容报告持久化、HTTP 接口、Clipboard API、微信素材上传或草稿同步。

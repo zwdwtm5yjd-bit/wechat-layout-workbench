@@ -17,6 +17,7 @@ import {
 } from "@wechat-layout/document-schema";
 
 import { createDefaultNodeRendererRegistry } from "./default-renderers.js";
+import { WECHAT_COMPATIBILITY_RULE_VERSION } from "./compatibility-version.js";
 import { htmlElement, serializeSafeHtml, type SafeHtmlNode } from "./html.js";
 import {
   WechatComponentRendererRegistry,
@@ -450,6 +451,7 @@ export class WechatHtmlRenderer {
         html: serialized.html,
         manifest: {
           componentVersions: session.componentVersions,
+          compatibilityRuleVersion: WECHAT_COMPATIBILITY_RULE_VERSION,
           documentSchemaVersion: document.schemaVersion,
           rendererVersion: WECHAT_RENDERER_VERSION,
           resourceIds: session.resourceIds,
