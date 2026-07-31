@@ -1,0 +1,28 @@
+{
+  "name": "@wechat-layout/job-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --root . --passWithNoTests"
+  },
+  "dependencies": {
+    "@wechat-layout/database": "workspace:*",
+    "bullmq": "5.79.3",
+    "drizzle-orm": "0.45.2"
+  }
+}

@@ -14,12 +14,13 @@
 `S1-EDITOR-003 原文锁定`、`S1-THEME-001 Token 引擎` 和
 `S1-COMPONENT-001 组件注册中心`、`S1-RENDER-001 微信 HTML Renderer 核心` 和
 `S1-COMPAT-001 兼容规则基础`、`S1-COPY-001 一键复制` 和
-`S1-WEB-002 V0.1 页面`：
+`S1-WEB-002 V0.1 页面`、`S1-TEST-001 V0.1 测试基线` 和
+`S1-JOB-001 BullMQ 任务中心`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
 - NestJS API 基础框架；
-- Node.js Worker 与 Scheduler 空骨架；
+- BullMQ Node.js Worker 与 Scheduler 调度骨架；
 - Python DOCX Worker 服务占位；
 - 共享包边界；
 - TypeScript、ESLint、Prettier 与 Vitest 基线；
@@ -130,6 +131,12 @@
 - 兼容抽屉与正式微信输出共享同一份服务端规则报告，不另造前端评分；
 - 编辑器左栏支持结构、主题、组件三态，主题仅做无持久化试穿，组件走现有编辑事务；
 - 编辑器路由自动使用 72px 导航，在 1366 与 1920 宽度下保持 250px / 画布 / 280px 三栏。
+- PostgreSQL 权威任务与事件存储，Redis / BullMQ 只负责任务调度和运行时协调；
+- 12 个规范队列名、Owner 级幂等键、指数退避与抖动、可重试/永久错误明确分类；
+- BullMQ Worker 进度上报、自动与手动重试、排队中/运行中取消和 15 秒 TTL 心跳；
+- Owner 隔离的任务列表、详情、取消、重试 API，以及基于数据库事件的 SSE 实时流；
+- `Last-Event-ID` 原精度断线续传，Redis 重启后任务记录与完整事件仍可读取；
+- Testcontainers 覆盖成功、幂等、自动/手动重试、永久失败、取消和 Redis 重启持久性。
 
 本阶段尚未实现资源管理 UI、DOCX 文件导入、基础主题包与持久化主题应用、扩展组件包、
 兼容问题自动修复管理、SVG 执行、微信连接或微信草稿同步。
@@ -175,6 +182,14 @@ API 基础端点：
 - 当前用户：`GET /api/v1/auth/me`；
 - 退出登录：`POST /api/v1/auth/logout`；
 - 撤销会话：`DELETE /api/v1/auth/sessions/:sessionId`。
+
+任务端点：
+
+- 任务列表：`GET /api/v1/jobs`；
+- 任务详情：`GET /api/v1/jobs/:jobId`；
+- 取消任务：`POST /api/v1/jobs/:jobId/cancel`；
+- 手动重试：`POST /api/v1/jobs/:jobId/retry`；
+- 事件流与断线续传：`GET /api/v1/jobs/:jobId/events`。
 
 文章端点：
 
@@ -262,7 +277,7 @@ pnpm docker:smoke
 pnpm docker:down
 ```
 
-`pnpm docker:smoke` 会验证 PostgreSQL、Redis、MinIO、API live / ready、OpenAPI、
+`pnpm docker:smoke` 会验证 PostgreSQL、Redis、MinIO、API live / ready、Worker 心跳、OpenAPI、
 数据库表/外键/索引、登录页、文章工作台和乐观路由保护，并在真实数据库中完成文章
 新建、发布、复制、回收站、恢复、状态历史以及两客户端并发文档保存的 200/409
 乐观锁验收；同时覆盖手动快照、编辑后快照游离、恢复前安全版本、恢复后新版本、
@@ -270,7 +285,8 @@ pnpm docker:down
 Source Blocks、刷新恢复、结构确认、幂等重放、版本冲突和导入后快照；资源流程会真实验证
 私有直传、签名下载、匿名拒绝、去重、错误 MIME、伪图片、引用保护和软删除；最后通过重启
 PostgreSQL、Redis、MinIO 检查命名卷的数据持久性；正式复制流程会验证服务端渲染、
-兼容门禁、双格式 Payload、复制记录、快照和审计持久化。探针与烟测数据会在测试结束时
+兼容门禁、双格式 Payload、复制记录、快照和审计持久化；任务中心还会覆盖幂等创建、SSE
+回放、自动/手动重试、永久失败只执行一次和运行中取消。探针与烟测数据会在测试结束时
 清理；MinIO 的 `healthcheck.txt` 会保留用于后续检查。
 
 数据库命令：
@@ -342,7 +358,7 @@ Web 生产构建固定使用 Next.js 的 Webpack 模式；开发环境仍使用�
 apps/
   web/                       Next.js Web
   api/                       NestJS API
-  worker/                    异步任务进程占位
+  worker/                    BullMQ 异步任务 Worker
   scheduler/                 调度进程占位
 services/
   docx-worker-python/        Python DOCX Worker 占位
@@ -354,6 +370,7 @@ packages/
   design-tokens/
   document-schema/             Document Schema V1、校验、迁移与 Fixture
   editor-core/
+  job-runtime/                PostgreSQL 权威任务存储、BullMQ 队列与 Worker 运行时
   storage-adapter/
   svg-protocol/
   test-fixtures/
@@ -382,8 +399,8 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S1-TEST-001` 代码基线与本地自动化终验已完成。V0.1 上线前仍需完成
-`S1-JOB-001`、`S1-THEME-002`、`S1-COMPONENT-002`，并关闭真实 Safari、微信公众号后台
+`S1-TEST-001` 与 `S1-JOB-001` 已完成并通过本地全链路终验。V0.1 上线前仍需完成
+`S1-THEME-002`、`S1-COMPONENT-002`，并关闭真实 Safari、微信公众号后台
 和远端 CI 验收门禁。详细状态见
 [V0.1 发布检查清单](./docs/testing/V0.1-release-checklist.md)。
 完整设计依据见 [docs](./docs/)。

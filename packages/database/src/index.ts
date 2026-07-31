@@ -15,6 +15,8 @@ export {
   articleStatusHistory,
   auditLogs,
   copyRecords,
+  jobEvents,
+  jobs,
   renderOutputs,
   resources,
   sourceBlocks,

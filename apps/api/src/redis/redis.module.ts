@@ -25,6 +25,7 @@ export interface RedisClient {
   ): Promise<string | null>;
   ttl(key: string): Promise<number>;
   del(key: string): Promise<number>;
+  publish(channel: string, message: string): Promise<number>;
   eval(
     script: string,
     options: Readonly<{ keys: string[]; arguments: string[] }>,
