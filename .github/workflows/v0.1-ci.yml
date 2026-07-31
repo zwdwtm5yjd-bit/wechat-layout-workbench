@@ -1,0 +1,84 @@
+name: V0.1 CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "codex/**"
+
+concurrency:
+  cancel-in-progress: true
+  group: v0.1-ci-${{ github.ref }}
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality, unit tests, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+          node-version: 24.13.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  infrastructure:
+    name: Testcontainers integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+          node-version: 24.13.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:integration
+
+  browser:
+    name: Docker and Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+          node-version: 24.13.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium webkit
+      - run: pnpm docker:dev
+      - run: pnpm test:e2e
+      - run: pnpm docker:smoke
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: ignore
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+      - if: always()
+        run: pnpm docker:down

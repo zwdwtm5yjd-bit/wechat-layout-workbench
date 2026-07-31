@@ -37,6 +37,8 @@ export function DocumentWorkspace({ articleId }: { readonly articleId: string })
   const documentQuery = useQuery({
     queryKey: ["article-document", articleId],
     queryFn: () => getArticleDocument(articleId),
+    refetchOnMount: "always",
+    staleTime: 0,
   });
 
   if (documentQuery.isPending) {

@@ -305,9 +305,15 @@ pnpm build
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:integration
+pnpm test:e2e
 pnpm format
 pnpm format:check
 ```
+
+`pnpm test:integration` 使用 Testcontainers 启动隔离的 PostgreSQL、Redis 和 MinIO；
+`pnpm test:e2e` 要求先运行 `pnpm docker:dev`，并使用 Chromium 与 WebKit 验证核心用户流程。
+首次执行 E2E 前可用 `pnpm exec playwright install chromium webkit` 安装测试浏览器。
 
 单独启动应用：
 
@@ -376,5 +382,8 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S1-WEB-002` 验收通过后，下一任务是 `S1-TEST-001 V0.1 测试基线`。
+`S1-TEST-001` 代码基线与本地自动化终验已完成。V0.1 上线前仍需完成
+`S1-JOB-001`、`S1-THEME-002`、`S1-COMPONENT-002`，并关闭真实 Safari、微信公众号后台
+和远端 CI 验收门禁。详细状态见
+[V0.1 发布检查清单](./docs/testing/V0.1-release-checklist.md)。
 完整设计依据见 [docs](./docs/)。

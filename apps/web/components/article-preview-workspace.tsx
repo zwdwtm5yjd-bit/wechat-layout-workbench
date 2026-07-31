@@ -281,6 +281,8 @@ export function ArticlePreviewWorkspace({ articleId }: { readonly articleId: str
   const documentQuery = useQuery({
     queryKey: ["article-document", articleId],
     queryFn: () => getArticleDocument(articleId),
+    refetchOnMount: "always",
+    staleTime: 0,
   });
   const document = useMemo(
     () =>
