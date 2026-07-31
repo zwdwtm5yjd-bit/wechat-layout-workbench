@@ -98,6 +98,10 @@ export function listArticles(input: ArticleListInput): Promise<ArticleListResult
   return request<ArticleListResult>(`/api/v1/articles?${query.toString()}`);
 }
 
+export function getArticle(articleId: string): Promise<ArticleDetail> {
+  return request<ArticleDetail>(`/api/v1/articles/${encodeURIComponent(articleId)}`);
+}
+
 export function createArticle(input: CreateArticleInput): Promise<ArticleDetail> {
   return write<ArticleDetail>("/api/v1/articles", "POST", {
     ...input,

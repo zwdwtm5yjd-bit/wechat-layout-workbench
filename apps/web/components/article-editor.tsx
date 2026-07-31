@@ -41,7 +41,9 @@ import {
   AlignRight,
   ArrowDown,
   ArrowUp,
+  Blocks,
   Bold,
+  Check,
   ChevronsUpDown,
   Copy,
   FileText,
@@ -54,6 +56,7 @@ import {
   LockKeyhole,
   LockOpen,
   Minus,
+  Palette,
   Pilcrow,
   Quote,
   Redo2,
@@ -75,6 +78,8 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+
+import { V0_COMPONENT_PREVIEWS, V0_THEME_PREVIEWS } from "../lib/v0-catalog";
 
 interface ArticleEditorProps {
   readonly document: DocumentV1;
@@ -350,6 +355,8 @@ export function ArticleEditor({
   const [lockNotice, setLockNotice] = useState<string | null>(null);
   const [lockMutationPending, setLockMutationPending] = useState(false);
   const [unlockCandidate, setUnlockCandidate] = useState<string | null>(null);
+  const [leftPanel, setLeftPanel] = useState<"components" | "structure" | "themes">("structure");
+  const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
   const canvasShellRef = useRef<HTMLDivElement>(null);
   const extensions = useMemo(
     () =>
@@ -623,66 +630,167 @@ export function ArticleEditor({
           </button>
         </div>
       )}
-      <div className="grid min-h-[680px] xl:grid-cols-[220px_minmax(0,1fr)_248px]">
+      <div className="grid min-h-[680px] xl:grid-cols-[250px_minmax(0,1fr)_280px]">
         <aside className="border-b border-line bg-panel-muted xl:border-r xl:border-b-0">
-          <div className="border-b border-line px-4 py-3">
-            <div className="flex items-center gap-2">
-              <ListTree aria-hidden="true" className="text-accent" size={15} />
-              <p className="text-[12px] font-semibold text-ink">文章结构</p>
-              <span className="ml-auto rounded-full bg-panel px-2 py-0.5 text-[9px] text-faint">
-                {blocks.length}
-              </span>
-            </div>
-          </div>
-          <div className="max-h-64 space-y-0.5 overflow-y-auto p-2 xl:max-h-[390px]">
-            {blocks.map((block) => (
-              <OutlineBlock
-                block={block}
-                dragging={draggedBlockId === block.blockId}
-                editable={editable}
-                key={block.blockId}
-                onDragEnd={() => {
-                  setDraggedBlockId(null);
-                  setDropTargetId(null);
-                }}
-                onDragStart={() => setDraggedBlockId(block.blockId)}
-                onDrop={() => {
-                  if (draggedBlockId !== null) {
-                    moveBlockToIndex(editor, draggedBlockId, block.index);
-                  }
-                  setDraggedBlockId(null);
-                  setDropTargetId(null);
-                }}
-                onSelect={() => selectBlock(editor, block.blockId)}
-                selected={selectedBlockId === block.blockId}
-              />
+          <div className="grid grid-cols-3 gap-1 border-b border-line p-2">
+            {(
+              [
+                ["structure", ListTree, "结构"],
+                ["themes", Palette, "主题"],
+                ["components", Blocks, "组件"],
+              ] as const
+            ).map(([value, Icon, label]) => (
+              <button
+                aria-selected={leftPanel === value}
+                className={`flex h-9 items-center justify-center gap-1.5 rounded-control text-[10px] font-medium transition ${
+                  leftPanel === value
+                    ? "bg-panel text-accent shadow-subtle"
+                    : "text-muted hover:bg-hover hover:text-ink"
+                }`}
+                key={value}
+                onClick={() => setLeftPanel(value)}
+                role="tab"
+                type="button"
+              >
+                <Icon aria-hidden="true" size={13} />
+                {label}
+              </button>
             ))}
           </div>
-          <div className="border-t border-line p-3">
-            <p className="mb-2 text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
-              插入区块
-            </p>
-            <div className="grid grid-cols-2 gap-1.5">
-              {insertBlocks.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-control border border-line bg-panel text-[10px] text-muted transition hover:border-line-strong hover:text-ink disabled:opacity-45"
-                    disabled={!editable}
-                    key={item.type}
-                    onClick={() => insertBlockAfterSelection(editor, item.type)}
-                    type="button"
-                  >
-                    <Icon aria-hidden="true" size={14} />
-                    {item.label}
-                  </button>
-                );
-              })}
+          {leftPanel === "structure" ? (
+            <>
+              <div className="border-b border-line px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <ListTree aria-hidden="true" className="text-accent" size={15} />
+                  <p className="text-[12px] font-semibold text-ink">文章结构</p>
+                  <span className="ml-auto rounded-full bg-panel px-2 py-0.5 text-[9px] text-faint">
+                    {blocks.length}
+                  </span>
+                </div>
+              </div>
+              <div className="max-h-64 space-y-0.5 overflow-y-auto p-2 xl:max-h-[390px]">
+                {blocks.map((block) => (
+                  <OutlineBlock
+                    block={block}
+                    dragging={draggedBlockId === block.blockId}
+                    editable={editable}
+                    key={block.blockId}
+                    onDragEnd={() => {
+                      setDraggedBlockId(null);
+                      setDropTargetId(null);
+                    }}
+                    onDragStart={() => setDraggedBlockId(block.blockId)}
+                    onDrop={() => {
+                      if (draggedBlockId !== null) {
+                        moveBlockToIndex(editor, draggedBlockId, block.index);
+                      }
+                      setDraggedBlockId(null);
+                      setDropTargetId(null);
+                    }}
+                    onSelect={() => selectBlock(editor, block.blockId)}
+                    selected={selectedBlockId === block.blockId}
+                  />
+                ))}
+              </div>
+              <div className="border-t border-line p-3">
+                <p className="mb-2 text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
+                  插入区块
+                </p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {insertBlocks.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-control border border-line bg-panel text-[10px] text-muted transition hover:border-line-strong hover:text-ink disabled:opacity-45"
+                        disabled={!editable}
+                        key={item.type}
+                        onClick={() => insertBlockAfterSelection(editor, item.type)}
+                        type="button"
+                      >
+                        <Icon aria-hidden="true" size={14} />
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          ) : leftPanel === "themes" ? (
+            <div className="space-y-3 p-3">
+              <div className="rounded-control border border-accent/15 bg-accent-soft p-3">
+                <p className="text-[10px] leading-5 text-muted">
+                  主题试穿只改变当前画布视觉，不写入文档或安装状态。
+                </p>
+              </div>
+              {V0_THEME_PREVIEWS.map((theme) => (
+                <button
+                  aria-pressed={previewThemeId === theme.id}
+                  className={`w-full rounded-control border bg-panel p-3 text-left transition ${
+                    previewThemeId === theme.id
+                      ? "border-accent ring-2 ring-accent/10"
+                      : "border-line hover:border-line-strong"
+                  }`}
+                  key={theme.id}
+                  onClick={() =>
+                    setPreviewThemeId((current) => (current === theme.id ? null : theme.id))
+                  }
+                  type="button"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold text-ink">{theme.name}</p>
+                      <p className="mt-1 text-[9px] text-faint">{theme.category}</p>
+                    </div>
+                    {previewThemeId === theme.id ? (
+                      <span className="grid size-5 place-items-center rounded-full bg-accent text-white">
+                        <Check aria-hidden="true" size={11} />
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 flex gap-1">
+                    {theme.colors.map((color) => (
+                      <span
+                        className="h-2 flex-1 rounded-full"
+                        key={color}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[9px] leading-4 text-muted">{theme.description}</p>
+                </button>
+              ))}
             </div>
-          </div>
+          ) : (
+            <div className="space-y-2 p-3">
+              <p className="px-1 text-[10px] leading-5 text-muted">
+                点击后插入当前编辑器原生支持的安全区块。
+              </p>
+              {V0_COMPONENT_PREVIEWS.map((component) => (
+                <button
+                  className="flex w-full items-center gap-3 rounded-control border border-line bg-panel p-3 text-left transition hover:border-line-strong hover:bg-hover disabled:opacity-45"
+                  disabled={!editable}
+                  key={component.id}
+                  onClick={() => insertBlockAfterSelection(editor, component.blockType)}
+                  type="button"
+                >
+                  <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent-soft text-accent">
+                    <Blocks aria-hidden="true" size={13} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[10px] font-semibold text-ink">
+                      {component.name}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[9px] text-faint">
+                      {component.category} · {component.blockType}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </aside>
 
-        <div className="min-w-0 bg-[#efefed]">
+        <div className="min-w-0 bg-[#efefed]" data-preview-theme={previewThemeId ?? "default"}>
           <EditorToolbar editable={editable} editor={editor} selection={selection} />
           <div
             className="editor-canvas-scroll overflow-auto px-5 py-8 sm:px-8"
@@ -697,6 +805,11 @@ export function ArticleEditor({
             <div
               className="editor-canvas-shell relative mx-auto max-w-[677px] bg-white shadow-[0_4px_22px_rgb(24_24_27/8%)]"
               ref={canvasShellRef}
+              style={{
+                backgroundColor:
+                  V0_THEME_PREVIEWS.find((theme) => theme.id === previewThemeId)?.colors[1] ??
+                  "#ffffff",
+              }}
             >
               {selectedBlockId === null || blockHandleTop === null ? null : (
                 <div

@@ -26,11 +26,13 @@ import {
   type ClipboardWriteFailureReason,
 } from "../lib/copy/clipboard";
 import type { DocumentSaveSnapshot } from "../lib/documents/autosave";
+import { readWorkspacePreferences } from "../lib/preferences";
 import { useAppToast } from "./ui/app-toast";
 
 interface WechatCopyPanelProps {
   readonly articleId: string;
   readonly documentVersion: number;
+  readonly onRenderOutput?: (output: RenderOutput) => void;
   readonly saveStatus: DocumentSaveSnapshot["status"];
 }
 
@@ -54,7 +56,12 @@ function errorMessage(error: unknown): string {
   return error instanceof CopyClientError ? error.message : "生成复制内容失败，请稍后重试";
 }
 
-export function WechatCopyPanel({ articleId, documentVersion, saveStatus }: WechatCopyPanelProps) {
+export function WechatCopyPanel({
+  articleId,
+  documentVersion,
+  onRenderOutput,
+  saveStatus,
+}: WechatCopyPanelProps) {
   const { pushToast } = useAppToast();
   const [mode, setMode] = useState<WechatOutputMode>("standard");
   const [renderOutput, setRenderOutput] = useState<RenderOutput | null>(null);
@@ -67,6 +74,7 @@ export function WechatCopyPanel({ articleId, documentVersion, saveStatus }: Wech
 
   useEffect(() => {
     setSecureContext(globalThis.isSecureContext);
+    setMode(readWorkspacePreferences().copyMode);
   }, []);
 
   useEffect(() => {
@@ -91,6 +99,7 @@ export function WechatCopyPanel({ articleId, documentVersion, saveStatus }: Wech
         outputMode: mode,
       });
       setRenderOutput(output);
+      onRenderOutput?.(output);
       if (!output.canCopy) {
         setPayload(null);
         setMessage("兼容检查发现严重问题，正式复制已阻止。请按报告定位并修复。");

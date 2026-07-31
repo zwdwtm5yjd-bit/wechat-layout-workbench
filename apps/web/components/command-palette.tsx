@@ -35,11 +35,13 @@ const commands: readonly CommandItem[] = [
   },
   {
     description: "浏览可用主题",
+    href: "/workspace/themes",
     icon: SwatchBook,
     label: "打开主题中心",
   },
   {
     description: "管理工作台偏好",
+    href: "/workspace/settings",
     icon: Settings,
     label: "打开设置",
   },

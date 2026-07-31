@@ -116,6 +116,25 @@ describe("WechatCopyPanel", () => {
     expect(screen.getByText(/此操作不代表文章已发布/)).not.toBeNull();
   });
 
+  it("shares the exact formal render result with the compatibility drawer", async () => {
+    const user = userEvent.setup();
+    const onRenderOutput = vi.fn();
+    render(
+      <AppToastProvider>
+        <WechatCopyPanel
+          articleId={articleId}
+          documentVersion={4}
+          onRenderOutput={onRenderOutput}
+          saveStatus="saved"
+        />
+      </AppToastProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "生成正式内容" }));
+
+    await waitFor(() => expect(onRenderOutput).toHaveBeenCalledWith(renderOutput));
+  });
+
   it("opens a controlled manual-copy region when browser permission fails", async () => {
     vi.mocked(writeWechatClipboard).mockResolvedValue({
       ok: false,

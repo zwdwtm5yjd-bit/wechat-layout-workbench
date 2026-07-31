@@ -27,6 +27,12 @@ import { DropdownMenu, Tooltip } from "radix-ui";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { getCurrentUser, logout, type AuthUser } from "../lib/auth/client";
+import {
+  applyWorkspacePreferences,
+  defaultWorkspacePreferences,
+  readWorkspacePreferences,
+  workspacePreferencesChangeEvent,
+} from "../lib/preferences";
 import { useWorkspaceUiStore } from "../stores/workspace-ui-store";
 import { ProductMark } from "./product-mark";
 import { useAppToast } from "./ui/app-toast";
@@ -40,12 +46,12 @@ interface NavigationItem {
 const navigationItems: readonly NavigationItem[] = [
   { href: "/workspace", icon: LayoutDashboard, label: "工作台" },
   { href: "/workspace/articles", icon: FileText, label: "文章" },
-  { icon: Paintbrush, label: "主题" },
-  { icon: Blocks, label: "组件" },
+  { href: "/workspace/themes", icon: Paintbrush, label: "主题" },
+  { href: "/workspace/components", icon: Blocks, label: "组件" },
   { icon: Sparkles, label: "SVG 互动" },
   { icon: Radio, label: "公众号" },
   { icon: ImageUp, label: "素材更新" },
-  { icon: Settings, label: "设置" },
+  { href: "/workspace/settings", icon: Settings, label: "设置" },
 ];
 
 export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) {
@@ -56,9 +62,21 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
   const setCommandPaletteOpen = useWorkspaceUiStore((state) => state.setCommandPaletteOpen);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [compactEditor, setCompactEditor] = useState(defaultWorkspacePreferences.compactEditor);
+  const isArticleWorkspace =
+    /^\/workspace\/articles\/[^/]+(?:\/preview)?$/.test(pathname) &&
+    pathname !== "/workspace/articles";
+  const effectiveCollapsed = collapsed || (isArticleWorkspace && compactEditor);
 
   useEffect(() => {
     void useWorkspaceUiStore.persist.rehydrate();
+    const refreshPreferences = () => {
+      const preferences = readWorkspacePreferences();
+      setCompactEditor(preferences.compactEditor);
+      applyWorkspacePreferences(preferences);
+    };
+    refreshPreferences();
+    window.addEventListener(workspacePreferencesChangeEvent, refreshPreferences);
     let active = true;
 
     void getCurrentUser()
@@ -74,7 +92,37 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
 
     return () => {
       active = false;
+      window.removeEventListener(workspacePreferencesChangeEvent, refreshPreferences);
     };
+  }, []);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.tagName === "INPUT" ||
+          target.tagName === "SELECT" ||
+          target.tagName === "TEXTAREA")
+      ) {
+        return;
+      }
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) {
+        return;
+      }
+      const key = event.key.toLocaleLowerCase();
+      if (key === "n" && !event.shiftKey) {
+        event.preventDefault();
+        window.location.assign("/workspace/articles?new=1");
+      } else if (key === "o" && !event.shiftKey) {
+        event.preventDefault();
+        window.location.assign("/workspace/imports/paste");
+      }
+    };
+
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
   }, []);
 
   const handleLogout = async () => {
@@ -98,24 +146,36 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
       title: `${label}暂未开放`,
     });
   };
-  const pageHeading = pathname.startsWith("/workspace/articles/")
-    ? { description: "自动保存与版本保护", title: "文章文档" }
-    : pathname.startsWith("/workspace/imports/")
-      ? { description: "安全清洗与结构确认", title: "导入文章" }
-      : pathname === "/workspace/articles"
-        ? { description: "搜索、状态与回收站", title: "文章" }
-        : { description: "快速开始与最近工作", title: "工作台" };
+  const pageHeading = pathname.endsWith("/preview")
+    ? { description: "多设备与微信安全预览", title: "文章预览" }
+    : pathname.startsWith("/workspace/articles/")
+      ? { description: "自动保存与版本保护", title: "文章文档" }
+      : pathname.startsWith("/workspace/imports/")
+        ? { description: "安全清洗与结构确认", title: "导入文章" }
+        : pathname === "/workspace/articles"
+          ? { description: "搜索、状态与回收站", title: "文章" }
+          : pathname === "/workspace/themes"
+            ? { description: "视觉方向与主题预览", title: "主题" }
+            : pathname === "/workspace/components"
+              ? { description: "微信安全基础区块", title: "组件" }
+              : pathname === "/workspace/settings"
+                ? { description: "本机偏好与功能边界", title: "设置" }
+                : { description: "快速开始与最近工作", title: "工作台" };
 
   return (
     <div className="min-h-screen bg-canvas">
       <aside
         className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-line bg-panel transition-[width] duration-200 lg:flex ${
-          collapsed ? "w-[72px]" : "w-56"
+          effectiveCollapsed ? "w-[72px]" : "w-56"
         }`}
       >
-        <div className={`flex h-16 items-center ${collapsed ? "justify-center px-3" : "px-5"}`}>
+        <div
+          className={`flex h-16 items-center ${
+            effectiveCollapsed ? "justify-center px-3" : "px-5"
+          }`}
+        >
           <Link aria-label="返回工作台" href="/workspace">
-            <ProductMark compact={collapsed} />
+            <ProductMark compact={effectiveCollapsed} />
           </Link>
         </div>
         <nav aria-label="主导航" className="flex-1 space-y-1 px-2.5 py-3">
@@ -127,7 +187,7 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
                 : item.href !== undefined &&
                   (pathname === item.href || pathname.startsWith(`${item.href}/`));
             const navigationClassName = `flex h-10 w-full items-center rounded-control text-[13px] font-medium transition ${
-              collapsed ? "justify-center px-0" : "gap-3 px-3"
+              effectiveCollapsed ? "justify-center px-0" : "gap-3 px-3"
             } ${
               active
                 ? "bg-accent-soft text-accent-strong"
@@ -143,7 +203,7 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
                   type="button"
                 >
                   <Icon aria-hidden="true" size={18} strokeWidth={1.9} />
-                  {collapsed ? null : <span>{item.label}</span>}
+                  {effectiveCollapsed ? null : <span>{item.label}</span>}
                 </button>
               ) : (
                 <Link
@@ -152,11 +212,11 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
                   href={item.href}
                 >
                   <Icon aria-hidden="true" size={18} strokeWidth={1.9} />
-                  {collapsed ? null : <span>{item.label}</span>}
+                  {effectiveCollapsed ? null : <span>{item.label}</span>}
                 </Link>
               );
 
-            return collapsed ? (
+            return effectiveCollapsed ? (
               <Tooltip.Root key={item.label}>
                 <Tooltip.Trigger asChild>{navigationControl}</Tooltip.Trigger>
                 <Tooltip.Portal>
@@ -178,7 +238,7 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
         <div className="space-y-1 border-t border-line px-2.5 py-3">
           <button
             className={`flex h-10 w-full items-center rounded-control text-muted transition hover:bg-hover hover:text-ink ${
-              collapsed ? "justify-center" : "gap-3 px-3"
+              effectiveCollapsed ? "justify-center" : "gap-3 px-3"
             }`}
             onClick={() => {
               announceFoundationBoundary("存储状态");
@@ -186,11 +246,11 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
             type="button"
           >
             <HardDrive aria-hidden="true" size={17} />
-            {collapsed ? null : <span className="text-[13px]">存储状态</span>}
+            {effectiveCollapsed ? null : <span className="text-[13px]">存储状态</span>}
           </button>
           <button
             className={`flex h-10 w-full items-center rounded-control text-muted transition hover:bg-hover hover:text-ink ${
-              collapsed ? "justify-center" : "gap-3 px-3"
+              effectiveCollapsed ? "justify-center" : "gap-3 px-3"
             }`}
             onClick={() => {
               announceFoundationBoundary("帮助中心");
@@ -198,21 +258,21 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
             type="button"
           >
             <CircleHelp aria-hidden="true" size={17} />
-            {collapsed ? null : <span className="text-[13px]">帮助</span>}
+            {effectiveCollapsed ? null : <span className="text-[13px]">帮助</span>}
           </button>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <button
                 aria-label="打开用户菜单"
                 className={`flex h-11 w-full items-center rounded-control transition hover:bg-hover ${
-                  collapsed ? "justify-center" : "gap-3 px-2"
+                  effectiveCollapsed ? "justify-center" : "gap-3 px-2"
                 }`}
                 type="button"
               >
                 <span className="grid size-8 shrink-0 place-items-center rounded-full bg-zinc-900 text-white">
                   <UserRound aria-hidden="true" size={15} />
                 </span>
-                {collapsed ? null : (
+                {effectiveCollapsed ? null : (
                   <span className="min-w-0 text-left">
                     <span className="block truncate text-[13px] font-medium text-ink">
                       {currentUser?.displayName ?? "正在验证…"}
@@ -238,9 +298,7 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
                 </DropdownMenu.Label>
                 <DropdownMenu.Item
                   className="rounded-md px-2 py-2 text-[13px] text-muted outline-none data-[highlighted]:bg-hover data-[highlighted]:text-ink"
-                  onSelect={() => {
-                    announceFoundationBoundary("账号设置");
-                  }}
+                  onSelect={() => window.location.assign("/workspace/settings")}
                 >
                   账号设置
                 </DropdownMenu.Item>
@@ -258,23 +316,25 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
         </div>
-        <button
-          aria-label={collapsed ? "展开导航" : "收起导航"}
-          className="absolute top-20 -right-3 grid size-6 place-items-center rounded-full border border-line bg-panel text-faint shadow-subtle transition hover:text-ink"
-          onClick={toggleSidebar}
-          type="button"
-        >
-          {collapsed ? (
-            <ChevronsRight aria-hidden="true" size={13} />
-          ) : (
-            <ChevronsLeft aria-hidden="true" size={13} />
-          )}
-        </button>
+        {isArticleWorkspace ? null : (
+          <button
+            aria-label={collapsed ? "展开导航" : "收起导航"}
+            className="absolute top-20 -right-3 grid size-6 place-items-center rounded-full border border-line bg-panel text-faint shadow-subtle transition hover:text-ink"
+            onClick={toggleSidebar}
+            type="button"
+          >
+            {collapsed ? (
+              <ChevronsRight aria-hidden="true" size={13} />
+            ) : (
+              <ChevronsLeft aria-hidden="true" size={13} />
+            )}
+          </button>
+        )}
       </aside>
 
       <div
         className={`min-h-screen transition-[padding] duration-200 ${
-          collapsed ? "lg:pl-[72px]" : "lg:pl-56"
+          effectiveCollapsed ? "lg:pl-[72px]" : "lg:pl-56"
         }`}
       >
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-line bg-panel/95 px-4 backdrop-blur-md sm:px-6 lg:px-7">

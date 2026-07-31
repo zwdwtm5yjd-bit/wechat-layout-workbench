@@ -42,6 +42,8 @@ const filters: readonly { readonly label: string; readonly value: ArticleFilter 
   { label: "待排版", value: "pending_layout" },
   { label: "编辑中", value: "layout_editing" },
   { label: "待检查", value: "pending_check" },
+  { label: "已复制", value: "copied" },
+  { label: "已同步", value: "synced" },
   { label: "已发布", value: "published" },
   { label: "已归档", value: "archived" },
   { label: "回收站", value: "trash" },

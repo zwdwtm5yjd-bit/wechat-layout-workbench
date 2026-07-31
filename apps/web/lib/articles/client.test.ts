@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ArticleClientError, createArticle, listArticles, trashArticle } from "./client";
+import {
+  ArticleClientError,
+  createArticle,
+  getArticle,
+  listArticles,
+  trashArticle,
+} from "./client";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -40,6 +46,25 @@ describe("article client", () => {
     expect(url).toContain("status=pending_layout");
     expect(url).toContain("search=%E5%B7%A1%E5%AF%9F+%26+%E5%B7%A5%E4%BD%9C");
     expect(init.credentials).toBe("include");
+  });
+
+  it("encodes article ids when reading preview metadata", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        success: true,
+        data: { id: "article/with spaces", title: "预览文章" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getArticle("article/with spaces");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/articles/article%2Fwith%20spaces"),
+      expect.objectContaining({
+        credentials: "include",
+      }),
+    );
   });
 
   it("obtains CSRF before create and delete writes", async () => {
