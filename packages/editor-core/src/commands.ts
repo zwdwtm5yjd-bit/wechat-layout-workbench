@@ -1,4 +1,9 @@
 import type { Editor, JSONContent } from "@tiptap/core";
+import {
+  type ComponentInsertionResult,
+  type ComponentRegistry,
+  type ComponentSlotValue,
+} from "@wechat-layout/component-registry";
 import { closeHistory } from "@tiptap/pm/history";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Fragment } from "@tiptap/pm/model";
@@ -25,6 +30,13 @@ export type InsertableBlockType =
   "paragraph" | "heading1" | "heading2" | "heading3" | "blockquote" | "divider";
 
 export type InlineMarkName = "bold" | "italic" | "underline" | "strike";
+
+export interface InsertRegisteredComponentInput {
+  readonly componentId: string;
+  readonly slots?: Readonly<Record<string, ComponentSlotValue>>;
+  readonly variantId?: string;
+  readonly version?: string;
+}
 
 export function canUndo(editor: Editor): boolean {
   return editor.can().undo();
@@ -120,6 +132,79 @@ function nodeSelectionAt(transaction: ReturnType<Editor["state"]["tr"]["setMeta"
   return NodeSelection.create(transaction.doc, pos);
 }
 
+function compatibilityLevel(
+  value: "compatible" | "conditional" | "risky" | "safe",
+): "conditional" | "safe" | "static" {
+  if (value === "conditional") {
+    return "conditional";
+  }
+  return value === "risky" ? "static" : "safe";
+}
+
+function textContent(value: string | number): JSONContent[] | undefined {
+  const text = String(value);
+  return text.length === 0 ? undefined : [{ type: "text", text }];
+}
+
+function componentBlockJson(
+  descriptor: Extract<ComponentInsertionResult, { readonly success: true }>["descriptor"],
+): JSONContent {
+  const attributes: Record<string, unknown> = {
+    blockId: createBlockId(),
+    compatibilityLevel: compatibilityLevel(descriptor.compatibilityLevel),
+    componentId: descriptor.componentId,
+    componentVersion: descriptor.version,
+    locked: false,
+    variant: descriptor.variantId,
+  };
+  const content: JSONContent[] = [];
+
+  descriptor.manifest.slots.forEach((slot) => {
+    const value = descriptor.slots[slot.slotId];
+    if (value === undefined) {
+      return;
+    }
+    if (slot.editorBinding !== "content") {
+      if (typeof value === "string" || typeof value === "number") {
+        attributes[slot.editorBinding] = String(value);
+      }
+      return;
+    }
+    if (typeof value === "object") {
+      content.push({
+        type: "imageBlock",
+        attrs: {
+          alt: value.alt ?? null,
+          blockId: createBlockId(),
+          caption: value.caption ?? null,
+          compatibilityLevel: compatibilityLevel(descriptor.compatibilityLevel),
+          locked: slot.textLocked,
+          resourceId: value.resourceId,
+          semanticRole: slot.slotId,
+        },
+      });
+      return;
+    }
+    const paragraphContent = textContent(value);
+    content.push({
+      type: "paragraph",
+      attrs: {
+        blockId: createBlockId(),
+        compatibilityLevel: compatibilityLevel(descriptor.compatibilityLevel),
+        locked: slot.textLocked,
+        semanticRole: slot.slotId,
+      },
+      ...(paragraphContent === undefined ? {} : { content: paragraphContent }),
+    });
+  });
+
+  return {
+    type: "semanticCard",
+    attrs: attributes,
+    ...(content.length === 0 ? {} : { content }),
+  };
+}
+
 export function selectBlock(editor: Editor, blockId: string): boolean {
   const entry = findTopLevelBlockById(editor, blockId);
   if (entry === null) {
@@ -150,6 +235,33 @@ export function insertBlockAfterSelection(editor: Editor, type: InsertableBlockT
   editor.view.dispatch(transaction.scrollIntoView());
   editor.commands.focus();
   return true;
+}
+
+export function insertRegisteredComponentAfterSelection(
+  editor: Editor,
+  registry: ComponentRegistry,
+  input: InsertRegisteredComponentInput,
+): ComponentInsertionResult {
+  const result = registry.prepareInsertion(input);
+  if (!result.success) {
+    return result;
+  }
+
+  const entries = topLevelBlockEntries(editor);
+  const selection = getEditorSelection(editor);
+  const selectedEntry =
+    selection === null ? entries.at(-1) : entries.find((entry) => entry.index === selection.index);
+  const insertionPos =
+    selectedEntry === undefined ? 0 : selectedEntry.pos + selectedEntry.node.nodeSize;
+  const node = editor.schema.nodeFromJSON(componentBlockJson(result.descriptor));
+  const transaction = editor.state.tr
+    .insert(insertionPos, node)
+    .setMeta("transactionOrigin", EDITOR_TRANSACTION_ORIGIN.insert);
+  closeHistory(transaction);
+  transaction.setSelection(nodeSelectionAt(transaction, insertionPos));
+  editor.view.dispatch(transaction.scrollIntoView());
+  editor.commands.focus();
+  return result;
 }
 
 export function duplicateBlock(editor: Editor, blockId?: string): boolean {

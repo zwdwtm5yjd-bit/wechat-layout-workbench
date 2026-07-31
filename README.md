@@ -11,7 +11,8 @@
 `S1-ARTICLE-001 文章 CRUD`、`S1-DOC-001 文档保存与乐观锁` 和
 `S1-VERSION-001 快照系统`、`S1-IMPORT-001 粘贴导入` 和
 `S1-RESOURCE-001 基础资源服务`、`S1-EDITOR-002 Tiptap 编辑器核心` 和
-`S1-EDITOR-003 原文锁定`、`S1-THEME-001 Token 引擎`：
+`S1-EDITOR-003 原文锁定`、`S1-THEME-001 Token 引擎` 和
+`S1-COMPONENT-001 组件注册中心`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -90,10 +91,16 @@
 - Token Schema V1，以及颜色、排印、间距、圆角、边框、阴影、图片、动效和兼容 Token；
 - 系统、主题、品牌占位、组件、文章、节点和行内七层确定性优先级解析；
 - Token 引用与循环检测、任意 CSS 拒绝、受控局部覆盖和微信安全模式强制降级；
-- 深冻结解析结果、分层追踪和有界 LRU 缓存。
+- 深冻结解析结果、分层追踪和有界 LRU 缓存；
+- 声明式 Component Manifest、21 类组件编码、Slot Schema、Variant 和兼容等级；
+- `componentId@version` 不可变精确引用、多版本共存、最新版本解析和分类/语义查询；
+- Slot 必填、类型、长度、编辑器绑定和微信导出方式的插入前校验；
+- 编辑器与微信 Renderer 共用 Manifest 的 Renderer Key，组件收藏保留显式占位接口；
+- 注册组件的 Tiptap 插入命令、精确版本固化和可用/缺失状态 Node View；
+- 缺失、未安装或停用组件的安全占位，以及原始文字保留。
 
-本阶段尚未实现资源管理 UI、DOCX 文件导入、基础主题包与主题应用、组件渲染、SVG 执行、
-微信连接或微信草稿同步。
+本阶段尚未实现资源管理 UI、DOCX 文件导入、基础主题包与主题应用、基础组件包、微信
+HTML Renderer、SVG 执行、微信连接或微信草稿同步。
 
 ## 环境要求
 
@@ -325,6 +332,6 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S1-THEME-001` 验收通过后，开发总指令指定的下一任务是
-`S1-COMPONENT-001 组件注册中心`。
+`S1-COMPONENT-001` 验收通过后，开发总指令指定的下一任务是
+`S1-RENDER-001 微信 HTML Renderer 核心`。
 完整设计依据见 [docs](./docs/)。

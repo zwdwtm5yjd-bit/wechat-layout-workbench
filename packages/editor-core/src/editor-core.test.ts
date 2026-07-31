@@ -2,6 +2,11 @@
 
 import { documentV1Fixture } from "@wechat-layout/document-schema/fixtures";
 import { Editor } from "@tiptap/core";
+import {
+  COMPONENT_MANIFEST_SCHEMA_VERSION,
+  ComponentRegistry,
+  type ComponentManifest,
+} from "@wechat-layout/component-registry";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -13,6 +18,7 @@ import {
   duplicateBlock,
   editorContentToDocument,
   insertBlockAfterSelection,
+  insertRegisteredComponentAfterSelection,
   listTopLevelBlocks,
   moveBlock,
   redo,
@@ -22,6 +28,64 @@ import {
 } from "./index.js";
 
 const editors: Editor[] = [];
+
+const summaryCardManifest: ComponentManifest = {
+  adjustableProperties: ["backgroundColor"],
+  category: "CARD",
+  compatibilityLevel: "safe",
+  componentId: "cmp_card_summary_default_001",
+  defaultTokenMap: { backgroundColor: "#FFFFFF" },
+  defaultVariantId: "default",
+  editorRendererKey: "SummaryCardNodeView",
+  fallback: {
+    kind: "semantic_card",
+    preserveOriginalText: true,
+    rendererKey: "safePlaceholder",
+  },
+  name: "摘要卡片",
+  nodeType: "semanticCard",
+  schemaVersion: COMPONENT_MANIFEST_SCHEMA_VERSION,
+  semanticRoles: ["summary"],
+  slots: [
+    {
+      allowImages: false,
+      allowRichText: false,
+      editorBinding: "title",
+      kind: "text",
+      label: "标题",
+      maxLength: 80,
+      required: true,
+      slotId: "title",
+      textLocked: true,
+      wechatExport: "plain_text",
+    },
+    {
+      allowImages: false,
+      allowRichText: true,
+      editorBinding: "content",
+      kind: "rich_text",
+      label: "正文",
+      required: true,
+      slotId: "body",
+      textLocked: true,
+      wechatExport: "rich_text",
+    },
+    {
+      allowImages: true,
+      allowRichText: false,
+      editorBinding: "content",
+      kind: "image",
+      label: "配图",
+      required: false,
+      slotId: "image",
+      textLocked: false,
+      wechatExport: "image",
+    },
+  ],
+  variants: [{ name: "默认", variantId: "default" }],
+  version: "1.0.0",
+  wechatRendererKey: "summaryCardRenderer",
+};
 
 function createEditor(content = documentToEditorContent(documentV1Fixture)): Editor {
   const editor = new Editor({
@@ -233,5 +297,116 @@ describe("editor core", () => {
     editor.commands.setTextSelection(editor.state.doc.content.size - 1);
     expect(editor.commands.insertContent("可编辑")).toBe(true);
     expect(editor.state.doc.textContent).toBe("手工区块可编辑");
+  });
+
+  it("inserts a validated component with an exact version and slot bindings", () => {
+    const registry = new ComponentRegistry();
+    registry.register(summaryCardManifest);
+    const editor = createEditor({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          attrs: { blockId: "block_before_component", locked: false },
+        },
+      ],
+    });
+
+    expect(selectBlock(editor, "block_before_component")).toBe(true);
+    const result = insertRegisteredComponentAfterSelection(editor, registry, {
+      componentId: "cmp_card_summary_default_001",
+      slots: {
+        body: "组件正文",
+        image: { alt: "摘要配图", resourceId: "resource_summary_image" },
+        title: "组件标题",
+      },
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      descriptor: { version: "1.0.0" },
+    });
+    expect(editor.getJSON().content?.[1]).toMatchObject({
+      type: "semanticCard",
+      attrs: {
+        compatibilityLevel: "safe",
+        componentId: "cmp_card_summary_default_001",
+        componentVersion: "1.0.0",
+        title: "组件标题",
+        variant: "default",
+      },
+      content: [
+        {
+          type: "paragraph",
+          attrs: {
+            locked: true,
+            semanticRole: "body",
+          },
+          content: [{ text: "组件正文", type: "text" }],
+        },
+        {
+          type: "imageBlock",
+          attrs: {
+            alt: "摘要配图",
+            locked: false,
+            resourceId: "resource_summary_image",
+            semanticRole: "image",
+          },
+        },
+      ],
+    });
+    expect(() => editorContentToDocument(documentV1Fixture, editor.getJSON())).not.toThrow();
+  });
+
+  it("renders registered and missing component Node Views through the registry boundary", () => {
+    const registry = new ComponentRegistry();
+    registry.register(summaryCardManifest);
+    const element = document.createElement("div");
+    document.body.append(element);
+    const editor = new Editor({
+      element,
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "semanticCard",
+            attrs: {
+              blockId: "block_component_available",
+              componentId: "cmp_card_summary_default_001",
+              componentVersion: "1.0.0",
+              locked: false,
+            },
+          },
+          {
+            type: "semanticCard",
+            attrs: {
+              blockId: "block_component_missing",
+              componentId: "cmp_card_missing_default_001",
+              componentVersion: "9.9.9",
+              locked: false,
+            },
+          },
+        ],
+      },
+      extensions: createDocumentExtensions({
+        componentNodeViewResolver: (reference) => registry.describeNodeView(reference),
+      }),
+    });
+    editors.push(editor);
+
+    const nodeViews = element.querySelectorAll<HTMLElement>(".editor-semantic-card");
+    expect(nodeViews).toHaveLength(2);
+    expect(nodeViews[0]?.dataset).toMatchObject({
+      componentRenderer: "SummaryCardNodeView",
+      componentState: "available",
+      componentVersion: "1.0.0",
+    });
+    expect(nodeViews[0]?.textContent).toContain("摘要卡片");
+    expect(nodeViews[1]?.dataset).toMatchObject({
+      componentRenderer: "safePlaceholder",
+      componentState: "missing",
+      componentVersion: "9.9.9",
+    });
+    expect(nodeViews[1]?.textContent).toContain("安全占位");
   });
 });

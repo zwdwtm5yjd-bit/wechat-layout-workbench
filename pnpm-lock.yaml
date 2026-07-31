@@ -202,7 +202,11 @@ importers:
 
   packages/api-contracts: {}
 
-  packages/component-registry: {}
+  packages/component-registry:
+    dependencies:
+      '@wechat-layout/design-tokens':
+        specifier: workspace:*
+        version: link:../design-tokens
 
   packages/config:
     dependencies:
@@ -252,6 +256,9 @@ importers:
       '@tiptap/starter-kit':
         specifier: 3.29.2
         version: 3.29.2
+      '@wechat-layout/component-registry':
+        specifier: workspace:*
+        version: link:../component-registry
       '@wechat-layout/document-schema':
         specifier: workspace:*
         version: link:../document-schema

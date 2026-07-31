@@ -19,5 +19,8 @@
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --root . --passWithNoTests"
+  },
+  "dependencies": {
+    "@wechat-layout/design-tokens": "workspace:*"
   }
 }

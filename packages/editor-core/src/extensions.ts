@@ -1,4 +1,8 @@
 import { Extension, Mark, Node, mergeAttributes, type Extensions } from "@tiptap/core";
+import type {
+  ComponentNodeViewDescriptor,
+  ExactComponentReference,
+} from "@wechat-layout/component-registry";
 import {
   validateTextLockEvolution,
   type DocNode,
@@ -25,6 +29,9 @@ export const BLOCK_NODE_NAMES = [
 export type EditorBlockNodeName = (typeof BLOCK_NODE_NAMES)[number];
 
 export interface DocumentExtensionOptions {
+  readonly componentNodeViewResolver?: (
+    reference: ExactComponentReference,
+  ) => ComponentNodeViewDescriptor;
   readonly onTextMutationBlocked?: (violations: readonly TextLockViolation[]) => void;
   readonly textLocked?: boolean;
 }
@@ -484,44 +491,119 @@ const Divider = Node.create({
   },
 });
 
-const SemanticCard = Node.create({
-  name: "semanticCard",
-  group: "block",
-  content: "(paragraph|heading|blockquote|bulletList|orderedList|imageBlock|divider)*",
-  defining: true,
+function createSemanticCardExtension(
+  resolver: DocumentExtensionOptions["componentNodeViewResolver"],
+) {
+  function descriptorFor(node: {
+    readonly attrs: Readonly<Record<string, unknown>>;
+  }): ComponentNodeViewDescriptor {
+    const componentId =
+      typeof node.attrs.componentId === "string" ? node.attrs.componentId : "component_unknown";
+    const version =
+      typeof node.attrs.componentVersion === "string" ? node.attrs.componentVersion : "0.0.0";
+    return (
+      resolver?.({ componentId, version }) ?? {
+        componentId,
+        label: componentId,
+        rendererKey: "GenericSemanticCardNodeView",
+        state: "available",
+        version,
+      }
+    );
+  }
 
-  addAttributes() {
-    return {
-      componentId: {
-        default: "component_basic_card",
-        renderHTML: () => ({}),
-      },
-      componentVersion: {
-        default: "1.0.0",
-        renderHTML: () => ({}),
-      },
-      variant: ignoredAttribute,
-      eyebrow: ignoredAttribute,
-      title: ignoredAttribute,
-      footer: ignoredAttribute,
-    };
-  },
+  function applyDescriptor(
+    dom: HTMLElement,
+    label: HTMLElement,
+    descriptor: ComponentNodeViewDescriptor,
+  ): void {
+    dom.dataset.componentId = descriptor.componentId;
+    dom.dataset.componentRenderer = descriptor.rendererKey;
+    dom.dataset.componentState = descriptor.state;
+    if (descriptor.version === undefined) {
+      delete dom.dataset.componentVersion;
+    } else {
+      dom.dataset.componentVersion = descriptor.version;
+    }
+    label.textContent =
+      descriptor.state === "available" && descriptor.version !== undefined
+        ? `${descriptor.label} · ${descriptor.version}`
+        : descriptor.label;
+  }
 
-  parseHTML() {
-    return [{ tag: "section[data-node-type='semanticCard']" }];
-  },
+  return Node.create({
+    name: "semanticCard",
+    group: "block",
+    content: "(paragraph|heading|blockquote|bulletList|orderedList|imageBlock|divider)*",
+    defining: true,
 
-  renderHTML({ HTMLAttributes }) {
-    return [
-      "section",
-      mergeAttributes(HTMLAttributes, {
-        class: "editor-semantic-card",
-        "data-node-type": "semanticCard",
-      }),
-      0,
-    ];
-  },
-});
+    addAttributes() {
+      return {
+        componentId: {
+          default: "component_basic_card",
+          renderHTML: () => ({}),
+        },
+        componentVersion: {
+          default: "1.0.0",
+          renderHTML: () => ({}),
+        },
+        variant: ignoredAttribute,
+        eyebrow: ignoredAttribute,
+        title: ignoredAttribute,
+        footer: ignoredAttribute,
+      };
+    },
+
+    parseHTML() {
+      return [{ tag: "section[data-node-type='semanticCard']" }];
+    },
+
+    renderHTML({ HTMLAttributes, node }) {
+      const descriptor = descriptorFor(node);
+      return [
+        "section",
+        mergeAttributes(HTMLAttributes, {
+          class: "editor-semantic-card",
+          "data-component-id": descriptor.componentId,
+          "data-component-renderer": descriptor.rendererKey,
+          "data-component-state": descriptor.state,
+          ...(descriptor.version === undefined
+            ? {}
+            : { "data-component-version": descriptor.version }),
+          "data-node-type": "semanticCard",
+        }),
+        0,
+      ];
+    },
+
+    addNodeView() {
+      return ({ node }) => {
+        const dom = document.createElement("section");
+        dom.className = "editor-semantic-card";
+        dom.dataset.nodeType = "semanticCard";
+        const label = document.createElement("div");
+        label.className = "editor-semantic-card__label";
+        label.contentEditable = "false";
+        const contentDOM = document.createElement("div");
+        contentDOM.className = "editor-semantic-card__content";
+        applyDescriptor(dom, label, descriptorFor(node));
+        dom.append(label, contentDOM);
+
+        return {
+          contentDOM,
+          dom,
+          update(updatedNode) {
+            if (updatedNode.type.name !== "semanticCard") {
+              return false;
+            }
+            applyDescriptor(dom, label, descriptorFor(updatedNode));
+            return true;
+          },
+        };
+      };
+    },
+  });
+}
 
 const BrandFooter = Node.create({
   name: "brandFooter",
@@ -747,7 +829,7 @@ export function createDocumentExtensions(options: DocumentExtensionOptions = {})
     ListItem,
     ImageBlock,
     Divider,
-    SemanticCard,
+    createSemanticCardExtension(options.componentNodeViewResolver),
     BrandFooter,
     SvgInteraction,
     simpleMark("underline", "u"),
