@@ -71,6 +71,9 @@ importers:
       '@wechat-layout/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@wechat-layout/design-tokens':
+        specifier: workspace:*
+        version: link:../../packages/design-tokens
       '@wechat-layout/document-schema':
         specifier: workspace:*
         version: link:../../packages/document-schema

@@ -72,6 +72,18 @@ const result = engine.resolve({
 `resolve` 在校验失败时抛出 `TokenValidationError`；`tryResolve` 返回可判别联合类型。
 成功结果经过键排序和深冻结，相同输入由有界 LRU 缓存返回同一结果对象。
 
+## 官方主题包
+
+本包内置两套发布状态的不可变 `1.0.0` 主题：
+
+- `高级极简`：默认通用长文主题，强调留白、字阶和细线；
+- `现代政务红`：面向政务、巡察和国企内容的深红米金主题。
+
+每套主题都固化 Manifest、Token、组件引用、配色版本、预览文案、兼容能力、Renderer 最低
+版本、迁移策略和 Changelog。通过 `listOfficialThemes` 查询目录，使用 `getOfficialTheme` 获取
+指定主题或精确版本，使用 `getOfficialThemeVersions` 列出不可变版本。调用方不得原地修改返回
+资产；所有官方包均已深冻结。
+
 ## 安全模式
 
 `wechat_safe` 在所有普通优先级之后执行，强制：

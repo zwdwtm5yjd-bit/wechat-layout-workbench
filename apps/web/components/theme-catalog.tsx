@@ -2,19 +2,19 @@
 
 import { Check, Eye, Palette, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { Dialog } from "radix-ui";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
-import { V0_THEME_PREVIEWS, type ThemePreview } from "../lib/v0-catalog";
-import { useAppToast } from "./ui/app-toast";
+import { listThemes, type OfficialTheme } from "../lib/themes/client";
 
 function ThemeArtwork({
   theme,
   large = false,
 }: {
   readonly large?: boolean;
-  readonly theme: ThemePreview;
+  readonly theme: OfficialTheme;
 }) {
-  const civic = theme.id === "modern-civic";
+  const colors = theme.preview.accentColors;
 
   return (
     <div
@@ -24,24 +24,24 @@ function ThemeArtwork({
     >
       <div
         className={`mx-auto h-1 rounded-full ${large ? "w-20" : "w-12"}`}
-        style={{ backgroundColor: theme.colors[2] }}
+        style={{ backgroundColor: colors[2] }}
       />
       <p
         className={`${large ? "mt-10 text-3xl" : "mt-5 text-[15px]"} text-center font-bold tracking-tight`}
-        style={{ color: theme.colors[0] }}
+        style={{ color: colors[0] }}
       >
-        {civic ? "把工作做深，把责任压实" : "让真正重要的内容被看见"}
+        {theme.preview.heading1}
       </p>
       <p
         className={`${large ? "mt-5 text-[15px] leading-8" : "mt-3 text-[9px] leading-4"} text-zinc-500`}
       >
-        好的排版不是装饰内容，而是建立阅读秩序。标题、正文、引用与留白各自承担清楚的职责。
+        {theme.preview.body}
       </p>
       <div
         className={`${large ? "my-8 p-5 text-sm leading-7" : "my-4 p-3 text-[9px] leading-4"} border-l-[3px]`}
-        style={{ borderColor: theme.colors[2], backgroundColor: theme.colors[1] }}
+        style={{ borderColor: colors[2], backgroundColor: colors[1] }}
       >
-        每一处视觉强调都必须服务于信息，而不是争夺注意力。
+        {theme.preview.quote}
       </div>
       {[74, 92, 84, 66].map((width) => (
         <div
@@ -55,19 +55,24 @@ function ThemeArtwork({
 }
 
 export function ThemeCatalog() {
-  const { pushToast } = useAppToast();
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<ThemePreview | null>(null);
+  const [selected, setSelected] = useState<OfficialTheme | null>(null);
+  const themes = useQuery({
+    queryKey: ["themes"],
+    queryFn: () => listThemes(),
+    staleTime: 60_000,
+  });
   const visibleThemes = useMemo(() => {
+    const items = themes.data?.items ?? [];
     const normalized = query.trim().toLocaleLowerCase("zh-CN");
     return normalized === ""
-      ? V0_THEME_PREVIEWS
-      : V0_THEME_PREVIEWS.filter((theme) =>
-          `${theme.name} ${theme.category} ${theme.description} ${theme.scenes.join(" ")}`
+      ? items
+      : items.filter((theme) =>
+          `${theme.manifest.name} ${theme.manifest.categories.join(" ")} ${theme.manifest.description} ${theme.manifest.recommendedContentTypes.join(" ")}`
             .toLocaleLowerCase("zh-CN")
             .includes(normalized),
         );
-  }, [query]);
+  }, [query, themes.data]);
 
   return (
     <div className="space-y-6">
@@ -76,8 +81,8 @@ export function ThemeCatalog() {
           <p className="text-[12px] font-medium text-accent">VISUAL SYSTEM</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">主题</h1>
           <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted">
-            V0.1 先提供两套视觉方向预览。主题 Token
-            协议已经冻结，正式安装与应用由基础主题资产任务接入。
+            两套官方基础主题已安装。每套共用同一份 Token、安全模式和微信 Renderer
+            资产，可在文章编辑器中试穿并正式应用。
           </p>
         </div>
         <label className="relative w-full md:w-72">
@@ -102,15 +107,23 @@ export function ThemeCatalog() {
             <Sparkles aria-hidden="true" size={16} />
           </span>
           <div>
-            <p className="text-[13px] font-semibold text-ink">预览目录，不伪造安装状态</p>
+            <p className="text-[13px] font-semibold text-ink">官方资产已安装</p>
             <p className="mt-1 text-[11px] leading-5 text-muted">
-              你可以查看完整视觉方向；编辑器内支持临时“试穿”。正式应用按钮会保持禁用，直到主题资产和持久化接口完成。
+              正式应用前会自动创建文章快照，只更新主题引用，不改变原文。
             </p>
           </div>
         </div>
       </section>
 
-      {visibleThemes.length === 0 ? (
+      {themes.isPending ? (
+        <section className="grid min-h-72 place-items-center rounded-card border border-line bg-panel text-[12px] text-muted">
+          正在读取已安装主题…
+        </section>
+      ) : themes.isError ? (
+        <section className="grid min-h-72 place-items-center rounded-card border border-danger/20 bg-danger-soft text-[12px] text-danger">
+          主题服务暂时不可用，请稍后重试。
+        </section>
+      ) : visibleThemes.length === 0 ? (
         <section className="grid min-h-72 place-items-center rounded-card border border-line bg-panel text-center">
           <div>
             <Palette aria-hidden="true" className="mx-auto text-faint" size={24} />
@@ -123,23 +136,25 @@ export function ThemeCatalog() {
           {visibleThemes.map((theme) => (
             <article
               className="group rounded-card border border-line bg-panel p-4 shadow-subtle transition hover:-translate-y-0.5 hover:border-line-strong hover:shadow-raised"
-              key={theme.id}
+              key={theme.manifest.themeId}
             >
               <ThemeArtwork theme={theme} />
               <div className="mt-4 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[14px] font-semibold text-ink">{theme.name}</p>
-                  <p className="mt-1 text-[11px] text-muted">{theme.category}</p>
+                  <p className="text-[14px] font-semibold text-ink">{theme.manifest.name}</p>
+                  <p className="mt-1 text-[11px] text-muted">
+                    {theme.manifest.categories.join(" · ")}
+                  </p>
                 </div>
                 <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-1 text-[10px] font-medium text-success">
                   <ShieldCheck aria-hidden="true" size={11} />
-                  安全预览
+                  已安装
                 </span>
               </div>
-              <p className="mt-3 text-[12px] leading-5 text-muted">{theme.description}</p>
+              <p className="mt-3 text-[12px] leading-5 text-muted">{theme.manifest.description}</p>
               <div className="mt-4 flex items-center justify-between">
                 <div className="flex -space-x-1">
-                  {theme.colors.map((color) => (
+                  {theme.preview.accentColors.map((color) => (
                     <span
                       aria-label={`色值 ${color}`}
                       className="size-5 rounded-full border-2 border-panel"
@@ -176,52 +191,48 @@ export function ThemeCatalog() {
                 <ThemeArtwork large theme={selected} />
                 <div className="flex flex-col">
                   <Dialog.Title className="text-xl font-semibold tracking-tight text-ink">
-                    {selected.name}
+                    {selected.manifest.name}
                   </Dialog.Title>
                   <Dialog.Description className="mt-2 text-[12px] leading-6 text-muted">
-                    {selected.description}
+                    {selected.manifest.description}
                   </Dialog.Description>
                   <dl className="mt-6 space-y-3 text-[12px]">
                     <div className="flex justify-between gap-4">
                       <dt className="text-faint">分类</dt>
-                      <dd className="text-ink">{selected.category}</dd>
+                      <dd className="text-ink">{selected.manifest.categories.join("、")}</dd>
                     </div>
                     <div className="flex justify-between gap-4">
                       <dt className="text-faint">适用场景</dt>
-                      <dd className="text-right text-ink">{selected.scenes.join("、")}</dd>
+                      <dd className="text-right text-ink">
+                        {selected.manifest.recommendedContentTypes.join("、")}
+                      </dd>
                     </div>
                     <div className="flex justify-between gap-4">
                       <dt className="text-faint">兼容状态</dt>
                       <dd className="inline-flex items-center gap-1 text-success">
                         <Check aria-hidden="true" size={12} />
-                        静态预览通过
+                        {selected.manifest.compatibilityLevel} · 三模式通过
                       </dd>
                     </div>
                     <div className="flex justify-between gap-4">
                       <dt className="text-faint">安装状态</dt>
-                      <dd className="text-warning">等待主题资产</dd>
+                      <dd className="text-success">已安装 v{selected.manifest.version}</dd>
                     </div>
                   </dl>
                   <div className="mt-auto space-y-2 pt-8">
                     <button
-                      className="h-10 w-full rounded-control bg-accent text-[12px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
-                      disabled
+                      className="h-10 w-full rounded-control bg-accent text-[12px] font-semibold text-white"
+                      onClick={() => setSelected(null)}
                       type="button"
                     >
-                      正式应用尚未接入
+                      已安装，可在编辑器应用
                     </button>
                     <button
                       className="h-10 w-full rounded-control border border-line text-[12px] font-medium text-ink hover:bg-hover"
-                      onClick={() => {
-                        pushToast({
-                          title: "可在编辑器内试穿",
-                          description: "打开任意文章，在左侧“主题”标签中选择该视觉方向。",
-                        });
-                        setSelected(null);
-                      }}
+                      onClick={() => setSelected(null)}
                       type="button"
                     >
-                      查看使用说明
+                      关闭预览
                     </button>
                   </div>
                 </div>

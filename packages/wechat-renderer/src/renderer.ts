@@ -415,12 +415,14 @@ export class WechatHtmlRenderer {
       const tree = htmlElement("section", {
         children: session.renderBlocks(document.content.content, "/document/content/content", 0),
         style: {
+          "background-color": String(session.tokens.colors.background),
           "box-sizing": "border-box",
+          color: String(session.tokens.colors.textPrimary),
           "font-family":
             "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
           margin: "0",
           "max-width": "100%",
-          padding: "0",
+          padding: `${String(session.tokens.spacing.contentPadding)}px`,
           "word-break": "break-word",
         },
       });

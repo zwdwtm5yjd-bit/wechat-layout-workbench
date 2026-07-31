@@ -4,6 +4,8 @@ import process from "node:process";
 import { createDatabaseConnection, createUuidV7 } from "./packages/database/dist/index.js";
 
 const apiBaseUrl = "http://127.0.0.1:3001";
+const modernCivicThemeId = "0198f8e1-7a01-7000-8000-000000000102";
+const modernCivicPaletteId = "0198f8e1-7a01-7000-8000-000000000202";
 const password = "correct-password-secret-marker";
 const passwordHash =
   "$argon2id$v=19$m=19456,p=1,t=2$FM9dAIf0WYf24OZpTOxpyA$m+jg0HVeC0/KOKRMWP1WXLQCsiYztbr0pSBYtfRELKQ";
@@ -469,6 +471,96 @@ try {
   assert.equal(restoredDocument.documentVersion, 4);
   assert.deepEqual(restoredDocument.document.content, manualSnapshotDocument.content);
 
+  const themeCatalog = await responseData(
+    await globalThis.fetch(`${apiBaseUrl}/api/v1/themes`, {
+      headers: { cookie: sessionCookies },
+    }),
+    200,
+  );
+  assert.equal(themeCatalog.items.length, 2);
+  assert.equal(
+    themeCatalog.items.every((theme) => theme.installed === true),
+    true,
+  );
+  assert.equal(
+    themeCatalog.items.some((theme) => theme.manifest.themeId === modernCivicThemeId),
+    true,
+  );
+  const beforeThemeDocument = cloneJson(restoredDocument.document);
+  const themePreview = await responseData(
+    await write(
+      `/api/v1/articles/${created.id}/themes/${modernCivicThemeId}/preview`,
+      "POST",
+      sessionCookies,
+      login.csrfToken,
+      {
+        themeVersion: "1.0.0",
+        paletteId: modernCivicPaletteId,
+        scope: "full",
+        brandMode: "soft",
+      },
+    ),
+    200,
+  );
+  assert.equal(themePreview.documentVersion, 4);
+  assert.equal(themePreview.textIntegrity.unchanged, true);
+  assert.equal(themePreview.html.includes("#2F2525"), true);
+  const afterPreviewDocument = await responseData(
+    await globalThis.fetch(`${apiBaseUrl}/api/v1/articles/${created.id}/document`, {
+      headers: { cookie: sessionCookies },
+    }),
+    200,
+  );
+  assert.equal(afterPreviewDocument.documentVersion, 4);
+  assert.deepEqual(afterPreviewDocument.document, beforeThemeDocument);
+
+  const appliedTheme = await responseData(
+    await write(
+      `/api/v1/articles/${created.id}/themes/${modernCivicThemeId}/apply`,
+      "POST",
+      sessionCookies,
+      login.csrfToken,
+      {
+        baseDocumentVersion: 4,
+        themeVersion: "1.0.0",
+        paletteId: modernCivicPaletteId,
+        scope: "full",
+        brandMode: "soft",
+        preserveLockedBlocks: true,
+      },
+    ),
+    200,
+  );
+  assert.equal(appliedTheme.documentVersion, 5);
+  assert.equal(appliedTheme.originalTextUnchanged, true);
+  assert.match(appliedTheme.lastTransactionId, /^[a-f0-9-]{36}$/);
+  const themedDocument = await responseData(
+    await globalThis.fetch(`${apiBaseUrl}/api/v1/articles/${created.id}/document`, {
+      headers: { cookie: sessionCookies },
+    }),
+    200,
+  );
+  assert.equal(themedDocument.documentVersion, 5);
+  assert.equal(themedDocument.document.themeId, modernCivicThemeId);
+  assert.equal(themedDocument.document.themeVersion, "1.0.0");
+  assert.deepEqual(themedDocument.document.content, beforeThemeDocument.content);
+  const staleThemeApply = await write(
+    `/api/v1/articles/${created.id}/themes/${modernCivicThemeId}/apply`,
+    "POST",
+    sessionCookies,
+    login.csrfToken,
+    {
+      baseDocumentVersion: 4,
+      themeVersion: "1.0.0",
+      paletteId: modernCivicPaletteId,
+      scope: "full",
+      brandMode: "soft",
+      preserveLockedBlocks: true,
+    },
+  );
+  assert.equal(staleThemeApply.status, 409);
+  assert.equal((await staleThemeApply.json()).error?.code, "ARTICLE_VERSION_CONFLICT");
+
   const renderOutput = await responseData(
     await write(
       `/api/v1/articles/${created.id}/render-wechat`,
@@ -476,7 +568,7 @@ try {
       sessionCookies,
       login.csrfToken,
       {
-        documentVersion: 4,
+        documentVersion: 5,
         outputMode: "standard",
       },
     ),
@@ -501,6 +593,7 @@ try {
   );
   assert.equal(copyPayload.renderOutputId, renderOutput.id);
   assert.equal(copyPayload.html.includes("<section"), true);
+  assert.equal(copyPayload.html.includes("#2F2525"), true);
   assert.equal(copyPayload.plainText.includes("Docker 文档乐观锁"), true);
   const copyRecord = await responseData(
     await write(
@@ -610,7 +703,7 @@ try {
   );
   assert.deepEqual(
     snapshotsAfterDuplicate.items.map((snapshot) => snapshot.reason),
-    ["before_copy", "before_copy", "restored", "before_restore", "manual"],
+    ["before_copy", "before_copy", "before_theme_apply", "restored", "before_restore", "manual"],
   );
   assert.equal(snapshotsAfterDuplicate.items[0]?.isCurrent, true);
 
@@ -635,8 +728,8 @@ try {
     from content.article_documents
     where article_id = ${created.id}::uuid
   `;
-  assert.equal(Number(savedDocumentRow.documentVersion), 4);
-  assert.equal(savedDocumentRow.lastTransactionId, restoreTransactionId);
+  assert.equal(Number(savedDocumentRow.documentVersion), 5);
+  assert.equal(savedDocumentRow.lastTransactionId, appliedTheme.lastTransactionId);
   assert.match(savedDocumentRow.currentTextHash, /^[a-f0-9]{64}$/);
   const [documentAuditCount] = await connection.sql`
     select count(*)::int as count
@@ -653,7 +746,15 @@ try {
       and article_id = ${created.id}::uuid
       and action in ('article.snapshot.create', 'article.snapshot.restore')
   `;
-  assert.equal(snapshotAuditCount.count, 3);
+  assert.equal(snapshotAuditCount.count, 4);
+  const [themeAuditCount] = await connection.sql`
+    select count(*)::int as count
+    from audit.audit_logs
+    where actor_user_id = ${userId}::uuid
+      and article_id = ${created.id}::uuid
+      and action = 'article.theme.apply'
+  `;
+  assert.equal(themeAuditCount.count, 1);
 
   await assert.rejects(
     connection.sql`

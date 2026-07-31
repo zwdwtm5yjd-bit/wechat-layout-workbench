@@ -260,6 +260,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/articles/{articleId}/themes/{themeId}/apply": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 创建安全快照后应用主题，不修改原文 */
+    post: operations["ThemeController_apply"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/articles/{articleId}/themes/{themeId}/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 试穿主题并返回微信安全预览，不修改文章 */
+    post: operations["ThemeController_preview"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/articles/{articleId}/unarchive": {
     parameters: {
       query?: never;
@@ -568,6 +602,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/themes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 列出已安装的官方主题 */
+    get: operations["ThemeController_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/themes/{themeId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取官方主题详情 */
+    get: operations["ThemeController_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/themes/{themeId}/versions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 列出主题的不可变版本 */
+    get: operations["ThemeController_versions"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/themes/{themeId}/versions/{version}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取指定主题版本 */
+    get: operations["ThemeController_getVersion"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/health/live": {
     parameters: {
       query?: never;
@@ -641,6 +743,48 @@ export interface components {
       meta: components["schemas"]["ApiMetaOpenApiModel"];
       /** @example true */
       success: boolean;
+    };
+    ApplyThemeRequestDto: {
+      baseDocumentVersion: number;
+      /**
+       * @default soft
+       * @enum {string}
+       */
+      brandMode: "off" | "soft";
+      /** Format: uuid */
+      paletteId?: string;
+      /** @default true */
+      preserveLockedBlocks: boolean;
+      /**
+       * @default full
+       * @enum {string}
+       */
+      scope: "full";
+      /** @example 1.0.0 */
+      themeVersion?: string;
+    };
+    ApplyThemeResponseDto: {
+      data: components["schemas"]["ApplyThemeResultDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    ApplyThemeResultDto: {
+      /** Format: date-time */
+      appliedAt: string;
+      /** Format: uuid */
+      articleId: string;
+      documentVersion: number;
+      /** Format: uuid */
+      lastTransactionId: string;
+      originalTextUnchanged: boolean;
+      /** Format: uuid */
+      paletteId: string;
+      /** Format: uuid */
+      safetySnapshotId: string;
+      /** Format: uuid */
+      themeId: string;
+      themeVersion: string;
     };
     ArticleDetailDto: {
       /** Format: uuid */
@@ -1552,6 +1696,127 @@ export interface components {
       /** Format: uuid */
       themeId: string | null;
       themeVersion: string | null;
+    };
+    ThemeDto: {
+      compatibility: {
+        [key: string]: unknown;
+      };
+      componentRefs: string[];
+      installed: boolean;
+      manifest: components["schemas"]["ThemeManifestDto"];
+      preview: components["schemas"]["ThemePreviewAssetDto"];
+      tokens: {
+        [key: string]: unknown;
+      };
+      variants: Record<string, never>[];
+    };
+    ThemeListResponseDto: {
+      data: components["schemas"]["ThemeListResultDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    ThemeListResultDto: {
+      items: components["schemas"]["ThemeDto"][];
+      pagination: components["schemas"]["ThemePaginationDto"];
+    };
+    ThemeManifestDto: {
+      categories: string[];
+      /** @enum {string} */
+      compatibilityLevel: "safe" | "compatible" | "conditional";
+      componentSetId: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: uuid */
+      defaultPaletteId: string;
+      description: string;
+      familyId: string;
+      isDefault: boolean;
+      name: string;
+      recommendedContentTypes: string[];
+      /** @enum {string} */
+      status: "published";
+      supportedPalettes: string[];
+      /** Format: uuid */
+      themeId: string;
+      /** @example 1.0.0 */
+      version: string;
+    };
+    ThemePaginationDto: {
+      page: number;
+      pageSize: number;
+      total: number;
+      totalPages: number;
+    };
+    ThemePreviewAssetDto: {
+      accentColors: string[];
+      body: string;
+      dataLabel: string;
+      dataValue: string;
+      footer: string;
+      heading1: string;
+      heading2: string;
+      heading3: string;
+      imageAlt: string;
+      mobileViewportWidth: number;
+      quote: string;
+      wechatContentWidth: number;
+    };
+    ThemePreviewRequestDto: {
+      /**
+       * @default soft
+       * @enum {string}
+       */
+      brandMode: "off" | "soft";
+      /** Format: uuid */
+      paletteId?: string;
+      /**
+       * @default full
+       * @enum {string}
+       */
+      scope: "full";
+      /** @example 1.0.0 */
+      themeVersion?: string;
+    };
+    ThemePreviewResponseDto: {
+      data: components["schemas"]["ThemeRenderPreviewDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    ThemeRenderPreviewDto: {
+      /** Format: uuid */
+      articleId: string;
+      compatibilityReport: {
+        [key: string]: unknown;
+      };
+      documentVersion: number;
+      html: string;
+      outputHash: string;
+      /** Format: uuid */
+      paletteId: string;
+      textIntegrity: {
+        [key: string]: unknown;
+      };
+      /** Format: uuid */
+      themeId: string;
+      themeVersion: string;
+    };
+    ThemeResponseDto: {
+      data: components["schemas"]["ThemeDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    ThemeVersionsResponseDto: {
+      data: components["schemas"]["ThemeVersionsResultDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    ThemeVersionsResultDto: {
+      items: components["schemas"]["ThemeDto"][];
+      total: number;
     };
     UpdateArticleDto: {
       /** Format: uuid */
@@ -2524,6 +2789,111 @@ export interface operations {
       };
     };
   };
+  ThemeController_apply: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+        themeId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ApplyThemeRequestDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApplyThemeResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章或主题不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章版本冲突或主题预览失败 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ThemeController_preview: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+        themeId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ThemePreviewRequestDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ThemePreviewResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章或主题不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   ArticleController_unarchive: {
     parameters: {
       query?: never;
@@ -3309,6 +3679,124 @@ export interface operations {
       };
       /** @description 上传对象尚未就绪 */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ThemeController_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ThemeListResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ThemeController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        themeId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ThemeResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 主题不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ThemeController_versions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        themeId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ThemeVersionsResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ThemeController_getVersion: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        themeId: string;
+        version: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ThemeResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
         headers: {
           [name: string]: unknown;
         };

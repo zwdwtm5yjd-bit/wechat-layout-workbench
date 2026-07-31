@@ -21,6 +21,7 @@
     "@nestjs/terminus": "11.1.1",
     "@wechat-layout/config": "workspace:*",
     "@wechat-layout/database": "workspace:*",
+    "@wechat-layout/design-tokens": "workspace:*",
     "@wechat-layout/document-schema": "workspace:*",
     "@wechat-layout/job-runtime": "workspace:*",
     "@wechat-layout/storage-adapter": "workspace:*",

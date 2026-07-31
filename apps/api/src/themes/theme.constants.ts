@@ -1,0 +1,1 @@
+export const THEME_REPOSITORY = Symbol("THEME_REPOSITORY");

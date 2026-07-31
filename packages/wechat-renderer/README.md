@@ -32,6 +32,7 @@ import { renderWechatHtml } from "@wechat-layout/wechat-renderer";
 const result = renderWechatHtml({
   document,
   mode: "wechat_safe",
+  theme: officialTheme.tokens,
   resources: {
     resource_cover: {
       alt: "文章封面",
@@ -48,6 +49,10 @@ console.log(result.textIntegrity.unchanged);
 调用方若要避免渲染错版本，可把上次确认的 `sourceTextHash` 传入
 `expectedSourceTextHash`。无效文档、Token 或原文哈希不匹配时，`tryRender` 返回结构化问题，
 `render` 抛出 `WechatRenderError`。
+
+`theme` 接收完整 Theme Token 文档。正文、三级标题、引用、列表标记、图片与题注、数据卡、
+分割线、文末以及根容器背景均从同一份解析结果取值；正式复制应传入文章已绑定的精确主题
+版本，保证编辑器试穿、服务端预览和最终微信 HTML 使用相同资产。
 
 ## 兼容检查
 

@@ -10,6 +10,7 @@ import { ImportModule } from "./imports/import.module.js";
 import { JobModule } from "./jobs/job.module.js";
 import { ResourceModule } from "./resources/resource.module.js";
 import { SnapshotModule } from "./snapshots/snapshot.module.js";
+import { ThemeModule } from "./themes/theme.module.js";
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { SnapshotModule } from "./snapshots/snapshot.module.js";
     ImportModule,
     ResourceModule,
     JobModule,
+    ThemeModule,
   ],
 })
 export class RuntimeModule {}

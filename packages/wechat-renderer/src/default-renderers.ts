@@ -156,8 +156,8 @@ function blockquoteRenderer(
       htmlElement("p", {
         children: [`— ${node.attrs.source}`],
         style: {
-          color: "#667085",
-          "font-size": "13px",
+          color: String(context.tokens.colors.textMuted),
+          "font-size": `${String(context.tokens.typography.captionSize)}px`,
           margin: "8px 0 0",
           "text-align": "right",
         },
@@ -169,7 +169,7 @@ function blockquoteRenderer(
     style: mergeStyles(
       {
         ...TEXT_WRAP_STYLE,
-        "border-left": "4px solid #B42318",
+        "border-left": `4px solid ${String(context.tokens.colors.primary)}`,
         margin: "16px 0",
       },
       context.styleFor(node, node.attrs.styleRef ?? "quote.default"),
@@ -256,7 +256,7 @@ function listItemRenderer(
       htmlElement("span", {
         children: [`${state.listMarker} `],
         style: {
-          color: "#B42318",
+          color: String(context.tokens.colors.primary),
           display: "inline",
           "font-weight": 600,
         },
@@ -289,13 +289,17 @@ function listItemRenderer(
   });
 }
 
-function unavailableImage(label: string, caption: string | undefined): SafeHtmlNode {
+function unavailableImage(
+  label: string,
+  caption: string | undefined,
+  context: WechatNodeRenderContext,
+): SafeHtmlNode {
   return htmlElement("section", {
     children: [
       htmlElement("p", {
         children: [`[图片不可用：${label || "未命名图片"}]`],
         style: {
-          color: "#667085",
+          color: String(context.tokens.colors.textSecondary),
           margin: "0",
           "text-align": "center",
         },
@@ -306,17 +310,20 @@ function unavailableImage(label: string, caption: string | undefined): SafeHtmlN
             htmlElement("p", {
               children: [caption],
               style: {
-                color: "#98A2B3",
-                "font-size": "13px",
+                color: String(context.tokens.image.captionColor),
+                "font-size": `${String(context.tokens.image.captionSize)}px`,
                 margin: "8px 0 0",
-                "text-align": "center",
+                "text-align": context.tokens.image.captionAlign,
               },
             }),
           ]),
     ],
     style: {
-      "background-color": "#F9FAFB",
-      border: "1px solid #EAECF0",
+      "background-color": String(context.tokens.colors.surface),
+      border:
+        context.tokens.image.border === "none"
+          ? "none"
+          : `${String(context.tokens.image.border)} ${String(context.tokens.colors.border)}`,
       "box-sizing": "border-box",
       margin: "16px 0",
       padding: "16px",
@@ -332,7 +339,7 @@ function imageRenderer(
   const node = expectNode(input, "imageBlock");
   const resource = context.resolveResource(node.attrs.resourceId, path);
   if (resource === null) {
-    return unavailableImage(node.attrs.alt ?? "", node.attrs.caption);
+    return unavailableImage(node.attrs.alt ?? "", node.attrs.caption, context);
   }
   const width =
     node.attrs.widthMode === "percent"
@@ -364,11 +371,11 @@ function imageRenderer(
             htmlElement("p", {
               children: [node.attrs.caption],
               style: {
-                color: "#98A2B3",
-                "font-size": "13px",
-                "line-height": 1.6,
+                color: String(context.tokens.image.captionColor),
+                "font-size": `${String(context.tokens.image.captionSize)}px`,
+                "line-height": context.tokens.typography.captionLineHeight,
                 margin: "8px 0 0",
-                "text-align": "center",
+                "text-align": context.tokens.image.captionAlign,
               },
             }),
           ]),
@@ -387,7 +394,7 @@ function dividerRenderer(input: BlockNode, context: WechatNodeRenderContext): Sa
     return htmlElement("section", {
       children: [node.attrs.icon],
       style: {
-        color: "#98A2B3",
+        color: String(context.tokens.colors.accent),
         margin: `${String(node.attrs.spacingBefore ?? 24)}px 0 ${String(node.attrs.spacingAfter ?? 24)}px`,
         "text-align": node.attrs.align ?? "center",
       },
@@ -396,7 +403,7 @@ function dividerRenderer(input: BlockNode, context: WechatNodeRenderContext): Sa
   return htmlElement("section", {
     style: mergeStyles(
       {
-        "border-top": `1px ${node.attrs.variant ?? "solid"} #EAECF0`,
+        "border-top": `1px ${node.attrs.variant ?? "solid"} ${String(context.tokens.colors.border)}`,
         height: "0",
         margin: `${String(node.attrs.spacingBefore ?? 24)}px 0 ${String(node.attrs.spacingAfter ?? 24)}px`,
         width: `${String(node.attrs.widthPercent ?? 100)}%`,
@@ -408,14 +415,16 @@ function dividerRenderer(input: BlockNode, context: WechatNodeRenderContext): Sa
 
 export function genericSemanticCardRenderer({
   children,
+  context,
   node,
   style,
 }: WechatComponentRenderInput): SafeHtmlNode {
-  return genericSemanticCardNode(children, node, style);
+  return genericSemanticCardNode(children, context, node, style);
 }
 
 function genericSemanticCardNode(
   children: readonly SafeHtmlNode[],
+  context: WechatNodeRenderContext,
   node: Extract<BlockNode, { readonly type: "semanticCard" }>,
   style: WechatStyleMap,
 ): SafeHtmlNode {
@@ -427,8 +436,8 @@ function genericSemanticCardNode(
             htmlElement("p", {
               children: [node.attrs.eyebrow],
               style: {
-                color: "#B42318",
-                "font-size": "13px",
+                color: String(context.tokens.colors.primary),
+                "font-size": `${String(context.tokens.typography.captionSize)}px`,
                 "font-weight": 600,
                 margin: "0 0 6px",
               },
@@ -440,8 +449,8 @@ function genericSemanticCardNode(
             htmlElement("p", {
               children: [node.attrs.title],
               style: {
-                color: "#1D2939",
-                "font-size": "18px",
+                color: String(context.tokens.colors.textPrimary),
+                "font-size": `${String(context.tokens.typography.heading3Size)}px`,
                 "font-weight": 700,
                 "line-height": 1.5,
                 margin: "0 0 12px",
@@ -455,8 +464,8 @@ function genericSemanticCardNode(
             htmlElement("p", {
               children: [node.attrs.footer],
               style: {
-                color: "#98A2B3",
-                "font-size": "13px",
+                color: String(context.tokens.colors.textMuted),
+                "font-size": `${String(context.tokens.typography.captionSize)}px`,
                 margin: "12px 0 0",
               },
             }),
@@ -500,7 +509,12 @@ function semanticCardRenderer(
       path,
       severity: "warning",
     });
-    return genericSemanticCardNode(children, node, context.styleFor(node, node.attrs.styleRef));
+    return genericSemanticCardNode(
+      children,
+      context,
+      node,
+      context.styleFor(node, node.attrs.styleRef),
+    );
   }
 
   context.recordComponent(manifest.componentId, manifest.version);
@@ -575,7 +589,7 @@ function svgRenderer(
   });
   const resource = context.resolveResource(node.attrs.fallbackResourceId, path);
   if (resource === null) {
-    return unavailableImage("SVG 静态备用图", undefined);
+    return unavailableImage("SVG 静态备用图", undefined, context);
   }
   return htmlElement("section", {
     children: [

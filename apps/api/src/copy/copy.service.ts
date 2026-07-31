@@ -1,4 +1,5 @@
 import { HttpStatus, Inject, Injectable } from "@nestjs/common";
+import { getOfficialTheme } from "@wechat-layout/design-tokens";
 import { isUuidV7 } from "@wechat-layout/database";
 import type { ObjectStorage } from "@wechat-layout/storage-adapter";
 import {
@@ -106,11 +107,24 @@ export class CopyService {
 
     const resources = await this.resolveResources(source.resources);
     const sourceTextHash = expectedHash(source.currentTextHash);
+    const theme =
+      source.themeId === null
+        ? null
+        : getOfficialTheme(source.themeId, source.themeVersion ?? undefined);
+    if (source.themeId !== null && theme === null) {
+      throw apiError(
+        HttpStatus.CONFLICT,
+        "THEME_VERSION_NOT_FOUND",
+        "文章绑定的主题版本不可用，请重新应用主题",
+        { themeId: source.themeId, themeVersion: source.themeVersion },
+      );
+    }
     const checked = this.#engine.check({
       document: source.document,
       ...(sourceTextHash === undefined ? {} : { expectedSourceTextHash: sourceTextHash }),
       mode: body.outputMode,
       resources,
+      ...(theme === null ? {} : { theme: theme.tokens }),
     });
     const generatedAt = new Date();
     const persisted = await this.repository.persistRenderOutput({

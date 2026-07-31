@@ -6,7 +6,40 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { OfficialTheme } from "../lib/themes/client";
 import { ArticleEditor } from "./article-editor";
+
+const modernCivicTheme = {
+  manifest: {
+    themeId: "0198f8e1-7a01-7000-8000-000000000102",
+    familyId: "family_government_modern",
+    version: "1.0.0",
+    name: "现代政务红",
+    description: "正式政务主题",
+    categories: ["government"],
+    recommendedContentTypes: ["meeting"],
+    defaultPaletteId: "0198f8e1-7a01-7000-8000-000000000202",
+    supportedPalettes: ["0198f8e1-7a01-7000-8000-000000000202"],
+    compatibilityLevel: "safe",
+    isDefault: false,
+    status: "published",
+  },
+  preview: {
+    accentColors: ["#9F1D24", "#FFF8F2", "#2F2525"],
+    heading1: "标题",
+    heading2: "二级标题",
+    heading3: "三级标题",
+    body: "正文",
+    quote: "引用",
+    dataLabel: "数据",
+    dataValue: "96%",
+    footer: "文末",
+    mobileViewportWidth: 375,
+    wechatContentWidth: 677,
+  },
+  componentRefs: ["paragraph.default"],
+  installed: true,
+} as const satisfies OfficialTheme;
 
 afterEach(() => {
   cleanup();
@@ -167,5 +200,39 @@ describe("ArticleEditor", () => {
     const unlocked = onLockChange.mock.lastCall?.[0] as DocumentV1;
     expect(unlocked.content.content[0]?.attrs.locked).toBe(false);
     expect(screen.getByText("区块文字可编辑")).not.toBeNull();
+  });
+
+  it("separates temporary theme try-on from formal application", async () => {
+    const onApplyTheme = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+
+    render(
+      <ArticleEditor
+        currentThemeId={null}
+        document={structuredClone(documentV1Fixture)}
+        editable
+        lockActionsEnabled
+        onApplyTheme={onApplyTheme}
+        onChange={vi.fn()}
+        onError={vi.fn()}
+        onLockChange={vi.fn().mockResolvedValue(true)}
+        sourceBlocks={[]}
+        textLocked={false}
+        themes={[modernCivicTheme]}
+      />,
+    );
+
+    await screen.findByRole("textbox", { name: "文章编辑画布" });
+    await user.click(screen.getByRole("tab", { name: "主题" }));
+    const canvas = document.querySelector<HTMLElement>("[data-preview-theme]");
+    expect(canvas?.dataset.previewTheme).toBe("default");
+
+    await user.click(screen.getByRole("button", { name: "试穿" }));
+    expect(canvas?.dataset.previewTheme).toBe("modern-civic");
+    expect(onApplyTheme).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "正式应用" }));
+    await waitFor(() => expect(onApplyTheme).toHaveBeenCalledWith(modernCivicTheme));
+    await waitFor(() => expect(canvas?.dataset.previewTheme).toBe("default"));
   });
 });

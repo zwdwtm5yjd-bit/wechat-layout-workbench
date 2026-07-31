@@ -79,17 +79,22 @@ import {
   type ReactNode,
 } from "react";
 
-import { V0_COMPONENT_PREVIEWS, V0_THEME_PREVIEWS } from "../lib/v0-catalog";
+import { themePreviewKey, type OfficialTheme } from "../lib/themes/client";
+import { V0_COMPONENT_PREVIEWS } from "../lib/v0-catalog";
 
 interface ArticleEditorProps {
+  readonly applyingThemeId?: string | null;
+  readonly currentThemeId?: string | null;
   readonly document: DocumentV1;
   readonly editable: boolean;
   readonly lockActionsEnabled: boolean;
+  readonly onApplyTheme?: (theme: OfficialTheme) => Promise<void>;
   readonly onChange: (document: DocumentV1, transactionOrigin: string) => void;
   readonly onError: (message: string) => void;
   readonly onLockChange: (document: DocumentV1, transactionOrigin: string) => Promise<boolean>;
   readonly sourceBlocks: readonly SourceTextBaseline[];
   readonly textLocked: boolean;
+  readonly themes?: readonly OfficialTheme[];
 }
 
 const nodeLabels: Readonly<Record<string, string>> = {
@@ -333,14 +338,18 @@ function OutlineBlock({
 }
 
 export function ArticleEditor({
+  applyingThemeId = null,
+  currentThemeId = null,
   document,
   editable,
   lockActionsEnabled,
   onChange,
+  onApplyTheme,
   onError,
   onLockChange,
   sourceBlocks,
   textLocked,
+  themes = [],
 }: ArticleEditorProps) {
   const baseDocumentRef = useRef(document);
   const sourceDocumentRef = useRef(document);
@@ -357,6 +366,9 @@ export function ArticleEditor({
   const [unlockCandidate, setUnlockCandidate] = useState<string | null>(null);
   const [leftPanel, setLeftPanel] = useState<"components" | "structure" | "themes">("structure");
   const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
+  const visualTheme = themes.find(
+    (theme) => theme.manifest.themeId === (previewThemeId ?? currentThemeId),
+  );
   const canvasShellRef = useRef<HTMLDivElement>(null);
   const extensions = useMemo(
     () =>
@@ -719,46 +731,85 @@ export function ArticleEditor({
             <div className="space-y-3 p-3">
               <div className="rounded-control border border-accent/15 bg-accent-soft p-3">
                 <p className="text-[10px] leading-5 text-muted">
-                  主题试穿只改变当前画布视觉，不写入文档或安装状态。
+                  试穿只改变当前画布；正式应用会先创建快照，再持久化主题版本，原文保持不变。
                 </p>
               </div>
-              {V0_THEME_PREVIEWS.map((theme) => (
-                <button
-                  aria-pressed={previewThemeId === theme.id}
-                  className={`w-full rounded-control border bg-panel p-3 text-left transition ${
-                    previewThemeId === theme.id
-                      ? "border-accent ring-2 ring-accent/10"
-                      : "border-line hover:border-line-strong"
-                  }`}
-                  key={theme.id}
-                  onClick={() =>
-                    setPreviewThemeId((current) => (current === theme.id ? null : theme.id))
-                  }
-                  type="button"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] font-semibold text-ink">{theme.name}</p>
-                      <p className="mt-1 text-[9px] text-faint">{theme.category}</p>
+              {themes.length === 0 ? (
+                <p className="rounded-control border border-line bg-panel p-3 text-[10px] text-muted">
+                  正在读取已安装主题…
+                </p>
+              ) : null}
+              {themes.map((theme) => {
+                const themeId = theme.manifest.themeId;
+                const previewing = previewThemeId === themeId;
+                const applied = currentThemeId === themeId;
+                const applying = applyingThemeId === themeId;
+                return (
+                  <article
+                    className={`w-full rounded-control border bg-panel p-3 text-left transition ${
+                      previewing
+                        ? "border-accent ring-2 ring-accent/10"
+                        : "border-line hover:border-line-strong"
+                    }`}
+                    key={themeId}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold text-ink">{theme.manifest.name}</p>
+                        <p className="mt-1 text-[9px] text-faint">
+                          {theme.manifest.categories.join(" · ")} · v{theme.manifest.version}
+                        </p>
+                      </div>
+                      {applied ? (
+                        <span className="grid size-5 place-items-center rounded-full bg-accent text-white">
+                          <Check aria-hidden="true" size={11} />
+                        </span>
+                      ) : null}
                     </div>
-                    {previewThemeId === theme.id ? (
-                      <span className="grid size-5 place-items-center rounded-full bg-accent text-white">
-                        <Check aria-hidden="true" size={11} />
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mt-3 flex gap-1">
-                    {theme.colors.map((color) => (
-                      <span
-                        className="h-2 flex-1 rounded-full"
-                        key={color}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                  <p className="mt-2 text-[9px] leading-4 text-muted">{theme.description}</p>
-                </button>
-              ))}
+                    <div className="mt-3 flex gap-1">
+                      {theme.preview.accentColors.map((color) => (
+                        <span
+                          className="h-2 flex-1 rounded-full"
+                          key={color}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[9px] leading-4 text-muted">
+                      {theme.manifest.description}
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 gap-1.5">
+                      <button
+                        aria-pressed={previewing}
+                        className="h-7 rounded-md border border-line text-[9px] font-medium text-ink hover:bg-hover"
+                        onClick={() =>
+                          setPreviewThemeId((current) => (current === themeId ? null : themeId))
+                        }
+                        type="button"
+                      >
+                        {previewing ? "取消试穿" : "试穿"}
+                      </button>
+                      <button
+                        className="h-7 rounded-md bg-accent text-[9px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                        disabled={
+                          !editable ||
+                          applyingThemeId !== null ||
+                          applied ||
+                          onApplyTheme === undefined
+                        }
+                        onClick={() => {
+                          void onApplyTheme?.(theme)
+                            .then(() => setPreviewThemeId(null))
+                            .catch(() => undefined);
+                        }}
+                        type="button"
+                      >
+                        {applying ? "应用中…" : applied ? "已应用" : "正式应用"}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           ) : (
             <div className="space-y-2 p-3">
@@ -790,7 +841,10 @@ export function ArticleEditor({
           )}
         </aside>
 
-        <div className="min-w-0 bg-[#efefed]" data-preview-theme={previewThemeId ?? "default"}>
+        <div
+          className="min-w-0 bg-[#efefed]"
+          data-preview-theme={visualTheme === undefined ? "default" : themePreviewKey(visualTheme)}
+        >
           <EditorToolbar editable={editable} editor={editor} selection={selection} />
           <div
             className="editor-canvas-scroll overflow-auto px-5 py-8 sm:px-8"
@@ -806,9 +860,7 @@ export function ArticleEditor({
               className="editor-canvas-shell relative mx-auto max-w-[677px] bg-white shadow-[0_4px_22px_rgb(24_24_27/8%)]"
               ref={canvasShellRef}
               style={{
-                backgroundColor:
-                  V0_THEME_PREVIEWS.find((theme) => theme.id === previewThemeId)?.colors[1] ??
-                  "#ffffff",
+                backgroundColor: visualTheme?.preview.accentColors[1] ?? "#ffffff",
               }}
             >
               {selectedBlockId === null || blockHandleTop === null ? null : (

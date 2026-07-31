@@ -24,6 +24,7 @@ import {
 } from "../lib/documents/client";
 import { IndexedDbDocumentDraftStore, type LocalDocumentDraft } from "../lib/documents/draft-store";
 import type { RestoreSnapshotResult } from "../lib/snapshots/client";
+import { applyTheme, listThemes, ThemeClientError, type OfficialTheme } from "../lib/themes/client";
 import { ArticleEditor } from "./article-editor";
 import { DocumentSaveStatus } from "./document-save-status";
 import { EditorDeliveryActions } from "./editor-delivery-actions";
@@ -85,6 +86,12 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
   const [localStorageError, setLocalStorageError] = useState<string | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [lastTransactionId, setLastTransactionId] = useState(initial.lastTransactionId);
+  const [applyingThemeId, setApplyingThemeId] = useState<string | null>(null);
+  const themesQuery = useQuery({
+    queryKey: ["themes"],
+    queryFn: () => listThemes(),
+    staleTime: 60_000,
+  });
   const [snapshot, setSnapshot] = useState<DocumentSaveSnapshot>({
     status: "saved",
     documentVersion: initial.documentVersion,
@@ -213,6 +220,39 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
     }
   };
 
+  const handleApplyTheme = async (theme: OfficialTheme): Promise<void> => {
+    if (controller === null || applyingThemeId !== null) {
+      return;
+    }
+    setEditorError(null);
+    setApplyingThemeId(theme.manifest.themeId);
+    try {
+      await controller.flushNow();
+      const current = controller.getSnapshot();
+      if (current.status !== "saved") {
+        throw new Error(current.errorMessage ?? "请先等待当前文档保存完成");
+      }
+      const result = await applyTheme({
+        articleId: initial.articleId,
+        baseDocumentVersion: current.documentVersion,
+        theme,
+      });
+      await controller.discardLocalDraft(result.documentVersion, result.appliedAt);
+      const themedDocument = await getArticleDocument(initial.articleId);
+      setActiveDocument(normalizeDocument(themedDocument.document));
+      setLastTransactionId(result.lastTransactionId);
+    } catch (error) {
+      setEditorError(
+        error instanceof ThemeClientError || error instanceof Error
+          ? error.message
+          : "主题应用失败，请稍后重试",
+      );
+      throw error;
+    } finally {
+      setApplyingThemeId(null);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -286,16 +326,20 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
       />
 
       <ArticleEditor
+        applyingThemeId={applyingThemeId}
+        currentThemeId={activeDocument.themeId ?? null}
         document={activeDocument}
         editable={controller !== null && snapshot.status !== "conflict"}
         lockActionsEnabled={
           controller !== null && snapshot.status !== "conflict" && snapshot.status !== "saving"
         }
         onChange={handleDocumentChange}
+        onApplyTheme={handleApplyTheme}
         onError={setEditorError}
         onLockChange={handleLockChange}
         sourceBlocks={initial.sourceBlocks}
         textLocked={initial.textLocked}
+        themes={themesQuery.data?.items ?? []}
       />
 
       <p className="text-center font-mono text-[9px] text-faint">
