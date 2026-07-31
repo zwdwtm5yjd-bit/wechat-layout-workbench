@@ -469,6 +469,79 @@ try {
   assert.equal(restoredDocument.documentVersion, 4);
   assert.deepEqual(restoredDocument.document.content, manualSnapshotDocument.content);
 
+  const renderOutput = await responseData(
+    await write(
+      `/api/v1/articles/${created.id}/render-wechat`,
+      "POST",
+      sessionCookies,
+      login.csrfToken,
+      {
+        documentVersion: 4,
+        outputMode: "standard",
+      },
+    ),
+    201,
+  );
+  assert.equal(renderOutput.status, "ready");
+  assert.equal(renderOutput.canCopy, true);
+  assert.equal(renderOutput.rendererVersion, "1.0.0");
+  assert.equal(renderOutput.compatibilityRuleVersion, "1.0.0");
+  assert.match(renderOutput.outputHash, /^sha256:[a-f0-9]{64}$/);
+  const copyPayload = await responseData(
+    await write(
+      `/api/v1/articles/${created.id}/copy-payload`,
+      "POST",
+      sessionCookies,
+      login.csrfToken,
+      {
+        renderOutputId: renderOutput.id,
+      },
+    ),
+    200,
+  );
+  assert.equal(copyPayload.renderOutputId, renderOutput.id);
+  assert.equal(copyPayload.html.includes("<section"), true);
+  assert.equal(copyPayload.plainText.includes("Docker 文档乐观锁"), true);
+  const copyRecord = await responseData(
+    await write(
+      `/api/v1/articles/${created.id}/copy-records`,
+      "POST",
+      sessionCookies,
+      login.csrfToken,
+      {
+        renderOutputId: renderOutput.id,
+        status: "success",
+        browserInfo: {
+          browser: "DockerSmoke",
+          platform: "Linux",
+        },
+      },
+    ),
+    201,
+  );
+  assert.equal(copyRecord.status, "success");
+  const [persistedCopy] = await connection.sql`
+    select
+      ro.status as "outputStatus",
+      ro.output_sha256 as "outputSha256",
+      ro.snapshot_id::text as "snapshotId",
+      cr.status as "copyStatus",
+      cr.browser_info as "browserInfo",
+      a.status as "articleStatus",
+      a.copied_at as "copiedAt"
+    from content.render_outputs ro
+    join content.copy_records cr on cr.render_output_id = ro.id
+    join content.articles a on a.id = ro.article_id
+    where ro.id = ${renderOutput.id}::uuid
+  `;
+  assert.equal(persistedCopy.outputStatus, "ready");
+  assert.match(persistedCopy.outputSha256, /^[a-f0-9]{64}$/);
+  assert.equal(persistedCopy.snapshotId, renderOutput.snapshotId);
+  assert.equal(persistedCopy.copyStatus, "success");
+  assert.equal(persistedCopy.browserInfo.browser, "DockerSmoke");
+  assert.equal(persistedCopy.articleStatus, "copied");
+  assert.ok(persistedCopy.copiedAt);
+
   const snapshotCountBeforeConflict = await connection.sql`
     select count(*)::int as count
     from content.article_snapshots
@@ -537,7 +610,7 @@ try {
   );
   assert.deepEqual(
     snapshotsAfterDuplicate.items.map((snapshot) => snapshot.reason),
-    ["before_copy", "restored", "before_restore", "manual"],
+    ["before_copy", "before_copy", "restored", "before_restore", "manual"],
   );
   assert.equal(snapshotsAfterDuplicate.items[0]?.isCurrent, true);
 
@@ -642,14 +715,14 @@ try {
     200,
   );
   assert.equal(
-    history.items.some(
-      (entry) => entry.fromStatus === "pending_layout" && entry.toStatus === "published",
-    ),
+    history.items.some((entry) => entry.fromStatus === "copied" && entry.toStatus === "published"),
     true,
   );
 } finally {
   await connection.sql`delete from audit.audit_logs where actor_user_id = ${userId}::uuid`;
   await connection.sql`delete from content.article_status_history where created_by = ${userId}::uuid`;
+  await connection.sql`delete from content.copy_records where copied_by = ${userId}::uuid`;
+  await connection.sql`delete from content.render_outputs where generated_by = ${userId}::uuid`;
   await connection.sql.begin(async (transaction) => {
     await transaction`
       update content.articles

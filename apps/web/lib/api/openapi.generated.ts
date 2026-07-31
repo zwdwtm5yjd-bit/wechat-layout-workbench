@@ -54,6 +54,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/articles/{articleId}/copy-payload": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 获取通过兼容门禁的短时双 MIME 复制 Payload */
+    post: operations["CopyController_payload"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/articles/{articleId}/copy-records": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 由浏览器回写剪贴板复制成功或失败记录 */
+    post: operations["CopyController_record"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/articles/{articleId}/document": {
     parameters: {
       query?: never;
@@ -83,6 +117,40 @@ export interface paths {
     put?: never;
     /** 复制文章并创建独立文档 */
     post: operations["ArticleController_duplicate"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/articles/{articleId}/render-outputs/{renderOutputId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 读取正式微信渲染结果和兼容报告 */
+    get: operations["CopyController_getRender"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/articles/{articleId}/render-wechat": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 从当前权威文档创建正式微信渲染输出与复制前快照 */
+    post: operations["CopyController_createRender"];
     delete?: never;
     options?: never;
     head?: never;
@@ -790,6 +858,28 @@ export interface components {
       lastTransactionId: string;
       title?: string | null;
     };
+    CopyPayloadRequestDto: {
+      /** Format: uuid */
+      renderOutputId: string;
+    };
+    CopyPayloadResponseDto: {
+      /** Format: date-time */
+      expiresAt: string;
+      html: string;
+      plainText: string;
+      /** Format: uuid */
+      renderOutputId: string;
+    };
+    CopyRecordResponseDto: {
+      /** Format: date-time */
+      copiedAt: string;
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      renderOutputId: string;
+      /** @enum {string} */
+      status: "success" | "failed";
+    };
     CreateArticleDto: {
       /** Format: uuid */
       accountId?: string | null;
@@ -810,6 +900,16 @@ export interface components {
       sourceType: "blank";
       /** @example 未命名文章 */
       title: string;
+    };
+    CreateCopyRecordDto: {
+      browserInfo: {
+        [key: string]: string;
+      };
+      failureReason?: string;
+      /** Format: uuid */
+      renderOutputId: string;
+      /** @enum {string} */
+      status: "success" | "failed";
     };
     CreateResourceAccessUrlDto: {
       /** @default 300 */
@@ -835,6 +935,11 @@ export interface components {
       note?: string | null;
       /** @enum {string} */
       reason: "manual";
+    };
+    CreateWechatRenderDto: {
+      documentVersion: number;
+      /** @enum {string} */
+      outputMode: "standard" | "wechat_safe" | "static";
     };
     CsrfResponseDto: {
       data: components["schemas"]["CsrfResultDto"];
@@ -1029,6 +1134,27 @@ export interface components {
       layoutStrength: "light" | "standard" | "strong";
       /** @description 剪贴板纯文本回退，也是原文追踪的优先来源 */
       plainText?: string;
+    };
+    RenderOutputResponseDto: {
+      canCopy: boolean;
+      compatibilityReport: {
+        [key: string]: unknown;
+      };
+      compatibilityRuleVersion: string;
+      /** Format: date-time */
+      expiresAt: string;
+      /** Format: date-time */
+      generatedAt: string;
+      /** Format: uuid */
+      id: string;
+      outputHash: string | null;
+      /** @enum {string} */
+      outputMode: "standard" | "wechat_safe" | "static";
+      rendererVersion: string;
+      /** Format: uuid */
+      snapshotId: string;
+      /** @enum {string} */
+      status: "ready" | "blocked" | "failed";
     };
     ResourceAccessUrlDto: {
       /** Format: date-time */
@@ -1602,6 +1728,123 @@ export interface operations {
       };
     };
   };
+  CopyController_payload: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CopyPayloadRequestDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CopyPayloadResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 渲染输出不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 兼容检查阻止正式复制 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 复制 Payload 已过期 */
+      410: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  CopyController_record: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateCopyRecordDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CopyRecordResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 渲染输出不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 被阻止的输出不能记录成功 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   DocumentController_get: {
     parameters: {
       query?: never;
@@ -1741,6 +1984,97 @@ export interface operations {
         content?: never;
       };
       /** @description 回收站文章不能复制 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  CopyController_getRender: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        articleId: string;
+        renderOutputId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RenderOutputResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 渲染输出不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  CopyController_createRender: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateWechatRenderDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RenderOutputResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文档版本冲突或兼容检查阻止复制 */
       409: {
         headers: {
           [name: string]: unknown;

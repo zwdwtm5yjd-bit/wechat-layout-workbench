@@ -14,6 +14,8 @@ export {
   articles,
   articleStatusHistory,
   auditLogs,
+  copyRecords,
+  renderOutputs,
   resources,
   sourceBlocks,
   sourceDocuments,

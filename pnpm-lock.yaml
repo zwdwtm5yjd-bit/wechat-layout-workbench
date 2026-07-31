@@ -71,6 +71,9 @@ importers:
       '@wechat-layout/storage-adapter':
         specifier: workspace:*
         version: link:../../packages/storage-adapter
+      '@wechat-layout/wechat-renderer':
+        specifier: workspace:*
+        version: link:../../packages/wechat-renderer
       argon2:
         specifier: 0.45.1
         version: 0.45.1

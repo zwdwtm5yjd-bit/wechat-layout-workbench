@@ -386,6 +386,93 @@ export const articleSnapshots = contentSchema.table(
   ],
 );
 
+export const renderOutputs = contentSchema.table(
+  "render_outputs",
+  {
+    id: uuid("id").primaryKey(),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "restrict" }),
+    snapshotId: uuid("snapshot_id")
+      .notNull()
+      .references(() => articleSnapshots.id, { onDelete: "restrict" }),
+    outputType: varchar("output_type", { length: 50 }).notNull().default("wechat_html"),
+    outputMode: varchar("output_mode", { length: 32 }).notNull(),
+    rendererVersion: varchar("renderer_version", { length: 32 }).notNull(),
+    compatibilityRuleVersion: varchar("compatibility_rule_version", { length: 32 }).notNull(),
+    themeVersion: varchar("theme_version", { length: 32 }),
+    brandVersionId: uuid("brand_version_id"),
+    htmlContent: text("html_content"),
+    plainText: text("plain_text"),
+    outputSha256: varchar("output_sha256", { length: 64 }),
+    sizeBytes: integer("size_bytes").notNull().default(0),
+    status: varchar("status", { length: 32 }).notNull(),
+    compatibilityReport: jsonb("compatibility_report")
+      .$type<JsonObject>()
+      .notNull()
+      .default(emptyJsonObject),
+    generatedBy: uuid("generated_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    generatedAt: timestamp("generated_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    errorJson: jsonb("error_json").$type<JsonObject>(),
+  },
+  (table) => [
+    index("idx_render_outputs_article_generated").on(table.articleId, table.generatedAt.desc()),
+    index("idx_render_outputs_snapshot").on(table.snapshotId),
+    index("idx_render_outputs_expiry").on(table.status, table.expiresAt),
+    check("ck_render_outputs_type", sql`${table.outputType} in ('wechat_html')`),
+    check(
+      "ck_render_outputs_mode",
+      sql`${table.outputMode} in ('standard', 'wechat_safe', 'static')`,
+    ),
+    check("ck_render_outputs_status", sql`${table.status} in ('ready', 'blocked', 'failed')`),
+    check("ck_render_outputs_size", sql`${table.sizeBytes} >= 0`),
+    check(
+      "ck_render_outputs_sha256",
+      sql`${table.outputSha256} is null or char_length(${table.outputSha256}) = 64`,
+    ),
+    check("ck_render_outputs_expiry", sql`${table.expiresAt} > ${table.generatedAt}`),
+  ],
+);
+
+export const copyRecords = contentSchema.table(
+  "copy_records",
+  {
+    id: uuid("id").primaryKey(),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "restrict" }),
+    snapshotId: uuid("snapshot_id")
+      .notNull()
+      .references(() => articleSnapshots.id, { onDelete: "restrict" }),
+    renderOutputId: uuid("render_output_id")
+      .notNull()
+      .references(() => renderOutputs.id, { onDelete: "restrict" }),
+    accountId: uuid("account_id"),
+    status: varchar("status", { length: 32 }).notNull(),
+    copiedBy: uuid("copied_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    copiedAt: timestamp("copied_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    browserInfo: jsonb("browser_info").$type<JsonObject>().notNull().default(emptyJsonObject),
+    failureReason: varchar("failure_reason", { length: 500 }),
+  },
+  (table) => [
+    index("idx_copy_records_article_copied").on(table.articleId, table.copiedAt.desc()),
+    index("idx_copy_records_output").on(table.renderOutputId),
+    index("idx_copy_records_actor_copied").on(table.copiedBy, table.copiedAt.desc()),
+    check("ck_copy_records_status", sql`${table.status} in ('success', 'failed')`),
+    check(
+      "ck_copy_records_failure_reason",
+      sql`(${table.status} = 'success' and ${table.failureReason} is null) or (${table.status} = 'failed' and ${table.failureReason} is not null)`,
+    ),
+  ],
+);
+
 export const sourceDocuments = contentSchema.table(
   "source_documents",
   {
@@ -602,6 +689,8 @@ export const databaseTables = {
   articleDocuments,
   articleStatusHistory,
   articleSnapshots,
+  renderOutputs,
+  copyRecords,
   sourceDocuments,
   sourceBlocks,
   resources,

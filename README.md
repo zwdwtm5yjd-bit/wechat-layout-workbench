@@ -13,7 +13,7 @@
 `S1-RESOURCE-001 基础资源服务`、`S1-EDITOR-002 Tiptap 编辑器核心` 和
 `S1-EDITOR-003 原文锁定`、`S1-THEME-001 Token 引擎` 和
 `S1-COMPONENT-001 组件注册中心`、`S1-RENDER-001 微信 HTML Renderer 核心` 和
-`S1-COMPAT-001 兼容规则基础`：
+`S1-COMPAT-001 兼容规则基础`、`S1-COPY-001 一键复制`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -109,9 +109,19 @@
 - HTML 标签、属性、CSS、URL、图片、布局、组件和 SVG 静态降级规则；
 - 0—100 兼容评分、严重/警告/建议分组、确定性 Issue ID 和 Block ID 定位；
 - 严重问题阻止正式复制，以及不修改权威文档的安全自动修复预览。
+- 正式复制由服务端从指定 `documentVersion` 的权威 JSON 重新渲染，不读取编辑器 DOM；
+- `before_copy` 不可变快照、`render_outputs` 正式输出和 `copy_records` 浏览器结果记录；
+- Copy Payload 绑定快照、Renderer、兼容规则和输出哈希，并使用 15 分钟短时有效期；
+- 兼容报告随渲染输出持久化，严重问题不发放 Copy Payload；
+- 生成与写剪贴板分成两次明确用户点击，避免依赖异步任务后的浏览器激活状态；
+- Clipboard API 通过单个 `ClipboardItem` 同时写入 `text/html` 和 `text/plain`；
+- HTTPS 安全上下文、用户激活、`ClipboardItem.supports("text/html")` 和权限拒绝运行时门禁；
+- 富文本复制失败时展示经过 Renderer 清洗的受控手动复制区，并支持一键全选；
+- 浏览器成功/失败回写、文章 `copied / copy_failed` 状态、状态历史和审计日志；
+- 成功提示只声明“已写入系统剪贴板”，明确要求到微信公众号后台粘贴、预览和发布。
 
 本阶段尚未实现资源管理 UI、DOCX 文件导入、基础主题包与主题应用、基础组件包、微信
-兼容报告持久化与 UI、SVG 执行、微信连接或微信草稿同步。
+独立兼容报告/修复管理 UI、SVG 执行、微信连接或微信草稿同步。
 
 ## 环境要求
 
@@ -189,6 +199,14 @@ API 基础端点：
 - 查询删除阻塞引用：`GET /api/v1/resources/:resourceId/references`；
 - 将未被引用的资源移入回收站：`DELETE /api/v1/resources/:resourceId`。
 
+微信复制端点：
+
+- 生成正式输出与复制前快照：`POST /api/v1/articles/:articleId/render-wechat`；
+- 读取渲染结果与兼容报告：
+  `GET /api/v1/articles/:articleId/render-outputs/:renderOutputId`；
+- 获取短时双格式 Payload：`POST /api/v1/articles/:articleId/copy-payload`；
+- 回写浏览器复制成功或失败：`POST /api/v1/articles/:articleId/copy-records`。
+
 Web 基础页面：
 
 - 登录页：`http://localhost:3000/login`；
@@ -240,8 +258,9 @@ pnpm docker:down
 陈旧版本恢复回滚、复制前快照和数据库不可变触发器；粘贴导入还会验证危险内容清洗、
 Source Blocks、刷新恢复、结构确认、幂等重放、版本冲突和导入后快照；资源流程会真实验证
 私有直传、签名下载、匿名拒绝、去重、错误 MIME、伪图片、引用保护和软删除；最后通过重启
-PostgreSQL、Redis、MinIO 检查命名卷的数据持久性。探针与资源烟测数据会在测试结束时清理；
-MinIO 的 `healthcheck.txt` 会保留用于后续检查。
+PostgreSQL、Redis、MinIO 检查命名卷的数据持久性；正式复制流程会验证服务端渲染、
+兼容门禁、双格式 Payload、复制记录、快照和审计持久化。探针与烟测数据会在测试结束时
+清理；MinIO 的 `healthcheck.txt` 会保留用于后续检查。
 
 数据库命令：
 
@@ -297,6 +316,9 @@ PYTHONPATH=services/docx-worker-python/src python3 -m docx_worker
 API 启动后执行 `pnpm api:generate`，会读取 `/api/openapi.json` 并刷新 Web 使用的
 OpenAPI 类型。生成文件不可手工编辑。
 
+Web 生产构建固定使用 Next.js 的 Webpack 模式；开发环境仍使用默认开发构建器。这样可以
+规避 Next.js 16.2.12 Turbopack 在中文工作区路径下的 UTF-8 标识符崩溃。
+
 ## 目录
 
 ```text
@@ -343,5 +365,5 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S1-COMPAT-001` 验收通过后，下一任务是 `S1-COPY-001 一键复制`。
+`S1-COPY-001` 验收通过后，下一任务是 `S1-WEB-002 V0.1 页面`。
 完整设计依据见 [docs](./docs/)。

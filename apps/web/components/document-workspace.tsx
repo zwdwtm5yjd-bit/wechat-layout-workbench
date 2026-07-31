@@ -27,6 +27,7 @@ import type { RestoreSnapshotResult } from "../lib/snapshots/client";
 import { ArticleEditor } from "./article-editor";
 import { DocumentSaveStatus } from "./document-save-status";
 import { SnapshotPanel } from "./snapshot-panel";
+import { WechatCopyPanel } from "./wechat-copy-panel";
 
 function errorMessage(error: unknown): string {
   return error instanceof DocumentClientError ? error.message : "文档读取失败，请稍后重试";
@@ -292,6 +293,12 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
       <p className="text-center font-mono text-[9px] text-faint">
         document {initial.documentId} · transaction {lastTransactionId ?? "尚无保存事务"}
       </p>
+
+      <WechatCopyPanel
+        articleId={initial.articleId}
+        documentVersion={snapshot.documentVersion}
+        saveStatus={snapshot.status}
+      />
 
       <SnapshotPanel
         articleId={initial.articleId}

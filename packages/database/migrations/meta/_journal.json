@@ -22,6 +22,13 @@
       "when": 1785392850572,
       "tag": "0002_snapshot-immutability",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785462434007,
+      "tag": "0003_talented_stephen_strange",
+      "breakpoints": true
     }
   ]
 }
