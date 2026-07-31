@@ -59,6 +59,14 @@ export function buildSnapshotManifests(
   }
 
   for (const { node } of collectDocumentEntries(document.content).blocks) {
+    if (node.attrs.componentId !== undefined && node.attrs.componentVersion !== undefined) {
+      addPackage({
+        kind: "component",
+        packageId: node.attrs.componentId,
+        version: node.attrs.componentVersion,
+      });
+    }
+
     if (node.type === "imageBlock") {
       const reference = { blockId: node.attrs.blockId, usageType: "image" };
       addResource(resources, node.attrs.resourceId, reference);
@@ -85,12 +93,6 @@ export function buildSnapshotManifests(
         kind: "svg",
         packageId: node.attrs.templateId,
         version: node.attrs.templateVersion,
-      });
-    } else if (node.type === "semanticCard") {
-      addPackage({
-        kind: "component",
-        packageId: node.attrs.componentId,
-        version: node.attrs.componentVersion,
       });
     } else if (node.type === "brandFooter") {
       addPackage({

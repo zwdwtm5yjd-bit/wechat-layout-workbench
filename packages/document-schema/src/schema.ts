@@ -52,6 +52,17 @@ const blockAttributeProperties = {
   },
 } as const;
 
+const componentReferenceProperties = {
+  componentId: identifierSchema,
+  componentVersion: versionSchema,
+  componentVariantId: {
+    type: "string",
+    minLength: 1,
+    maxLength: 128,
+    pattern: "^[A-Za-z][A-Za-z0-9._-]*$",
+  },
+} as const;
+
 function strictObject(properties: Record<string, unknown>, required: string[] = []): JsonSchema {
   return {
     type: "object",
@@ -64,14 +75,28 @@ function strictObject(properties: Record<string, unknown>, required: string[] = 
 function blockAttributes(
   properties: Record<string, unknown> = {},
   required: string[] = [],
+  allowComponentReference = false,
 ): JsonSchema {
-  return strictObject(
-    {
-      ...blockAttributeProperties,
-      ...properties,
-    },
-    ["blockId", "locked", ...required],
-  );
+  const schema: JsonSchema = {
+    ...strictObject(
+      {
+        ...blockAttributeProperties,
+        ...(allowComponentReference ? componentReferenceProperties : {}),
+        ...properties,
+      },
+      ["blockId", "locked", ...required],
+    ),
+  };
+  return allowComponentReference
+    ? {
+        ...schema,
+        dependentRequired: {
+          componentId: ["componentVersion"],
+          componentVersion: ["componentId"],
+          componentVariantId: ["componentId", "componentVersion"],
+        },
+      }
+    : schema;
 }
 
 function nodeSchema(type: string, attrs: JsonSchema, content?: JsonSchema): JsonSchema {
@@ -137,6 +162,7 @@ const headingNodeSchema = optionalContentNodeSchema(
       },
     },
     ["level"],
+    true,
   ),
   ["#/$defs/textNode", "#/$defs/hardBreakNode"],
 );
@@ -384,26 +410,30 @@ export const documentSchemaV1JsonSchema = {
     headingNode: headingNodeSchema,
     blockquoteNode: nodeSchema(
       "blockquote",
-      blockAttributes({
-        quoteType: {
-          enum: ["standard", "citation", "warning"],
+      blockAttributes(
+        {
+          quoteType: {
+            enum: ["standard", "citation", "warning"],
+          },
+          source: {
+            type: "string",
+            maxLength: 500,
+          },
+          variant: {
+            type: "string",
+            minLength: 1,
+            maxLength: 128,
+          },
+          showQuotes: {
+            type: "boolean",
+          },
+          showSource: {
+            type: "boolean",
+          },
         },
-        source: {
-          type: "string",
-          maxLength: 500,
-        },
-        variant: {
-          type: "string",
-          minLength: 1,
-          maxLength: 128,
-        },
-        showQuotes: {
-          type: "boolean",
-        },
-        showSource: {
-          type: "boolean",
-        },
-      }),
+        [],
+        true,
+      ),
       {
         type: "array",
         minItems: 1,
@@ -525,44 +555,47 @@ export const documentSchemaV1JsonSchema = {
           watermarkId: identifierSchema,
         },
         ["resourceId"],
+        true,
       ),
     ),
     dividerNode: nodeSchema(
       "divider",
-      blockAttributes({
-        variant: {
-          enum: ["solid", "dashed", "dotted", "ornament"],
+      blockAttributes(
+        {
+          variant: {
+            enum: ["solid", "dashed", "dotted", "ornament"],
+          },
+          widthPercent: {
+            type: "number",
+            minimum: 1,
+            maximum: 100,
+          },
+          align: {
+            enum: ["left", "center", "right"],
+          },
+          icon: {
+            type: "string",
+            maxLength: 64,
+          },
+          spacingBefore: {
+            type: "number",
+            minimum: 0,
+            maximum: 128,
+          },
+          spacingAfter: {
+            type: "number",
+            minimum: 0,
+            maximum: 128,
+          },
         },
-        widthPercent: {
-          type: "number",
-          minimum: 1,
-          maximum: 100,
-        },
-        align: {
-          enum: ["left", "center", "right"],
-        },
-        icon: {
-          type: "string",
-          maxLength: 64,
-        },
-        spacingBefore: {
-          type: "number",
-          minimum: 0,
-          maximum: 128,
-        },
-        spacingAfter: {
-          type: "number",
-          minimum: 0,
-          maximum: 128,
-        },
-      }),
+        [],
+        true,
+      ),
     ),
     semanticCardNode: optionalContentNodeSchema(
       "semanticCard",
       blockAttributes(
         {
-          componentId: identifierSchema,
-          componentVersion: versionSchema,
           variant: {
             type: "string",
             minLength: 1,
@@ -582,6 +615,7 @@ export const documentSchemaV1JsonSchema = {
           },
         },
         ["componentId", "componentVersion"],
+        true,
       ),
       semanticCardContentRefs,
     ),
@@ -600,6 +634,7 @@ export const documentSchemaV1JsonSchema = {
           frozenVersion: versionSchema,
         },
         ["accountId", "templateId", "mode", "autoUpdate"],
+        true,
       ),
       ["#/$defs/paragraphNode", "#/$defs/imageBlockNode", "#/$defs/dividerNode"],
     ),

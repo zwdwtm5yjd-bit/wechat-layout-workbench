@@ -56,19 +56,34 @@ function presentString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
 }
 
+function joinedText(values: readonly (string | undefined)[]): string {
+  return values.filter(presentString).join("\n");
+}
+
 export function blockText(node: BlockNode): string {
   switch (node.type) {
     case "paragraph":
     case "heading":
       return inlineText(node.content);
     case "blockquote":
+      return joinedText([
+        node.content?.map(blockText).filter(Boolean).join("\n"),
+        node.attrs.showSource === true ? node.attrs.source : undefined,
+      ]);
     case "bulletList":
     case "orderedList":
     case "listItem":
-    case "semanticCard":
     case "brandFooter":
       return node.content?.map(blockText).filter(Boolean).join("\n") ?? "";
+    case "semanticCard":
+      return joinedText([
+        node.attrs.eyebrow,
+        node.attrs.title,
+        node.content?.map(blockText).filter(Boolean).join("\n"),
+        node.attrs.footer,
+      ]);
     case "imageBlock":
+      return joinedText([node.attrs.alt, node.attrs.caption]);
     case "divider":
     case "svgInteraction":
       return "";

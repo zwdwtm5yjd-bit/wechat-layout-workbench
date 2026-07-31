@@ -346,6 +346,29 @@ try {
           },
           content: [{ type: "text", text }],
         },
+        {
+          type: "semanticCard",
+          attrs: {
+            blockId: `docker_official_component_${index}`,
+            componentId: "cmp_notice_info_blue_001",
+            componentVariantId: "default",
+            componentVersion: "1.0.0",
+            locked: false,
+            title: "阅读提示",
+            variant: "default",
+          },
+          content: [
+            {
+              type: "paragraph",
+              attrs: {
+                blockId: `docker_official_component_body_${index}`,
+                locked: false,
+                semanticRole: "body",
+              },
+              content: [{ type: "text", text: "Docker 正式组件闭环" }],
+            },
+          ],
+        },
       ],
     },
     meta: {
@@ -415,6 +438,15 @@ try {
   assert.equal(manualSnapshot.isCurrent, true);
   assert.equal(Array.isArray(manualSnapshot.resourceManifest), true);
   assert.equal(Array.isArray(manualSnapshot.packageManifest), true);
+  assert.equal(
+    manualSnapshot.packageManifest.some(
+      (entry) =>
+        entry.kind === "component" &&
+        entry.packageId === "cmp_notice_info_blue_001" &&
+        entry.version === "1.0.0",
+    ),
+    true,
+  );
   const manualSnapshotDocument = cloneJson(manualSnapshot.document);
 
   const postSnapshotTransactionId = createUuidV7();
@@ -595,6 +627,7 @@ try {
   assert.equal(copyPayload.html.includes("<section"), true);
   assert.equal(copyPayload.html.includes("#2F2525"), true);
   assert.equal(copyPayload.plainText.includes("Docker 文档乐观锁"), true);
+  assert.equal(copyPayload.html.includes("Docker 正式组件闭环"), true);
   const copyRecord = await responseData(
     await write(
       `/api/v1/articles/${created.id}/copy-records`,

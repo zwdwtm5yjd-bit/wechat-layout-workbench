@@ -5,6 +5,7 @@ import { MARK_TYPES } from "./marks/index.js";
 import { NODE_TYPES } from "./nodes/index.js";
 import { documentSchemaV1JsonSchema, serializeDocumentSchemaV1 } from "./schema.js";
 import { deserializeDocument, serializeDocument } from "./serialization.js";
+import { collectDocumentEntries } from "./traversal.js";
 import { validateDocument } from "./validation.js";
 import { DOCUMENT_SCHEMA_VERSION } from "./version.js";
 
@@ -52,6 +53,95 @@ describe("Document Schema V1", () => {
       const: DOCUMENT_SCHEMA_VERSION,
     });
     expect(restoredSchema).toEqual(documentSchemaV1JsonSchema);
+  });
+
+  it("accepts and round-trips exact component references on component-capable nodes", () => {
+    const document = structuredClone(documentV1Fixture);
+    const componentNodeTypes = new Set([
+      "blockquote",
+      "brandFooter",
+      "divider",
+      "heading",
+      "imageBlock",
+      "semanticCard",
+    ]);
+    const blocks = collectDocumentEntries(document.content).blocks.filter(({ node }) =>
+      componentNodeTypes.has(node.type),
+    );
+
+    blocks.forEach(({ node }, index) => {
+      node.attrs.componentId = `component_fixture_${String(index + 1)}`;
+      node.attrs.componentVersion = "1.2.3";
+      node.attrs.componentVariantId = "default";
+    });
+
+    expect(validateDocument(document)).toEqual({ success: true, data: document });
+    const restored = deserializeDocument(serializeDocument(document));
+    expect(restored).toEqual(document);
+    expect(
+      collectDocumentEntries(restored.content).blocks.every(
+        ({ node }) =>
+          !componentNodeTypes.has(node.type) ||
+          (node.attrs.componentId !== undefined &&
+            node.attrs.componentVersion === "1.2.3" &&
+            node.attrs.componentVariantId === "default"),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects component references on nodes that cannot be registered components", () => {
+    const document = structuredClone(documentV1Fixture);
+    const paragraph = document.content.content.find((node) => node.type === "paragraph");
+    if (paragraph?.type !== "paragraph") {
+      throw new Error("测试样稿缺少 paragraph 节点");
+    }
+    Object.assign(paragraph.attrs as Record<string, unknown>, {
+      componentId: "component_invalid_paragraph",
+      componentVersion: "1.0.0",
+    });
+
+    const result = validateDocument(document);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "SCHEMA_INVALID",
+            keyword: "additionalProperties",
+          }),
+        ]),
+      );
+    }
+  });
+
+  it("rejects unpaired component references and a variant without an exact reference", () => {
+    const invalidAttributes = [
+      { componentId: "component_heading_fixture" },
+      { componentVersion: "1.0.0" },
+      { componentVariantId: "default" },
+    ] as const;
+
+    invalidAttributes.forEach((attributes) => {
+      const document = structuredClone(documentV1Fixture);
+      const heading = document.content.content.find((node) => node.type === "heading");
+      if (heading?.type !== "heading") {
+        throw new Error("测试样稿缺少 heading 节点");
+      }
+      Object.assign(heading.attrs, attributes);
+
+      const result = validateDocument(document);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              code: "SCHEMA_INVALID",
+              keyword: "dependentRequired",
+            }),
+          ]),
+        );
+      }
+    });
   });
 
   it("rejects unknown nodes instead of silently accepting them", () => {

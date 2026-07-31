@@ -137,6 +137,7 @@ class CopyHttpTestStorage implements ObjectStorage {
 
 @Injectable()
 class InMemoryCopyRepository implements CopyRepository {
+  lastRenderResult: PersistRenderOutputInput["renderResult"] = null;
   readonly outputs = new Map<string, RenderOutputRecord>();
   readonly records: CreateCopyRecordInput[] = [];
   source: CopyRenderSource = {
@@ -159,6 +160,7 @@ class InMemoryCopyRepository implements CopyRepository {
   }
 
   persistRenderOutput(input: PersistRenderOutputInput): Promise<PersistRenderOutputResult> {
+    this.lastRenderResult = input.renderResult;
     if (input.ownerUserId !== ownerUserId || input.source.articleId !== articleId) {
       return Promise.resolve({ kind: "not_found" });
     }
@@ -323,6 +325,50 @@ describe("wechat copy HTTP contract", () => {
       .send({ documentVersion: 3, outputMode: "standard" })
       .expect(409);
     expect(conflict.body.error.code).toBe("ARTICLE_VERSION_CONFLICT");
+  });
+
+  it("loads the bundled component registry in the formal copy path", async () => {
+    const original = repository.source;
+    const sentinel = "正式复制组件正文";
+    const document = textDocument();
+    document.content.content.push({
+      type: "semanticCard",
+      attrs: {
+        blockId: "copy_official_component",
+        componentId: "cmp_notice_info_blue_001",
+        componentVariantId: "default",
+        componentVersion: "1.0.0",
+        locked: false,
+        title: "阅读提示",
+        variant: "default",
+      },
+      content: [
+        {
+          type: "paragraph",
+          attrs: { blockId: "copy_official_component_body", locked: false },
+          content: [{ type: "text", text: sentinel }],
+        },
+      ],
+    });
+    repository.source = { ...original, document };
+
+    const rendered = await supertest(application.getHttpServer())
+      .post(`/api/v1/articles/${articleId}/render-wechat`)
+      .set("x-csrf-token", csrfToken)
+      .send({ documentVersion: 4, outputMode: "wechat_safe" })
+      .expect(201);
+    expect(rendered.body.data).toMatchObject({ canCopy: true, status: "ready" });
+    expect(repository.lastRenderResult?.manifest.componentVersions).toContain(
+      "cmp_notice_info_blue_001@1.0.0",
+    );
+
+    const payload = await supertest(application.getHttpServer())
+      .post(`/api/v1/articles/${articleId}/copy-payload`)
+      .set("x-csrf-token", csrfToken)
+      .send({ renderOutputId: rendered.body.data.id })
+      .expect(200);
+    expect(payload.body.data.html).toContain(sentinel);
+    repository.source = original;
   });
 
   it("blocks payload issuance when critical image compatibility checks fail", async () => {

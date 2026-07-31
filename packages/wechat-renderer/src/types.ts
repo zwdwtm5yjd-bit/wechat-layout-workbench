@@ -30,6 +30,7 @@ export interface WechatRenderInput {
 
 export type WechatRenderWarningCode =
   | "COMPONENT_MISSING"
+  | "COMPONENT_NODE_TYPE_MISMATCH"
   | "COMPONENT_RENDERER_MISSING"
   | "HTML_POLICY_DROPPED"
   | "NESTING_FLATTENED"

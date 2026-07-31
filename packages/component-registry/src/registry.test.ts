@@ -2,15 +2,22 @@ import { describe, expect, it } from "vitest";
 
 import {
   COMPONENT_MANIFEST_SCHEMA_VERSION,
+  LEGACY_COMPONENT_MANIFEST_SCHEMA_VERSION,
+  OFFICIAL_COMPONENT_ASSETS,
+  OFFICIAL_COMPONENT_MANIFESTS,
   ComponentManifestValidationError,
   ComponentRegistry,
   ComponentRegistryError,
   compareComponentVersions,
+  createOfficialComponentRegistry,
   validateComponentManifest,
-  type ComponentManifest,
+  type ComponentManifestV1_1,
+  type LegacyComponentManifest,
 } from "./index.js";
 
-function componentManifest(overrides: Partial<ComponentManifest> = {}): ComponentManifest {
+function componentManifest(
+  overrides: Partial<LegacyComponentManifest> = {},
+): LegacyComponentManifest {
   return {
     adjustableProperties: ["backgroundColor", "paddingTop"],
     category: "CARD",
@@ -33,7 +40,7 @@ function componentManifest(overrides: Partial<ComponentManifest> = {}): Componen
     nodeType: "semanticCard",
     previewAssetId: "asset_component_summary",
     scenarios: ["summary"],
-    schemaVersion: COMPONENT_MANIFEST_SCHEMA_VERSION,
+    schemaVersion: LEGACY_COMPONENT_MANIFEST_SCHEMA_VERSION,
     semanticRoles: ["summary"],
     slots: [
       {
@@ -113,6 +120,32 @@ function componentManifest(overrides: Partial<ComponentManifest> = {}): Componen
   };
 }
 
+function currentComponentManifest(
+  overrides: Partial<ComponentManifestV1_1> = {},
+): ComponentManifestV1_1 {
+  const legacy = componentManifest();
+  return {
+    ...legacy,
+    insertionPreset: {
+      attributes: { variant: "default" },
+      nodeType: "semanticCard",
+      slotBindings: [
+        { slotId: "eyebrow", target: { attribute: "eyebrow", kind: "root_attribute" } },
+        { slotId: "title", target: { attribute: "title", kind: "root_attribute" } },
+        {
+          slotId: "body",
+          target: { index: 0, kind: "child_text", nodeType: "paragraph" },
+        },
+        { slotId: "image", target: { index: 1, kind: "child_image" } },
+        { slotId: "footer", target: { attribute: "footer", kind: "root_attribute" } },
+      ],
+    },
+    previewAssetId: "asset_component_summary",
+    schemaVersion: COMPONENT_MANIFEST_SCHEMA_VERSION,
+    ...overrides,
+  };
+}
+
 describe("component manifest", () => {
   it("accepts a declarative manifest and rejects unknown executable fields", () => {
     expect(validateComponentManifest(componentManifest())).toMatchObject({ success: true });
@@ -168,6 +201,141 @@ describe("component manifest", () => {
         expect.objectContaining({ code: "INVALID_RELATION" }),
         expect.objectContaining({ code: "UNSAFE_VALUE" }),
       ]),
+    });
+  });
+
+  it("accepts legacy 1.0.0 while requiring a strict native insertion preset in 1.1.0", () => {
+    expect(validateComponentManifest(componentManifest())).toMatchObject({ success: true });
+    expect(validateComponentManifest(currentComponentManifest())).toMatchObject({ success: true });
+
+    const withoutPreset: Record<string, unknown> = { ...currentComponentManifest() };
+    Reflect.deleteProperty(withoutPreset, "insertionPreset");
+    expect(validateComponentManifest(withoutPreset)).toMatchObject({
+      success: false,
+      issues: expect.arrayContaining([
+        expect.objectContaining({ code: "INVALID_TYPE", path: "/manifest/insertionPreset" }),
+      ]),
+    });
+    expect(
+      validateComponentManifest({
+        ...currentComponentManifest(),
+        insertionPreset: {
+          attributes: { level: 1, onclick: "run()" },
+          nodeType: "heading",
+          slotBindings: [{ slotId: "title", target: { kind: "root_text" } }],
+        },
+        nodeType: "heading",
+        slots: [
+          {
+            allowImages: false,
+            allowRichText: false,
+            editorBinding: "content",
+            kind: "text",
+            label: "标题",
+            required: true,
+            slotId: "title",
+            textLocked: true,
+            wechatExport: "plain_text",
+          },
+        ],
+      }),
+    ).toMatchObject({
+      success: false,
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          code: "UNKNOWN_FIELD",
+          path: "/manifest/insertionPreset/attributes/onclick",
+        }),
+      ]),
+    });
+    expect(
+      validateComponentManifest({
+        ...currentComponentManifest(),
+        insertionPreset: {
+          ...currentComponentManifest().insertionPreset,
+          nodeType: "blockquote",
+        },
+      }),
+    ).toMatchObject({
+      success: false,
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          code: "INVALID_RELATION",
+          path: "/manifest/insertionPreset/nodeType",
+        }),
+      ]),
+    });
+  });
+});
+
+describe("official component assets", () => {
+  it("ships exactly 29 immutable, uniquely versioned assets in the audited category split", () => {
+    expect(OFFICIAL_COMPONENT_ASSETS).toHaveLength(29);
+    expect(OFFICIAL_COMPONENT_MANIFESTS).toHaveLength(29);
+    expect(
+      OFFICIAL_COMPONENT_ASSETS.reduce<Record<string, number>>((counts, asset) => {
+        const key =
+          asset.manifest.category === "HEAD"
+            ? `${asset.manifest.category}:${
+                asset.manifest.insertionPreset.nodeType === "heading"
+                  ? asset.manifest.insertionPreset.attributes.level
+                  : "invalid"
+              }`
+            : asset.manifest.category;
+        counts[key] = (counts[key] ?? 0) + 1;
+        return counts;
+      }, {}),
+    ).toEqual({
+      "HEAD:1": 4,
+      "HEAD:2": 4,
+      DATA: 4,
+      DIVIDER: 3,
+      FOOTER: 2,
+      IMAGE: 4,
+      NOTICE: 4,
+      QUOTE: 4,
+    });
+    expect(
+      new Set(
+        OFFICIAL_COMPONENT_MANIFESTS.map(
+          (manifest) => `${manifest.componentId}@${manifest.version}`,
+        ),
+      ).size,
+    ).toBe(29);
+    expect(Object.isFrozen(OFFICIAL_COMPONENT_ASSETS)).toBe(true);
+    expect(Object.isFrozen(OFFICIAL_COMPONENT_ASSETS[0]?.manifest.insertionPreset)).toBe(true);
+    expect(Object.isFrozen(OFFICIAL_COMPONENT_ASSETS[0]?.preview.sample)).toBe(true);
+  });
+
+  it("registers every manifest and validates every preview default insertion", () => {
+    OFFICIAL_COMPONENT_ASSETS.forEach((asset) => {
+      const result = validateComponentManifest(asset.manifest);
+      expect(result.success, `${asset.manifest.componentId}: ${JSON.stringify(result)}`).toBe(true);
+    });
+    const registry = createOfficialComponentRegistry();
+    expect(registry.query()).toHaveLength(29);
+
+    OFFICIAL_COMPONENT_ASSETS.forEach((asset) => {
+      expect(asset.preview.name).toBe(asset.manifest.name);
+      expect(asset.preview.description).toBe(asset.manifest.description);
+      expect(asset.manifest.previewAssetId.length).toBeGreaterThan(0);
+      expect(
+        asset.manifest.slots.every((slot) => slot.textLocked === false),
+        `${asset.manifest.componentId} 的用户填写槽不应被当作导入原文锁定`,
+      ).toBe(true);
+      expect(
+        registry.prepareInsertion({
+          componentId: asset.manifest.componentId,
+          slots: asset.defaultSlots,
+          version: asset.manifest.version,
+        }),
+      ).toMatchObject({
+        success: true,
+        descriptor: {
+          componentId: asset.manifest.componentId,
+          version: asset.manifest.version,
+        },
+      });
     });
   });
 });

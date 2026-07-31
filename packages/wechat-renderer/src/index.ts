@@ -6,6 +6,7 @@ export * from "./compatibility-rules.js";
 export * from "./compatibility-types.js";
 export * from "./compatibility-version.js";
 export * from "./html.js";
+export * from "./official-component-renderers.js";
 export * from "./registry.js";
 export * from "./renderer.js";
 export * from "./style-serializer.js";

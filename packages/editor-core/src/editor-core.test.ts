@@ -3,8 +3,11 @@
 import { documentV1Fixture } from "@wechat-layout/document-schema/fixtures";
 import { Editor } from "@tiptap/core";
 import {
-  COMPONENT_MANIFEST_SCHEMA_VERSION,
+  OFFICIAL_COMPONENT_ASSETS,
+  LEGACY_COMPONENT_MANIFEST_SCHEMA_VERSION,
   ComponentRegistry,
+  createOfficialComponentRegistry,
+  validateComponentManifest,
   type ComponentManifest,
 } from "@wechat-layout/component-registry";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -44,7 +47,7 @@ const summaryCardManifest: ComponentManifest = {
   },
   name: "摘要卡片",
   nodeType: "semanticCard",
-  schemaVersion: COMPONENT_MANIFEST_SCHEMA_VERSION,
+  schemaVersion: LEGACY_COMPONENT_MANIFEST_SCHEMA_VERSION,
   semanticRoles: ["summary"],
   slots: [
     {
@@ -113,6 +116,53 @@ describe("editor core", () => {
     expect(restored.meta).toEqual({
       ...documentV1Fixture.meta,
       updatedAt: "2026-07-30T02:00:00.000Z",
+    });
+  });
+
+  it("inserts all 29 official components as their native nodes with exact versions", () => {
+    const editor = createEditor();
+    OFFICIAL_COMPONENT_ASSETS.forEach((asset) => {
+      const validation = validateComponentManifest(asset.manifest);
+      expect(
+        validation.success,
+        `${asset.manifest.componentId}: ${JSON.stringify(validation)}`,
+      ).toBe(true);
+    });
+    const registry = createOfficialComponentRegistry();
+    const originalBlocks = structuredClone(documentV1Fixture.content.content);
+
+    OFFICIAL_COMPONENT_ASSETS.forEach((asset) => {
+      const result = insertRegisteredComponentAfterSelection(editor, registry, {
+        componentId: asset.manifest.componentId,
+        slots: asset.defaultSlots,
+        version: asset.manifest.version,
+      });
+      expect(result).toMatchObject({ success: true });
+    });
+
+    const restored = editorContentToDocument(
+      documentV1Fixture,
+      editor.getJSON(),
+      new Date(documentV1Fixture.meta.updatedAt),
+    );
+    expect(OFFICIAL_COMPONENT_ASSETS).toHaveLength(29);
+    OFFICIAL_COMPONENT_ASSETS.forEach((asset) => {
+      const block = restored.content.content.find(
+        (candidate) => candidate.attrs.componentId === asset.manifest.componentId,
+      );
+      expect(block).toMatchObject({
+        type: asset.manifest.nodeType,
+        attrs: {
+          componentId: asset.manifest.componentId,
+          componentVariantId: asset.manifest.defaultVariantId,
+          componentVersion: asset.manifest.version,
+        },
+      });
+    });
+    originalBlocks.forEach((original) => {
+      expect(
+        restored.content.content.find((block) => block.attrs.blockId === original.attrs.blockId),
+      ).toEqual(original);
     });
   });
 

@@ -47,6 +47,9 @@ export interface StyleOverrides {
 
 export interface BlockAttributes {
   blockId: string;
+  componentId?: string;
+  componentVersion?: string;
+  componentVariantId?: string;
   sourceBlockId?: string;
   semanticRole?: string;
   styleRef?: string;

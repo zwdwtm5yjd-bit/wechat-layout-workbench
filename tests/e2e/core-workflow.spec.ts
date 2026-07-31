@@ -37,9 +37,15 @@ test("completes the authenticated create, autosave, preview, and copy-gate flow"
   page,
 }, testInfo) => {
   const title = `Playwright 基线文章 · ${testInfo.project.name}`;
+  const componentBody = "这里放置需要读者提前了解的背景信息。";
 
   await login(page);
   await expect(page.getByRole("heading", { name: "欢迎回来，继续完成今天的排版" })).toBeVisible();
+
+  await page.getByRole("link", { name: "组件", exact: true }).click();
+  await expect(page).toHaveURL(/\/workspace\/components$/);
+  await expect(page.getByText("29 个正式组件", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-component-card]")).toHaveCount(29);
 
   await page.getByRole("link", { name: "文章", exact: true }).click();
   await expect(page).toHaveURL(/\/workspace\/articles$/);
@@ -53,7 +59,16 @@ test("completes the authenticated create, autosave, preview, and copy-gate flow"
   await expect(page.locator("summary").filter({ hasText: "已保存" })).toBeVisible();
 
   await page.getByRole("tab", { name: "组件" }).click();
-  await page.getByRole("button", { name: /留白分割/ }).click();
+  const componentSaveResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PUT" &&
+      /\/api\/v1\/articles\/[^/]+\/document$/u.test(response.url()) &&
+      response.request().postData()?.includes('"componentId":"cmp_notice_info_blue_001"') === true,
+    { timeout: 15_000 },
+  );
+  await page.getByRole("button", { name: /^信息提示/ }).click();
+  await expect(page.getByText(componentBody, { exact: true })).toBeVisible();
+  expect((await componentSaveResponse).ok()).toBe(true);
   await expect(page.locator("summary").filter({ hasText: "已保存" })).toBeVisible({
     timeout: 15_000,
   });
@@ -61,6 +76,7 @@ test("completes the authenticated create, autosave, preview, and copy-gate flow"
   await page.getByRole("button", { name: /^预览/ }).click();
   await expect(page).toHaveURL(/\/workspace\/articles\/[^/]+\/preview$/);
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  await expect(page.getByText(componentBody, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "手机预览" }).click();
   await expect(page.getByRole("button", { name: "手机预览" })).toHaveAttribute(
     "aria-pressed",

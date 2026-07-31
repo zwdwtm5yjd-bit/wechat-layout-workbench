@@ -138,6 +138,21 @@ const BlockAttributes = Extension.create<{ createId: () => string }>({
           },
           sourceTextHash: ignoredAttribute,
           compatibilityLevel: ignoredAttribute,
+          componentId: {
+            ...ignoredAttribute,
+            renderHTML: (attributes) =>
+              typeof attributes.componentId === "string"
+                ? { "data-component-id": attributes.componentId }
+                : {},
+          },
+          componentVersion: {
+            ...ignoredAttribute,
+            renderHTML: (attributes) =>
+              typeof attributes.componentVersion === "string"
+                ? { "data-component-version": attributes.componentVersion }
+                : {},
+          },
+          componentVariantId: ignoredAttribute,
         },
       },
     ];
@@ -531,6 +546,22 @@ function createSemanticCardExtension(
         : descriptor.label;
   }
 
+  function applyVisibleAttributes(
+    node: { readonly attrs: Readonly<Record<string, unknown>> },
+    eyebrow: HTMLElement,
+    title: HTMLElement,
+    footer: HTMLElement,
+  ): void {
+    const apply = (element: HTMLElement, value: unknown) => {
+      const text = typeof value === "string" ? value : "";
+      element.textContent = text;
+      element.hidden = text.length === 0;
+    };
+    apply(eyebrow, node.attrs.eyebrow);
+    apply(title, node.attrs.title);
+    apply(footer, node.attrs.footer);
+  }
+
   return Node.create({
     name: "semanticCard",
     group: "block",
@@ -584,10 +615,20 @@ function createSemanticCardExtension(
         const label = document.createElement("div");
         label.className = "editor-semantic-card__label";
         label.contentEditable = "false";
+        const eyebrow = document.createElement("div");
+        eyebrow.className = "editor-semantic-card__eyebrow";
+        eyebrow.contentEditable = "false";
+        const title = document.createElement("div");
+        title.className = "editor-semantic-card__title";
+        title.contentEditable = "false";
         const contentDOM = document.createElement("div");
         contentDOM.className = "editor-semantic-card__content";
+        const footer = document.createElement("div");
+        footer.className = "editor-semantic-card__footer";
+        footer.contentEditable = "false";
         applyDescriptor(dom, label, descriptorFor(node));
-        dom.append(label, contentDOM);
+        applyVisibleAttributes(node, eyebrow, title, footer);
+        dom.append(label, eyebrow, title, contentDOM, footer);
 
         return {
           contentDOM,
@@ -597,6 +638,7 @@ function createSemanticCardExtension(
               return false;
             }
             applyDescriptor(dom, label, descriptorFor(updatedNode));
+            applyVisibleAttributes(updatedNode, eyebrow, title, footer);
             return true;
           },
         };

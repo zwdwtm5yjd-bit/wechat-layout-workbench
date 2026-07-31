@@ -190,6 +190,7 @@ function warningIssue(warning: WechatRenderWarning, document: unknown): Compatib
   };
   switch (warning.code) {
     case "COMPONENT_MISSING":
+    case "COMPONENT_NODE_TYPE_MISMATCH":
     case "COMPONENT_RENDERER_MISSING":
       return createCompatibilityIssue({
         ...input,

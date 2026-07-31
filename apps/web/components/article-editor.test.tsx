@@ -2,6 +2,7 @@
 
 import type { DocumentV1 } from "@wechat-layout/document-schema";
 import { documentV1Fixture } from "@wechat-layout/document-schema/fixtures";
+import { OFFICIAL_COMPONENT_ASSETS } from "@wechat-layout/component-registry";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -95,6 +96,64 @@ describe("ArticleEditor", () => {
           block.type === "heading" && block.attrs.level === 2 && block.attrs.locked === false,
       ),
     ).toBe(true);
+  });
+
+  it("inserts a versioned official component without changing existing blocks", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    const asset = OFFICIAL_COMPONENT_ASSETS.find(
+      (candidate) => candidate.manifest.componentId === "cmp_notice_info_blue_001",
+    );
+    expect(asset).toBeDefined();
+
+    render(
+      <ArticleEditor
+        document={structuredClone(documentV1Fixture)}
+        editable
+        lockActionsEnabled
+        onChange={onChange}
+        onError={vi.fn()}
+        onLockChange={vi.fn().mockResolvedValue(true)}
+        sourceBlocks={[]}
+        textLocked={false}
+      />,
+    );
+
+    await screen.findByRole("textbox", { name: "文章编辑画布" });
+    await user.click(screen.getByRole("tab", { name: "组件" }));
+    await user.click(screen.getByRole("button", { name: new RegExp(asset!.preview.name, "u") }));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    const titleInput = await screen.findByRole("textbox", { name: "卡片标题" });
+    expect((titleInput as HTMLInputElement).value).toBe("阅读前请了解");
+    await user.clear(titleInput);
+    await user.type(titleInput, "用户填写的正式标题");
+    await waitFor(() => {
+      const latest = onChange.mock.lastCall?.[0] as DocumentV1;
+      expect(
+        latest.content.content.find(
+          (block) => block.attrs.componentId === asset!.manifest.componentId,
+        ),
+      ).toMatchObject({ attrs: { title: "用户填写的正式标题" } });
+    });
+
+    const emitted = onChange.mock.lastCall?.[0] as DocumentV1;
+    const inserted = emitted.content.content.find(
+      (block) => block.attrs.componentId === asset!.manifest.componentId,
+    );
+    expect(inserted).toMatchObject({
+      type: "semanticCard",
+      attrs: {
+        componentId: asset!.manifest.componentId,
+        componentVersion: asset!.manifest.version,
+        title: "用户填写的正式标题",
+      },
+      content: [expect.objectContaining({ attrs: expect.objectContaining({ locked: false }) })],
+    });
+    documentV1Fixture.content.content.forEach((original) => {
+      expect(
+        emitted.content.content.find((block) => block.attrs.blockId === original.attrs.blockId),
+      ).toEqual(original);
+    });
   });
 
   it("supports the duplicate-block shortcut and restores the emitted JSON after remount", async () => {

@@ -1,3 +1,4 @@
+import type { ComponentManifest } from "@wechat-layout/component-registry";
 import type { ComponentTokenDefinition } from "@wechat-layout/design-tokens";
 import type { BlockNode, DocumentMark, InlineNode } from "@wechat-layout/document-schema";
 
@@ -97,6 +98,117 @@ const TEXT_WRAP_STYLE = {
   "word-break": "break-word",
 } as const satisfies WechatStyleMap;
 
+interface ResolvedComponentAppearance {
+  readonly manifest: ComponentManifest;
+  readonly style: WechatStyleMap;
+  readonly visualVariant?: string;
+}
+
+type BorderEdge = "border-bottom" | "border-left" | "border-top";
+
+function edgeBorderStyle(style: WechatStyleMap, edge: BorderEdge): WechatStyleMap {
+  const {
+    "border-color": borderColor,
+    "border-style": borderStyle,
+    "border-width": borderWidth,
+    ...rest
+  } = style;
+  if (borderColor === undefined && borderStyle === undefined && borderWidth === undefined) {
+    return style;
+  }
+  return {
+    ...rest,
+    [edge]: `${String(borderWidth ?? "1px")} ${String(borderStyle ?? "solid")} ${String(
+      borderColor ?? "currentColor",
+    )}`,
+  };
+}
+
+function resolvedComponentAppearance(
+  node: BlockNode,
+  context: WechatNodeRenderContext,
+  path: string,
+  defaultStyleRef?: string,
+): ResolvedComponentAppearance | null {
+  const componentId = node.attrs.componentId;
+  const componentVersion = node.attrs.componentVersion;
+  if (componentId === undefined && componentVersion === undefined) {
+    return null;
+  }
+
+  let manifest: ComponentManifest | undefined;
+  try {
+    if (componentId !== undefined && componentVersion !== undefined) {
+      const resolution = context.componentRegistry?.resolve({
+        componentId,
+        version: componentVersion,
+      });
+      if (resolution?.status === "available") {
+        manifest = resolution.descriptor.manifest;
+      }
+    }
+  } catch {
+    manifest = undefined;
+  }
+
+  if (manifest === undefined) {
+    context.warn({
+      code: "COMPONENT_MISSING",
+      message: `组件 ${componentId ?? "unknown"}@${componentVersion ?? "unknown"} 不可用，已使用安全基础结构`,
+      path,
+      severity: "warning",
+    });
+    return null;
+  }
+
+  if (manifest.nodeType !== node.type) {
+    context.warn({
+      code: "COMPONENT_NODE_TYPE_MISMATCH",
+      message: `组件 ${manifest.componentId}@${manifest.version} 需要 ${manifest.nodeType} 节点，实际为 ${node.type}，已使用安全基础结构`,
+      path,
+      severity: "warning",
+    });
+    return null;
+  }
+
+  if (context.componentRenderers.get(manifest.wechatRendererKey) === null) {
+    context.warn({
+      code: "COMPONENT_RENDERER_MISSING",
+      message: `内置 Renderer “${manifest.wechatRendererKey}” 不存在，已使用安全基础结构`,
+      path,
+      severity: "warning",
+    });
+    return null;
+  }
+
+  context.recordComponent(manifest.componentId, manifest.version);
+  const legacyVariant = "variant" in node.attrs ? node.attrs.variant : undefined;
+  const variantId = node.attrs.componentVariantId ?? legacyVariant ?? manifest.defaultVariantId;
+  const variant = manifest.variants.find((candidate) => candidate.variantId === variantId);
+  const componentTokens: ComponentTokenDefinition = {
+    ...manifest.defaultTokenMap,
+    ...(variant?.tokenMap ?? {}),
+  };
+  const visualVariant = componentTokens.variant;
+  return {
+    manifest,
+    style: context.styleFor(node, node.attrs.styleRef ?? defaultStyleRef, componentTokens),
+    ...(typeof visualVariant === "string" ? { visualVariant } : {}),
+  };
+}
+
+function resolvedNodeStyle(
+  node: BlockNode,
+  context: WechatNodeRenderContext,
+  path: string,
+  defaultStyleRef?: string,
+): WechatStyleMap {
+  return (
+    resolvedComponentAppearance(node, context, path, defaultStyleRef)?.style ??
+    context.styleFor(node, node.attrs.styleRef ?? defaultStyleRef)
+  );
+}
+
 function paragraphRenderer(input: BlockNode, context: WechatNodeRenderContext): SafeHtmlNode {
   const node = expectNode(input, "paragraph");
   const style = mergeStyles(
@@ -113,10 +225,36 @@ function paragraphRenderer(input: BlockNode, context: WechatNodeRenderContext): 
   });
 }
 
-function headingRenderer(input: BlockNode, context: WechatNodeRenderContext): SafeHtmlNode {
+function headingRenderer(
+  input: BlockNode,
+  context: WechatNodeRenderContext,
+  path: string,
+): SafeHtmlNode {
   const node = expectNode(input, "heading");
   const defaultRef = `heading.level${String(node.attrs.level)}.default`;
+  const appearance = resolvedComponentAppearance(node, context, path, defaultRef);
+  const resolvedStyle = appearance?.style ?? context.styleFor(node, defaultRef);
+  const structuralStyle =
+    appearance?.visualVariant === "leftbar"
+      ? edgeBorderStyle(resolvedStyle, "border-left")
+      : appearance?.visualVariant === "underlined"
+        ? edgeBorderStyle(resolvedStyle, "border-bottom")
+        : resolvedStyle;
   const content: SafeHtmlNode[] = [];
+  if (appearance?.visualVariant === "dot") {
+    content.push(
+      htmlElement("span", {
+        children: ["●"],
+        style: {
+          color: String(context.tokens.colors.primary),
+          display: "inline",
+          "font-size": "0.55em",
+          "margin-right": "8px",
+          "vertical-align": "middle",
+        },
+      }),
+    );
+  }
   if (node.attrs.numbering !== undefined) {
     content.push(
       htmlElement("span", {
@@ -138,7 +276,7 @@ function headingRenderer(input: BlockNode, context: WechatNodeRenderContext): Sa
         ...TEXT_WRAP_STYLE,
         margin: "28px 0 14px",
       },
-      context.styleFor(node, node.attrs.styleRef ?? defaultRef),
+      structuralStyle,
     ),
   });
 }
@@ -150,7 +288,45 @@ function blockquoteRenderer(
   state: WechatNodeRenderState,
 ): SafeHtmlNode {
   const node = expectNode(input, "blockquote");
-  const children = [...context.renderBlocks(node.content, `${path}/content`, state.depth + 1)];
+  const appearance = resolvedComponentAppearance(node, context, path, "quote.default");
+  const resolvedStyle = appearance?.style ?? context.styleFor(node, "quote.default");
+  const structuralStyle =
+    appearance?.visualVariant === "leftline"
+      ? edgeBorderStyle(resolvedStyle, "border-left")
+      : resolvedStyle;
+  const children: SafeHtmlNode[] = [];
+  if (node.attrs.showQuotes === true) {
+    children.push(
+      htmlElement("span", {
+        children: ["“"],
+        style: {
+          color: String(context.tokens.colors.primary),
+          display: "block",
+          "font-size": "32px",
+          "font-weight": 700,
+          height: "24px",
+          "line-height": 1,
+        },
+      }),
+    );
+  }
+  children.push(...context.renderBlocks(node.content, `${path}/content`, state.depth + 1));
+  if (node.attrs.showQuotes === true) {
+    children.push(
+      htmlElement("span", {
+        children: ["”"],
+        style: {
+          color: String(context.tokens.colors.primary),
+          display: "block",
+          "font-size": "32px",
+          "font-weight": 700,
+          height: "20px",
+          "line-height": 1,
+          "text-align": "right",
+        },
+      }),
+    );
+  }
   if (node.attrs.showSource === true && node.attrs.source !== undefined) {
     children.push(
       htmlElement("p", {
@@ -169,10 +345,12 @@ function blockquoteRenderer(
     style: mergeStyles(
       {
         ...TEXT_WRAP_STYLE,
-        "border-left": `4px solid ${String(context.tokens.colors.primary)}`,
+        ...(appearance === null
+          ? { "border-left": `4px solid ${String(context.tokens.colors.primary)}` }
+          : {}),
         margin: "16px 0",
       },
-      context.styleFor(node, node.attrs.styleRef ?? "quote.default"),
+      structuralStyle,
     ),
   });
 }
@@ -299,6 +477,7 @@ function unavailableImage(
       htmlElement("p", {
         children: [`[图片不可用：${label || "未命名图片"}]`],
         style: {
+          ...TEXT_WRAP_STYLE,
           color: String(context.tokens.colors.textSecondary),
           margin: "0",
           "text-align": "center",
@@ -310,6 +489,7 @@ function unavailableImage(
             htmlElement("p", {
               children: [caption],
               style: {
+                ...TEXT_WRAP_STYLE,
                 color: String(context.tokens.image.captionColor),
                 "font-size": `${String(context.tokens.image.captionSize)}px`,
                 margin: "8px 0 0",
@@ -319,6 +499,7 @@ function unavailableImage(
           ]),
     ],
     style: {
+      ...TEXT_WRAP_STYLE,
       "background-color": String(context.tokens.colors.surface),
       border:
         context.tokens.image.border === "none"
@@ -331,12 +512,63 @@ function unavailableImage(
   });
 }
 
+function pendingImage(
+  label: string,
+  caption: string | undefined,
+  context: WechatNodeRenderContext,
+): SafeHtmlNode {
+  return htmlElement("section", {
+    children: [
+      htmlElement("p", {
+        children: [`[图片待选择：${label || "未命名图片"}]`],
+        style: {
+          ...TEXT_WRAP_STYLE,
+          color: String(context.tokens.colors.textSecondary),
+          margin: "0",
+          "text-align": "center",
+        },
+      }),
+      ...(caption === undefined
+        ? []
+        : [
+            htmlElement("p", {
+              children: [caption],
+              style: {
+                ...TEXT_WRAP_STYLE,
+                color: String(context.tokens.image.captionColor),
+                "font-size": `${String(context.tokens.image.captionSize)}px`,
+                margin: "8px 0 0",
+                "text-align": context.tokens.image.captionAlign,
+              },
+            }),
+          ]),
+    ],
+    style: {
+      ...TEXT_WRAP_STYLE,
+      "background-color": String(context.tokens.colors.surface),
+      border: `1px dashed ${String(context.tokens.colors.borderStrong)}`,
+      "box-sizing": "border-box",
+      margin: "16px 0",
+      padding: "16px",
+    },
+  });
+}
+
+function isPendingImageResource(resourceId: string): boolean {
+  return (
+    resourceId === "component_slot_image_pending" || resourceId === "component_slot_qrcode_pending"
+  );
+}
+
 function imageRenderer(
   input: BlockNode,
   context: WechatNodeRenderContext,
   path: string,
 ): SafeHtmlNode {
   const node = expectNode(input, "imageBlock");
+  if (isPendingImageResource(node.attrs.resourceId)) {
+    return pendingImage(node.attrs.alt ?? "", node.attrs.caption, context);
+  }
   const resource = context.resolveResource(node.attrs.resourceId, path);
   if (resource === null) {
     return unavailableImage(node.attrs.alt ?? "", node.attrs.caption, context);
@@ -362,7 +594,7 @@ function imageRenderer(
             "object-fit": node.attrs.objectFit ?? "contain",
             width,
           },
-          context.styleFor(node, node.attrs.styleRef ?? "image.default"),
+          resolvedNodeStyle(node, context, path, "image.default"),
         ),
       }),
       ...(node.attrs.caption === undefined
@@ -371,6 +603,7 @@ function imageRenderer(
             htmlElement("p", {
               children: [node.attrs.caption],
               style: {
+                ...TEXT_WRAP_STYLE,
                 color: String(context.tokens.image.captionColor),
                 "font-size": `${String(context.tokens.image.captionSize)}px`,
                 "line-height": context.tokens.typography.captionLineHeight,
@@ -388,27 +621,81 @@ function imageRenderer(
   });
 }
 
-function dividerRenderer(input: BlockNode, context: WechatNodeRenderContext): SafeHtmlNode {
+function dividerRenderer(
+  input: BlockNode,
+  context: WechatNodeRenderContext,
+  path: string,
+): SafeHtmlNode {
   const node = expectNode(input, "divider");
+  const appearance = resolvedComponentAppearance(node, context, path, "divider.default");
+  const componentStyle = appearance?.style ?? context.styleFor(node, "divider.default");
   if (node.attrs.variant === "ornament" && node.attrs.icon !== undefined) {
+    const {
+      "border-color": borderColor,
+      "border-style": borderStyle,
+      "border-width": borderWidth,
+      ...rootStyle
+    } = componentStyle;
+    const line = `${String(borderWidth ?? "1px")} ${String(borderStyle ?? "solid")} ${String(
+      borderColor ?? context.tokens.colors.accent,
+    )}`;
     return htmlElement("section", {
-      children: [node.attrs.icon],
-      style: {
-        color: String(context.tokens.colors.accent),
-        margin: `${String(node.attrs.spacingBefore ?? 24)}px 0 ${String(node.attrs.spacingAfter ?? 24)}px`,
-        "text-align": node.attrs.align ?? "center",
-      },
+      children: [
+        htmlElement("span", {
+          style: {
+            "border-top": line,
+            display: "inline-block",
+            "vertical-align": "middle",
+            width: "34%",
+          },
+        }),
+        htmlElement("span", {
+          children: [node.attrs.icon],
+          style: {
+            display: "inline-block",
+            "margin-left": "10px",
+            "margin-right": "10px",
+            "vertical-align": "middle",
+          },
+        }),
+        htmlElement("span", {
+          style: {
+            "border-top": line,
+            display: "inline-block",
+            "vertical-align": "middle",
+            width: "34%",
+          },
+        }),
+      ],
+      style: mergeStyles(
+        {
+          color: String(context.tokens.colors.accent),
+          margin: `${String(node.attrs.spacingBefore ?? 24)}px 0 ${String(node.attrs.spacingAfter ?? 24)}px`,
+          "text-align": node.attrs.align ?? "center",
+        },
+        {
+          ...rootStyle,
+          ...(borderColor === undefined ? {} : { "border-color": borderColor }),
+        },
+      ),
     });
   }
+  const lineStyle =
+    appearance === null
+      ? {
+          "border-top": `1px ${node.attrs.variant ?? "solid"} ${String(
+            context.tokens.colors.border,
+          )}`,
+        }
+      : edgeBorderStyle(componentStyle, "border-top");
   return htmlElement("section", {
     style: mergeStyles(
       {
-        "border-top": `1px ${node.attrs.variant ?? "solid"} ${String(context.tokens.colors.border)}`,
         height: "0",
         margin: `${String(node.attrs.spacingBefore ?? 24)}px 0 ${String(node.attrs.spacingAfter ?? 24)}px`,
         width: `${String(node.attrs.widthPercent ?? 100)}%`,
       },
-      context.styleFor(node, node.attrs.styleRef ?? "divider.default"),
+      lineStyle,
     ),
   });
 }
@@ -490,25 +777,8 @@ function semanticCardRenderer(
 ): SafeHtmlNode {
   const node = expectNode(input, "semanticCard");
   const children = context.renderBlocks(node.content ?? [], `${path}/content`, state.depth + 1);
-  let manifest;
-  try {
-    const resolution = context.componentRegistry?.resolve({
-      componentId: node.attrs.componentId,
-      version: node.attrs.componentVersion,
-    });
-    if (resolution?.status === "available") {
-      manifest = resolution.descriptor.manifest;
-    }
-  } catch {
-    manifest = undefined;
-  }
-  if (manifest === undefined) {
-    context.warn({
-      code: "COMPONENT_MISSING",
-      message: `组件 ${node.attrs.componentId}@${node.attrs.componentVersion} 不可用，已使用安全占位`,
-      path,
-      severity: "warning",
-    });
+  const appearance = resolvedComponentAppearance(node, context, path);
+  if (appearance === null) {
     return genericSemanticCardNode(
       children,
       context,
@@ -517,14 +787,7 @@ function semanticCardRenderer(
     );
   }
 
-  context.recordComponent(manifest.componentId, manifest.version);
-  const variantId = node.attrs.variant ?? manifest.defaultVariantId;
-  const variant = manifest.variants.find((candidate) => candidate.variantId === variantId);
-  const componentTokens: ComponentTokenDefinition = {
-    ...manifest.defaultTokenMap,
-    ...(variant?.tokenMap ?? {}),
-  };
-  const style = context.styleFor(node, node.attrs.styleRef, componentTokens);
+  const { manifest, style } = appearance;
   const renderer = context.componentRenderers.get(manifest.wechatRendererKey);
   if (renderer === null) {
     context.warn({
@@ -559,6 +822,12 @@ function brandFooterRenderer(
   state: WechatNodeRenderState,
 ): SafeHtmlNode {
   const node = expectNode(input, "brandFooter");
+  const appearance = resolvedComponentAppearance(node, context, path, "footer.brand.default");
+  const resolvedStyle = appearance?.style ?? context.styleFor(node, "footer.brand.default");
+  const structuralStyle =
+    appearance?.visualVariant === "minimal_brand"
+      ? edgeBorderStyle(resolvedStyle, "border-top")
+      : resolvedStyle;
   return htmlElement("section", {
     children: context.renderBlocks(node.content ?? [], `${path}/content`, state.depth + 1),
     style: mergeStyles(
@@ -567,7 +836,7 @@ function brandFooterRenderer(
         margin: "36px 0 0",
         "text-align": "center",
       },
-      context.styleFor(node, node.attrs.styleRef ?? "footer.brand.default"),
+      structuralStyle,
     ),
   });
 }

@@ -149,6 +149,10 @@ function textContent(value: string | number): JSONContent[] | undefined {
 function componentBlockJson(
   descriptor: Extract<ComponentInsertionResult, { readonly success: true }>["descriptor"],
 ): JSONContent {
+  if ("insertionPreset" in descriptor.manifest) {
+    return componentBlockJsonV1_1(descriptor);
+  }
+
   const attributes: Record<string, unknown> = {
     blockId: createBlockId(),
     compatibilityLevel: compatibilityLevel(descriptor.compatibilityLevel),
@@ -200,6 +204,102 @@ function componentBlockJson(
 
   return {
     type: "semanticCard",
+    attrs: attributes,
+    ...(content.length === 0 ? {} : { content }),
+  };
+}
+
+function componentBlockJsonV1_1(
+  descriptor: Extract<ComponentInsertionResult, { readonly success: true }>["descriptor"],
+): JSONContent {
+  const manifest = descriptor.manifest;
+  if (!("insertionPreset" in manifest)) {
+    throw new TypeError("当前组件缺少声明式插入预设");
+  }
+
+  const preset = manifest.insertionPreset;
+  const attributes: Record<string, unknown> = {
+    ...preset.attributes,
+    blockId: createBlockId(),
+    compatibilityLevel: compatibilityLevel(descriptor.compatibilityLevel),
+    componentId: descriptor.componentId,
+    componentVersion: descriptor.version,
+    componentVariantId: descriptor.variantId,
+    locked: false,
+  };
+
+  let rootContent: JSONContent[] | undefined;
+  const childNodes = new Map<number, JSONContent>();
+
+  preset.slotBindings.forEach((binding) => {
+    const slot = manifest.slots.find((candidate) => candidate.slotId === binding.slotId);
+    const value = descriptor.slots[binding.slotId];
+    if (slot === undefined || value === undefined) {
+      return;
+    }
+
+    switch (binding.target.kind) {
+      case "root_text": {
+        if (typeof value === "string" || typeof value === "number") {
+          rootContent = textContent(value);
+        }
+        break;
+      }
+      case "root_attribute": {
+        if (typeof value === "string" || typeof value === "number") {
+          attributes[binding.target.attribute] = String(value);
+        }
+        break;
+      }
+      case "root_image": {
+        if (typeof value === "object") {
+          attributes.resourceId = value.resourceId;
+          if (value.alt !== undefined) attributes.alt = value.alt;
+          if (value.caption !== undefined) attributes.caption = value.caption;
+        }
+        break;
+      }
+      case "child_text": {
+        if (typeof value === "string" || typeof value === "number") {
+          const content = textContent(value);
+          childNodes.set(binding.target.index, {
+            type: binding.target.nodeType,
+            attrs: {
+              blockId: createBlockId(),
+              compatibilityLevel: compatibilityLevel(descriptor.compatibilityLevel),
+              locked: slot.textLocked,
+              semanticRole: slot.slotId,
+            },
+            ...(content === undefined ? {} : { content }),
+          });
+        }
+        break;
+      }
+      case "child_image": {
+        if (typeof value === "object") {
+          childNodes.set(binding.target.index, {
+            type: "imageBlock",
+            attrs: {
+              alt: value.alt,
+              blockId: createBlockId(),
+              caption: value.caption,
+              compatibilityLevel: compatibilityLevel(descriptor.compatibilityLevel),
+              locked: slot.textLocked,
+              resourceId: value.resourceId,
+              semanticRole: slot.slotId,
+            },
+          });
+        }
+        break;
+      }
+    }
+  });
+
+  const content =
+    rootContent ??
+    [...childNodes.entries()].sort(([left], [right]) => left - right).map(([, child]) => child);
+  return {
+    type: preset.nodeType,
     attrs: attributes,
     ...(content.length === 0 ? {} : { content }),
   };

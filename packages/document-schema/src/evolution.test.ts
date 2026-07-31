@@ -4,6 +4,7 @@ import type { DocumentV1 } from "./document.js";
 import { validateSourceBlockIdStability } from "./evolution.js";
 import { documentV1Fixture } from "./fixtures/index.js";
 import {
+  blockText,
   createTextChangeReport,
   documentPlainText,
   lockAllSourceBlocks,
@@ -133,6 +134,55 @@ describe("original text lock", () => {
 
     const relocked = lockAllSourceBlocks(edited);
     expect(relocked.content.content[0]?.attrs.locked).toBe(true);
+  });
+
+  it("protects visible component attributes as text, not as bypassable visual metadata", () => {
+    const previous = structuredClone(documentV1Fixture) as DocumentV1;
+    previous.content.content.push(
+      {
+        type: "semanticCard",
+        attrs: {
+          blockId: "block_locked_component",
+          componentId: "component_locked_notice",
+          componentVersion: "1.0.0",
+          eyebrow: "提示",
+          footer: "单位：项",
+          locked: true,
+          title: "不得绕过的标题",
+        },
+        content: [],
+      },
+      {
+        type: "imageBlock",
+        attrs: {
+          alt: "锁定图片替代文本",
+          blockId: "block_locked_image",
+          caption: "不得绕过的图注",
+          locked: true,
+          resourceId: "resource_locked_image",
+        },
+      },
+    );
+    const changedTitle = structuredClone(previous);
+    const changedCaption = structuredClone(previous);
+    const card = changedTitle.content.content.at(-2);
+    const image = changedCaption.content.content.at(-1);
+    if (card?.type !== "semanticCard" || image?.type !== "imageBlock") {
+      throw new Error("测试组件构造失败");
+    }
+    card.attrs.title = "被客户端偷偷修改的标题";
+    image.attrs.caption = "被客户端偷偷修改的图注";
+
+    expect(blockText(previous.content.content.at(-2)!)).toBe("提示\n不得绕过的标题\n单位：项");
+    expect(blockText(previous.content.content.at(-1)!)).toBe("锁定图片替代文本\n不得绕过的图注");
+    for (const candidate of [changedTitle, changedCaption]) {
+      expect(validateTextLockEvolution(previous.content, candidate.content, true)).toEqual({
+        success: false,
+        violations: expect.arrayContaining([
+          expect.objectContaining({ code: "LOCKED_TEXT_CHANGED" }),
+        ]),
+      });
+    }
   });
 
   it("reports text, style, order and decoration changes separately", () => {

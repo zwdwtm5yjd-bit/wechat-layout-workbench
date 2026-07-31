@@ -8,6 +8,7 @@
 - Node Renderer 与内置 Component Renderer 均使用可冻结注册表，拒绝重复注册；
 - 组件按 Manifest 中固化的 `componentId@version` 精确解析，再调用声明的内置
   `wechatRendererKey`；
+- 默认注册 29 个官方组件 Renderer，覆盖标题、引用、提示、数据卡、图片、分割线与文末；
 - HTML 从安全 AST 生成，不提供 Raw HTML 接口；标签、属性和 CSS 属性均按白名单序列化；
 - 所有样式内联，不输出 `style`、`script`、表单、编辑器控件、Class 或事件属性；
 - 图片与链接只接受不含凭据、不指向本机/私网的公网 HTTPS URL；

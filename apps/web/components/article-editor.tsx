@@ -12,6 +12,7 @@ import {
   getEditorSelection,
   getEditorTextLength,
   insertBlockAfterSelection,
+  insertRegisteredComponentAfterSelection,
   listTopLevelBlocks,
   moveBlock,
   moveBlockToIndex,
@@ -25,6 +26,7 @@ import {
   type EditorSelectionSnapshot,
   type InsertableBlockType,
 } from "@wechat-layout/editor-core";
+import { createOfficialComponentRegistry } from "@wechat-layout/component-registry";
 import {
   collectDocumentEntries,
   createTextChangeReport,
@@ -82,6 +84,8 @@ import {
 import { themePreviewKey, type OfficialTheme } from "../lib/themes/client";
 import { V0_COMPONENT_PREVIEWS } from "../lib/v0-catalog";
 
+const officialComponentRegistry = createOfficialComponentRegistry();
+
 interface ArticleEditorProps {
   readonly applyingThemeId?: string | null;
   readonly currentThemeId?: string | null;
@@ -133,6 +137,28 @@ const alignmentOptions: ReadonlyArray<{
   { alignment: "right", icon: AlignRight, label: "右对齐" },
   { alignment: "justify", icon: AlignJustify, label: "两端对齐" },
 ];
+
+const componentAttributeFields: Readonly<
+  Record<
+    string,
+    readonly {
+      readonly attribute: string;
+      readonly label: string;
+      readonly maxLength: number;
+    }[]
+  >
+> = {
+  blockquote: [{ attribute: "source", label: "引用来源", maxLength: 500 }],
+  imageBlock: [
+    { attribute: "alt", label: "图片替代文本", maxLength: 500 },
+    { attribute: "caption", label: "图片图注", maxLength: 2_000 },
+  ],
+  semanticCard: [
+    { attribute: "eyebrow", label: "语义标签", maxLength: 200 },
+    { attribute: "title", label: "卡片标题", maxLength: 500 },
+    { attribute: "footer", label: "卡片补充文字", maxLength: 1_000 },
+  ],
+};
 
 function topLevelBlockElement(editor: Editor, target: EventTarget | null): HTMLElement | null {
   let element =
@@ -814,14 +840,27 @@ export function ArticleEditor({
           ) : (
             <div className="space-y-2 p-3">
               <p className="px-1 text-[10px] leading-5 text-muted">
-                点击后插入当前编辑器原生支持的安全区块。
+                点击后按正式 Manifest 插入；组件版本会随文章保存并用于微信安全渲染。
               </p>
               {V0_COMPONENT_PREVIEWS.map((component) => (
                 <button
                   className="flex w-full items-center gap-3 rounded-control border border-line bg-panel p-3 text-left transition hover:border-line-strong hover:bg-hover disabled:opacity-45"
                   disabled={!editable}
                   key={component.id}
-                  onClick={() => insertBlockAfterSelection(editor, component.blockType)}
+                  onClick={() => {
+                    const result = insertRegisteredComponentAfterSelection(
+                      editor,
+                      officialComponentRegistry,
+                      {
+                        componentId: component.id,
+                        slots: component.asset.defaultSlots,
+                        version: component.version,
+                      },
+                    );
+                    if (!result.success) {
+                      onError(result.issues.map((issue) => issue.message).join("；"));
+                    }
+                  }}
                   type="button"
                 >
                   <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent-soft text-accent">
@@ -832,7 +871,7 @@ export function ArticleEditor({
                       {component.name}
                     </span>
                     <span className="mt-0.5 block truncate text-[9px] text-faint">
-                      {component.category} · {component.blockType}
+                      {component.category} · {component.asset.manifest.nodeType}
                     </span>
                   </span>
                 </button>
@@ -935,8 +974,48 @@ export function ArticleEditor({
                     )}
                     {selection.locked ? "原文区块已锁定" : "区块文字可编辑"}
                   </p>
+                  {typeof selection.attributes.componentId === "string" ? (
+                    <p className="mt-2 break-all font-mono text-[9px] leading-4 text-faint">
+                      {selection.attributes.componentId}@
+                      {String(selection.attributes.componentVersion ?? "unknown")}
+                    </p>
+                  ) : null}
                 </div>
               </div>
+
+              {typeof selection.attributes.componentId === "string" &&
+              (componentAttributeFields[selection.type]?.length ?? 0) > 0 ? (
+                <div>
+                  <p className="text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
+                    组件文字槽
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {componentAttributeFields[selection.type]?.map((field) => (
+                      <label className="block" key={field.attribute}>
+                        <span className="mb-1 block text-[9px] text-muted">{field.label}</span>
+                        <input
+                          aria-label={field.label}
+                          className="h-9 w-full rounded-md border border-line bg-panel px-2.5 text-[10px] text-ink outline-none focus:border-accent disabled:opacity-45"
+                          disabled={!editable || (textLocked && selection.locked)}
+                          maxLength={field.maxLength}
+                          onChange={(event) => {
+                            updateBlockAttributes(editor, selection.blockId, {
+                              [field.attribute]: event.currentTarget.value,
+                            });
+                          }}
+                          value={String(selection.attributes[field.attribute] ?? "")}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  {selection.type === "imageBlock" &&
+                  String(selection.attributes.resourceId).startsWith("component_slot_") ? (
+                    <p className="mt-2 text-[9px] leading-4 text-warning">
+                      图片槽尚未选择资源；正式复制前需替换为文章资源。
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
 
               {textLocked && selection.locked ? (
                 <div className="rounded-control border border-warning/20 bg-warning-soft p-3">

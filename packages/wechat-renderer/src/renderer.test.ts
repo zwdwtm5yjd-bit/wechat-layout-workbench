@@ -1,7 +1,7 @@
 import {
-  COMPONENT_MANIFEST_SCHEMA_VERSION,
+  LEGACY_COMPONENT_MANIFEST_SCHEMA_VERSION,
   ComponentRegistry,
-  type ComponentManifest,
+  type LegacyComponentManifest,
 } from "@wechat-layout/component-registry";
 import type { BlockNode, DocumentV1 } from "@wechat-layout/document-schema";
 import { describe, expect, it } from "vitest";
@@ -156,7 +156,9 @@ function representativeDocument(): DocumentV1 {
   ]);
 }
 
-function componentManifest(overrides: Partial<ComponentManifest> = {}): ComponentManifest {
+function componentManifest(
+  overrides: Partial<LegacyComponentManifest> = {},
+): LegacyComponentManifest {
   return {
     adjustableProperties: ["backgroundColor", "paddingTop"],
     category: "CARD",
@@ -176,7 +178,7 @@ function componentManifest(overrides: Partial<ComponentManifest> = {}): Componen
     },
     name: "Renderer 测试卡片",
     nodeType: "semanticCard",
-    schemaVersion: COMPONENT_MANIFEST_SCHEMA_VERSION,
+    schemaVersion: LEGACY_COMPONENT_MANIFEST_SCHEMA_VERSION,
     semanticRoles: ["summary"],
     slots: [],
     variants: [

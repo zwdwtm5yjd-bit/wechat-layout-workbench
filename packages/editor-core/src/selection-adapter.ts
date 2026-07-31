@@ -59,8 +59,8 @@ export function getEditorSelection(editor: Editor): EditorSelectionSnapshot | nu
   const selected =
     entries.find((entry) => {
       const end = entry.pos + entry.node.nodeSize;
-      return selectionPosition >= entry.pos && selectionPosition <= end;
-    }) ?? entries[0];
+      return selectionPosition >= entry.pos && selectionPosition < end;
+    }) ?? entries.at(-1);
 
   if (selected === undefined) {
     return null;

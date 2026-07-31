@@ -1,3 +1,9 @@
+import {
+  OFFICIAL_COMPONENT_ASSETS,
+  type OfficialComponentAsset,
+  type OfficialComponentPreview,
+} from "@wechat-layout/component-registry";
+
 export type ThemePreviewId = "editorial-minimal" | "modern-civic";
 
 export interface ThemePreview {
@@ -28,64 +34,63 @@ export const V0_THEME_PREVIEWS: readonly ThemePreview[] = [
   },
 ] as const;
 
-export type NativeComponentBlock = "blockquote" | "divider" | "heading1" | "heading2" | "paragraph";
+export const COMPONENT_CATALOG_GROUPS = [
+  "一级标题",
+  "二级标题",
+  "引用",
+  "提示",
+  "数据卡",
+  "图片样式",
+  "分割线",
+  "文末",
+] as const;
+
+export type ComponentCatalogGroup = (typeof COMPONENT_CATALOG_GROUPS)[number];
 
 export interface ComponentPreview {
-  readonly blockType: NativeComponentBlock;
-  readonly category: "分割线" | "引用" | "提示" | "标题";
+  readonly asset: OfficialComponentAsset;
+  readonly category: ComponentCatalogGroup;
   readonly description: string;
   readonly id: string;
+  readonly layoutKey: OfficialComponentPreview["layoutKey"];
   readonly name: string;
-  readonly tone: "accent" | "danger" | "neutral" | "warning";
+  readonly version: string;
 }
 
-export const V0_COMPONENT_PREVIEWS: readonly ComponentPreview[] = [
-  {
-    id: "heading-focus",
-    name: "主章节标题",
-    category: "标题",
-    description: "适合文章主章节，建立清晰的一级阅读层级。",
-    blockType: "heading1",
-    tone: "accent",
-  },
-  {
-    id: "heading-section",
-    name: "小节标题",
-    category: "标题",
-    description: "适合连续内容中的二级分段，视觉重量更轻。",
-    blockType: "heading2",
-    tone: "neutral",
-  },
-  {
-    id: "quote-focus",
-    name: "重点引用",
-    category: "引用",
-    description: "突出原文中的关键判断，不改变引用文字。",
-    blockType: "blockquote",
-    tone: "accent",
-  },
-  {
-    id: "quote-warning",
-    name: "风险提示",
-    category: "提示",
-    description: "用于注意事项和风险信息，保留安全的静态降级。",
-    blockType: "blockquote",
-    tone: "warning",
-  },
-  {
-    id: "paragraph-note",
-    name: "补充说明",
-    category: "提示",
-    description: "插入一段轻量说明文字，适合定义和上下文补充。",
-    blockType: "paragraph",
-    tone: "neutral",
-  },
-  {
-    id: "divider-clean",
-    name: "留白分割",
-    category: "分割线",
-    description: "使用细线和留白分隔章节，兼容微信安全模式。",
-    blockType: "divider",
-    tone: "neutral",
-  },
-] as const;
+function componentGroup(asset: OfficialComponentAsset): ComponentCatalogGroup {
+  const label = asset.preview.categoryLabel;
+  if ((COMPONENT_CATALOG_GROUPS as readonly string[]).includes(label)) {
+    return label as ComponentCatalogGroup;
+  }
+
+  switch (asset.preview.layoutKey) {
+    case "heading":
+      return asset.manifest.semanticRoles.some((role) => role.includes("level1"))
+        ? "一级标题"
+        : "二级标题";
+    case "quote":
+      return "引用";
+    case "notice":
+      return "提示";
+    case "data":
+      return "数据卡";
+    case "image":
+      return "图片样式";
+    case "divider":
+      return "分割线";
+    case "footer":
+      return "文末";
+  }
+}
+
+export const V0_COMPONENT_PREVIEWS: readonly ComponentPreview[] = Object.freeze(
+  OFFICIAL_COMPONENT_ASSETS.map((asset) => ({
+    asset,
+    category: componentGroup(asset),
+    description: asset.preview.description,
+    id: asset.manifest.componentId,
+    layoutKey: asset.preview.layoutKey,
+    name: asset.preview.name,
+    version: asset.manifest.version,
+  })),
+);

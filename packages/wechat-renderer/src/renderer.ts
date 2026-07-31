@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
-import type { ComponentRegistry } from "@wechat-layout/component-registry";
+import {
+  createOfficialComponentRegistry,
+  type ComponentRegistry,
+} from "@wechat-layout/component-registry";
 import {
   TokenEngine,
   type ComponentStyleTokens,
@@ -17,6 +20,7 @@ import {
 } from "@wechat-layout/document-schema";
 
 import { createDefaultNodeRendererRegistry } from "./default-renderers.js";
+import { createOfficialComponentRendererRegistry } from "./official-component-renderers.js";
 import { WECHAT_COMPATIBILITY_RULE_VERSION } from "./compatibility-version.js";
 import { htmlElement, serializeSafeHtml, type SafeHtmlNode } from "./html.js";
 import {
@@ -342,9 +346,9 @@ export class WechatHtmlRenderer {
   readonly #tokenEngine: TokenEngine;
 
   constructor(options: WechatHtmlRendererOptions = {}) {
-    this.#componentRegistry = options.componentRegistry;
+    this.#componentRegistry = options.componentRegistry ?? createOfficialComponentRegistry();
     this.#componentRenderers = (
-      options.componentRenderers ?? new WechatComponentRendererRegistry()
+      options.componentRenderers ?? createOfficialComponentRendererRegistry()
     ).freeze();
     this.#nodeRenderers = (options.nodeRenderers ?? createDefaultNodeRendererRegistry()).freeze();
     this.#tokenEngine = options.tokenEngine ?? new TokenEngine();

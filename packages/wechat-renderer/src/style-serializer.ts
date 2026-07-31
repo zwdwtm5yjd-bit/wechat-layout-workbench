@@ -5,6 +5,7 @@ export const WECHAT_STYLE_PROPERTIES = [
   "background-color",
   "background-image",
   "border",
+  "border-bottom",
   "border-color",
   "border-left",
   "border-radius",
