@@ -12,7 +12,7 @@
 `S1-VERSION-001 快照系统`、`S1-IMPORT-001 粘贴导入` 和
 `S1-RESOURCE-001 基础资源服务`、`S1-EDITOR-002 Tiptap 编辑器核心` 和
 `S1-EDITOR-003 原文锁定`、`S1-THEME-001 Token 引擎` 和
-`S1-COMPONENT-001 组件注册中心`：
+`S1-COMPONENT-001 组件注册中心`、`S1-RENDER-001 微信 HTML Renderer 核心`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -98,9 +98,15 @@
 - 编辑器与微信 Renderer 共用 Manifest 的 Renderer Key，组件收藏保留显式占位接口；
 - 注册组件的 Tiptap 插入命令、精确版本固化和可用/缺失状态 Node View；
 - 缺失、未安装或停用组件的安全占位，以及原始文字保留。
+- Document JSON 到微信 HTML 的服务端派生渲染，不依赖编辑器 DOM；
+- 可冻结的 Node / Component Renderer 注册表，以及 Manifest 精确组件版本解析；
+- 安全 HTML AST、标签/属性/CSS 白名单、文本转义和公网 HTTPS URL 清洗；
+- 标准、安全和静态三种输出模式，以及 SVG 静态备用图基础降级；
+- 全内联 CSS、确定性 HTML、输出 SHA-256、Renderer 版本和资源/组件清单；
+- 渲染前后原文哈希校验，以及缺失资源、缺失组件和高风险样式的安全退化。
 
 本阶段尚未实现资源管理 UI、DOCX 文件导入、基础主题包与主题应用、基础组件包、微信
-HTML Renderer、SVG 执行、微信连接或微信草稿同步。
+兼容评分与自动修复、SVG 执行、微信连接或微信草稿同步。
 
 ## 环境要求
 
@@ -332,6 +338,6 @@ docs/                        00—16 号开发文件与开发记录
 
 ## 下一步
 
-`S1-COMPONENT-001` 验收通过后，开发总指令指定的下一任务是
-`S1-RENDER-001 微信 HTML Renderer 核心`。
+`S1-RENDER-001` 验收通过后，开发总指令指定的下一任务是
+`S1-COMPAT-001 兼容规则基础`。
 完整设计依据见 [docs](./docs/)。

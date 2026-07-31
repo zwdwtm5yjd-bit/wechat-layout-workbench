@@ -275,7 +275,17 @@ importers:
 
   packages/wechat-connector: {}
 
-  packages/wechat-renderer: {}
+  packages/wechat-renderer:
+    dependencies:
+      '@wechat-layout/component-registry':
+        specifier: workspace:*
+        version: link:../component-registry
+      '@wechat-layout/design-tokens':
+        specifier: workspace:*
+        version: link:../design-tokens
+      '@wechat-layout/document-schema':
+        specifier: workspace:*
+        version: link:../document-schema
 
 packages:
 

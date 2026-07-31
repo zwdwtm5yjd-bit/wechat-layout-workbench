@@ -19,5 +19,10 @@
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --root . --passWithNoTests"
+  },
+  "dependencies": {
+    "@wechat-layout/component-registry": "workspace:*",
+    "@wechat-layout/design-tokens": "workspace:*",
+    "@wechat-layout/document-schema": "workspace:*"
   }
 }
