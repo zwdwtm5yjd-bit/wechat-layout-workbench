@@ -145,6 +145,10 @@
 - Owner 隔离的任务列表、详情、取消、重试 API，以及基于数据库事件的 SSE 实时流；
 - `Last-Event-ID` 原精度断线续传，Redis 重启后任务记录与完整事件仍可读取；
 - Testcontainers 覆盖成功、幂等、自动/手动重试、永久失败、取消和 Redis 重启持久性。
+- `S2-OPS-001` 生产制品基础：固定摘要的多阶段 Node / Nginx 镜像、生产 Compose、HTTPS 入口、
+  仅 80 / 443 暴露、非 root 与只读容器、内部数据网络、显式迁移及受保护的部署/回滚命令；
+- 生产配置会在启动前校验 HTTPS Origin、TLS 文件、占位值、镜像版本、Secret 强度以及
+  PostgreSQL / Redis 内部凭据一致性；CI 构建并检查全部生产镜像。
 
 本阶段尚未实现资源管理 UI、DOCX 文件导入、扩展组件包、兼容问题自动修复管理、SVG 执行、
 微信连接或微信草稿同步。
@@ -425,8 +429,10 @@ docs/                        00—16 号开发文件与开发记录
 ## 下一步
 
 `S1-TEST-001` 的自动化与验收数据准备、`S1-JOB-001`、`S1-THEME-002` 和
-`S1-COMPONENT-002` 已实现。V0.1 标签前还需关闭真实 Safari / Edge、微信公众号后台和
-当前提交远端 CI 门禁；公网生产部署还需另行完成生产运行制品、域名与 TLS、Secret 注入、
-对象存储、备份回滚和监控配置。详细状态见
+`S1-COMPONENT-002` 已实现。V0.1 标签前还需关闭真实 Safari / Edge 与微信公众号后台人工
+门禁。`S2-OPS-001` 的生产运行制品已进入实现阶段；公网部署仍需真实 CVM、域名与 TLS、COS、
+Secret 注入，以及备份恢复和监控配置。详细状态见
 [V0.1 发布检查清单](./docs/testing/V0.1-release-checklist.md)。
+生产部署入口与未关闭门槛见
+[S2-OPS-001 生产运行制品](./docs/deployment/S2-OPS-001-production-runtime.md)。
 完整设计依据见 [docs](./docs/)。

@@ -1,0 +1,345 @@
+name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}
+
+x-node-build-args: &node-build-args
+  NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:?NEXT_PUBLIC_APP_NAME is required}
+  NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?NEXT_PUBLIC_APP_URL is required}
+  NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?NEXT_PUBLIC_API_BASE_URL is required}
+  NEXT_PUBLIC_FEATURE_WECHAT_SYNC_ENABLED: ${NEXT_PUBLIC_FEATURE_WECHAT_SYNC_ENABLED:-false}
+  NEXT_PUBLIC_FEATURE_REMOTE_COMPONENTS_ENABLED: ${NEXT_PUBLIC_FEATURE_REMOTE_COMPONENTS_ENABLED:-false}
+
+x-server-environment: &server-environment
+  APP_ENV: production
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:?PUBLIC_WEB_URL is required}
+  DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+  REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+  S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+  S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?S3_PUBLIC_ENDPOINT is required}
+  S3_REGION: ${S3_REGION:?S3_REGION is required}
+  S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+  SMTP_HOST: ${SMTP_HOST:?SMTP_HOST is required}
+  SMTP_PORT: ${SMTP_PORT:?SMTP_PORT is required}
+  SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
+  CSRF_SECRET: ${CSRF_SECRET:?CSRF_SECRET is required}
+  FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:?FIELD_ENCRYPTION_KEY is required}
+  ASSET_SIGNING_KEY: ${ASSET_SIGNING_KEY:?ASSET_SIGNING_KEY is required}
+  BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY is required}
+  FEATURE_WECHAT_SYNC_ENABLED: ${FEATURE_WECHAT_SYNC_ENABLED:-false}
+  FEATURE_REMOTE_COMPONENTS_ENABLED: ${FEATURE_REMOTE_COMPONENTS_ENABLED:-false}
+  MAX_JSON_BODY_BYTES: ${MAX_JSON_BODY_BYTES:-2097152}
+  MAX_DOCX_FILE_BYTES: ${MAX_DOCX_FILE_BYTES:-52428800}
+  MAX_IMAGE_FILE_BYTES: ${MAX_IMAGE_FILE_BYTES:-20971520}
+  MAX_BRAND_PACKAGE_BYTES: ${MAX_BRAND_PACKAGE_BYTES:-104857600}
+  WEB_PORT: 3000
+  API_PORT: 3001
+  WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+  SCHEDULER_INTERVAL_SECONDS: ${SCHEDULER_INTERVAL_SECONDS:-60}
+
+x-json-logging: &json-logging
+  driver: json-file
+  options:
+    max-file: "5"
+    max-size: 10m
+
+x-node-service: &node-service
+  init: true
+  restart: unless-stopped
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  pids_limit: 256
+  stop_grace_period: 30s
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  logging: *json-logging
+
+services:
+  nginx:
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/nginx:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/nginx.prod.Dockerfile
+    init: true
+    restart: unless-stopped
+    read_only: true
+    user: "101:101"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    cpus: "0.50"
+    mem_limit: 256m
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN is required}
+      NGINX_ENVSUBST_FILTER: "^(APP_DOMAIN)$"
+    volumes:
+      - type: bind
+        source: ${TLS_CERTIFICATE_PATH:?TLS_CERTIFICATE_PATH is required}
+        target: /etc/nginx/tls/fullchain.pem
+        read_only: true
+      - type: bind
+        source: ${TLS_PRIVATE_KEY_PATH:?TLS_PRIVATE_KEY_PATH is required}
+        target: /etc/nginx/tls/privkey.pem
+        read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=32m,mode=0755,uid=101,gid=101
+      - /etc/nginx/conf.d:size=4m,mode=0755,uid=101,gid=101
+    ports:
+      - name: http
+        target: 8080
+        published: "80"
+        protocol: tcp
+      - name: https
+        target: 8443
+        published: "443"
+        protocol: tcp
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-check-certificate",
+          "--quiet",
+          "--spider",
+          "https://127.0.0.1:8443/health/live",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - edge
+    logging: *json-logging
+
+  web:
+    <<: *node-service
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/web:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-app.prod.Dockerfile
+      target: web
+      args: *node-build-args
+    cpus: "1.00"
+    mem_limit: 1536m
+    environment:
+      APP_ENV: production
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /workspace/apps/web/.next/cache:size=128m,mode=0755,uid=1000,gid=1000
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/login').then(async(response)=>{const body=await response.text();if(!response.ok||!body.includes('登录你的工作台'))process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+    networks:
+      - edge
+
+  api:
+    <<: *node-service
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/api:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-app.prod.Dockerfile
+      target: api
+      args: *node-build-args
+    cpus: "2.00"
+    mem_limit: 2g
+    environment:
+      <<: *server-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health/ready').then(response=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+    networks:
+      - edge
+      - data
+      - egress
+
+  worker:
+    <<: *node-service
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/worker:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-app.prod.Dockerfile
+      target: worker
+      args: *node-build-args
+    cpus: "4.00"
+    mem_limit: 4g
+    pids_limit: 512
+    environment:
+      <<: *server-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const fs=require('node:fs');const own=new Set([String(process.pid),String(process.ppid)]);const found=fs.readdirSync('/proc').filter(name=>/^\\d+$/.test(name)&&!own.has(name)).some(name=>{try{return fs.readFileSync('/proc/'+name+'/cmdline','utf8').includes('dist/main.js')}catch{return false}});process.exit(found?0:1)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
+    networks:
+      - data
+      - egress
+
+  scheduler:
+    <<: *node-service
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/scheduler:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-app.prod.Dockerfile
+      target: scheduler
+      args: *node-build-args
+    cpus: "0.50"
+    mem_limit: 512m
+    environment:
+      <<: *server-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const fs=require('node:fs');const own=new Set([String(process.pid),String(process.ppid)]);const found=fs.readdirSync('/proc').filter(name=>/^\\d+$/.test(name)&&!own.has(name)).some(name=>{try{return fs.readFileSync('/proc/'+name+'/cmdline','utf8').includes('dist/main.js')}catch{return false}});process.exit(found?0:1)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
+    networks:
+      - data
+      - egress
+
+  database-migrate:
+    <<: *node-service
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/database-migrate:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-app.prod.Dockerfile
+      target: database-migrate
+      args: *node-build-args
+    profiles:
+      - migration
+    restart: "no"
+    cpus: "1.00"
+    mem_limit: 1g
+    environment:
+      <<: *server-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - data
+
+  postgres:
+    image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+    restart: unless-stopped
+    shm_size: 256m
+    cpus: "2.00"
+    mem_limit: 2g
+    pids_limit: 256
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+    logging: *json-logging
+
+  redis:
+    image: redis:8.2.8-alpine@sha256:a7859ed111db3c1f5404a973a4747505d559fb5ca32d37e447afc0ef845a2103
+    restart: unless-stopped
+    cpus: "0.75"
+    mem_limit: 1g
+    pids_limit: 128
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    command:
+      - /bin/sh
+      - -ec
+      - exec redis-server --appendonly yes --appendfsync everysec --maxmemory 768mb --maxmemory-policy noeviction --requirepass "$$REDIS_PASSWORD"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+    logging: *json-logging
+
+volumes:
+  postgres-data:
+    name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-postgres-data
+  redis-data:
+    name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-redis-data
+
+networks:
+  edge:
+    driver: bridge
+  data:
+    driver: bridge
+    internal: true
+  egress:
+    driver: bridge
