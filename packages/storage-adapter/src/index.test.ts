@@ -78,12 +78,15 @@ describe("S3CompatibleObjectStorage", () => {
       contentType: "application/octet-stream",
       expiresInSeconds: 60,
       key: "resources/owner/thumbnail.webp",
-      metadata: { sha256: "local-hash" },
+      metadata: { "parent-sha256": "parent-hash", sha256: "local-hash" },
     });
     const publicUrl = new URL(signed.url);
     expect(publicUrl.origin).toBe("https://assets.example.com");
     expect(publicUrl.pathname).toBe("/resources/owner/thumbnail.webp");
-    expect(signed.headers).toMatchObject({ "x-cos-meta-sha256": "local-hash" });
+    expect(signed.headers).toMatchObject({
+      "x-cos-meta-parent-sha256": "parent-hash",
+      "x-cos-meta-sha256": "local-hash",
+    });
   });
 
   it("sorts signed response parameters by AWS byte order", async () => {
@@ -161,5 +164,14 @@ describe("S3CompatibleObjectStorage", () => {
         key: "uploads/owner/object",
       }),
     ).rejects.toThrow("Content-MD5 无效");
+
+    await expect(
+      adapter().createUploadUrl({
+        contentType: "application/octet-stream",
+        expiresInSeconds: 60,
+        key: "uploads/owner/object",
+        metadata: { parent_sha256: "parent-hash" },
+      }),
+    ).rejects.toThrow("对象存储自定义元数据无效");
   });
 });

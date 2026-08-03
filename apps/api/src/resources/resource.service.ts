@@ -261,7 +261,7 @@ export class ResourceService {
         contentType: "image/webp",
         metadata: {
           owner: ownerUserId,
-          parent_sha256: session.sha256,
+          "parent-sha256": session.sha256,
           sha256: inspected.thumbnail.sha256,
         },
       });

@@ -451,6 +451,12 @@ describe("resource HTTP flow", () => {
     });
     expect(sessions.sessions.has(uploadId)).toBe(false);
     expect(storage.objects.has(session.objectKey)).toBe(false);
+    const storedResource = repository.resources.get(resourceId);
+    expect(storedResource).toBeDefined();
+    const thumbnailKey = storedResource?.metadata.thumbnail?.storageKey ?? "";
+    expect(storage.objects.get(thumbnailKey)?.metadata).toMatchObject({
+      "parent-sha256": sha256,
+    });
 
     await supertest(application.getHttpServer())
       .get(`/api/v1/resources/${resourceId}`)
