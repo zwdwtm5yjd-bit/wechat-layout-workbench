@@ -2,6 +2,7 @@ import { isAbsolute } from "node:path";
 
 import { parsePublicEnvironment } from "../../packages/config/src/public.js";
 import { parseServerEnvironment } from "../../packages/config/src/server.js";
+import { validateBackupConfiguration } from "./backup-config.js";
 
 type EnvironmentInput = Readonly<Record<string, string | undefined>>;
 
@@ -180,6 +181,12 @@ export function validateProductionConfiguration(
     });
   } catch (error) {
     issues.push(error instanceof Error ? error.message : "服务端配置校验失败");
+  }
+
+  try {
+    validateBackupConfiguration(input);
+  } catch (error) {
+    issues.push(error instanceof Error ? error.message : "生产备份配置校验失败");
   }
 
   if (issues.length > 0) {

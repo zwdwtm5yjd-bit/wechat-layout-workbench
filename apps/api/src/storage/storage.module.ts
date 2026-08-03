@@ -65,6 +65,9 @@ class ObjectStorageLifecycle implements OnModuleInit, OnModuleDestroy, Readiness
         return new S3CompatibleObjectStorage({
           endpoint: configuration.objectStorage.endpoint,
           publicEndpoint: configuration.objectStorage.publicEndpoint,
+          addressingStyle: configuration.objectStorage.addressingStyle,
+          publicAddressingStyle: configuration.objectStorage.publicAddressingStyle,
+          metadataHeaderPrefix: configuration.objectStorage.metadataHeaderPrefix,
           region: configuration.objectStorage.region,
           bucket: configuration.objectStorage.bucket,
           accessKeyId: revealSecret(configuration.objectStorage.accessKeyId),

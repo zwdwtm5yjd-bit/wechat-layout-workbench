@@ -56,6 +56,9 @@ REDIS_PASSWORD=prod-redis-password-000000001
 REDIS_URL=redis://:prod-redis-password-000000001@redis:6379/0
 S3_ENDPOINT=https://cos-internal.example.com
 S3_PUBLIC_ENDPOINT=https://assets.example.com
+S3_ADDRESSING_STYLE=virtual-hosted
+S3_PUBLIC_ADDRESSING_STYLE=bucket-endpoint
+S3_METADATA_HEADER_PREFIX=x-cos-meta-
 S3_REGION=ap-shanghai
 S3_BUCKET=wechat-layout-production
 S3_ACCESS_KEY_ID=production-access-key
@@ -67,6 +70,20 @@ CSRF_SECRET=csrf-secret-000000000000000000000000000000000002
 FIELD_ENCRYPTION_KEY=field-encryption-key-000000000000000000000000003
 ASSET_SIGNING_KEY=asset-signing-key-000000000000000000000000000004
 BACKUP_ENCRYPTION_KEY=backup-encryption-key-000000000000000000000000005
+BACKUP_DIRECTORY=$fixture_dir/backups
+BACKUP_KEY_VERSION=backup-key-v1
+BACKUP_LOCAL_RETENTION_COUNT=3
+BACKUP_REMOTE_RETENTION_DAYS=30
+BACKUP_RESTORE_MIN_ARTICLES=5
+BACKUP_S3_ENDPOINT=https://backup-cos-internal.example.com
+BACKUP_S3_ADDRESSING_STYLE=virtual-hosted
+BACKUP_S3_METADATA_HEADER_PREFIX=x-cos-meta-
+BACKUP_S3_REGION=ap-shanghai
+BACKUP_S3_BUCKET=wechat-layout-backups
+BACKUP_S3_PREFIX=production/postgresql
+BACKUP_S3_ACCESS_KEY_ID=backup-access-key
+BACKUP_S3_SECRET_ACCESS_KEY=backup-secret-access-key
+BACKUP_ALERT_WEBHOOK_URL=https://alerts.example.com/hooks/database-backup
 FEATURE_WECHAT_SYNC_ENABLED=false
 FEATURE_REMOTE_COMPONENTS_ENABLED=false
 MAX_JSON_BODY_BYTES=2097152
@@ -166,6 +183,18 @@ invariant(
 );
 invariant(compose.services.redis.image.includes("@sha256:"), "Redis 镜像必须固定 digest");
 invariant(compose.services.api.environment.APP_ENV === "production", "API 必须使用生产配置");
+invariant(
+  compose.services.api.environment.S3_ADDRESSING_STYLE === "virtual-hosted",
+  "API 必须传入服务端对象存储寻址方式",
+);
+invariant(
+  compose.services.api.environment.S3_PUBLIC_ADDRESSING_STYLE === "bucket-endpoint",
+  "API 必须传入公开对象存储寻址方式",
+);
+invariant(
+  compose.services.api.environment.S3_METADATA_HEADER_PREFIX === "x-cos-meta-",
+  "API 必须传入对象存储自定义元数据头前缀",
+);
 
 process.stdout.write("生产 Compose 模板安全约束验收通过。\n");
 NODE

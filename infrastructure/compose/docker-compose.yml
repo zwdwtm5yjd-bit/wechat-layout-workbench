@@ -27,6 +27,9 @@ x-server-application-environment: &server-application-environment
   REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
   S3_ENDPOINT: http://minio:9000
   S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:${MINIO_API_PORT:-9000}}
+  S3_ADDRESSING_STYLE: path
+  S3_PUBLIC_ADDRESSING_STYLE: path
+  S3_METADATA_HEADER_PREFIX: x-amz-meta-
   S3_REGION: us-east-1
   S3_BUCKET: ${MINIO_BUCKET:?MINIO_BUCKET is required}
   S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}

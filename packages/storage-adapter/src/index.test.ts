@@ -22,6 +22,8 @@ describe("S3CompatibleObjectStorage", () => {
     const result = await adapter().createUploadUrl({
       key: "uploads/owner/file name",
       contentType: "image/png",
+      contentLength: 1_024,
+      contentMd5: "AAAAAAAAAAAAAAAAAAAAAA==",
       expiresInSeconds: 900,
       metadata: { "upload-id": "upload-1" },
     });
@@ -32,15 +34,56 @@ describe("S3CompatibleObjectStorage", () => {
     expect(url.searchParams.get("X-Amz-Algorithm")).toBe("AWS4-HMAC-SHA256");
     expect(url.searchParams.get("X-Amz-Expires")).toBe("900");
     expect(url.searchParams.get("X-Amz-SignedHeaders")).toBe(
-      "content-type;host;x-amz-meta-upload-id",
+      "content-length;content-md5;content-type;host;x-amz-meta-upload-id",
     );
     expect(url.searchParams.get("X-Amz-Signature")).toMatch(/^[a-f0-9]{64}$/);
     expect(result.headers).toEqual({
+      "content-length": "1024",
+      "content-md5": "AAAAAAAAAAAAAAAAAAAAAA==",
       "content-type": "image/png",
       "x-amz-meta-upload-id": "upload-1",
     });
     expect(result.url).not.toContain("secret-key-that-must-not-leak");
     expect(result.expiresAt.toISOString()).toBe("2026-07-30T08:15:00.000Z");
+  });
+
+  it("supports virtual-hosted COS and a bucket-specific public domain", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(null, {
+        status: 200,
+        headers: { "content-length": "1", "x-cos-meta-sha256": "remote-hash" },
+      }),
+    );
+    const storage = new S3CompatibleObjectStorage({
+      accessKeyId: "access-key",
+      addressingStyle: "virtual-hosted",
+      bucket: "wechat-layout-1250000000",
+      endpoint: "https://cos.ap-shanghai.myqcloud.com",
+      metadataHeaderPrefix: "x-cos-meta-",
+      now: () => fixedNow,
+      publicAddressingStyle: "bucket-endpoint",
+      publicEndpoint: "https://assets.example.com",
+      region: "ap-shanghai",
+      request,
+      secretAccessKey: "secret-key-that-must-not-leak",
+    });
+
+    const stat = await storage.statObject("healthcheck.txt");
+    const requestUrl = new URL(String(request.mock.calls[0]?.[0]));
+    expect(requestUrl.hostname).toBe("wechat-layout-1250000000.cos.ap-shanghai.myqcloud.com");
+    expect(requestUrl.pathname).toBe("/healthcheck.txt");
+    expect(stat.metadata).toEqual({ sha256: "remote-hash" });
+
+    const signed = await storage.createUploadUrl({
+      contentType: "application/octet-stream",
+      expiresInSeconds: 60,
+      key: "resources/owner/thumbnail.webp",
+      metadata: { sha256: "local-hash" },
+    });
+    const publicUrl = new URL(signed.url);
+    expect(publicUrl.origin).toBe("https://assets.example.com");
+    expect(publicUrl.pathname).toBe("/resources/owner/thumbnail.webp");
+    expect(signed.headers).toMatchObject({ "x-cos-meta-sha256": "local-hash" });
   });
 
   it("sorts signed response parameters by AWS byte order", async () => {
@@ -109,5 +152,14 @@ describe("S3CompatibleObjectStorage", () => {
         expiresInSeconds: 60,
       }),
     ).rejects.toThrow("非法路径段");
+
+    await expect(
+      adapter().createUploadUrl({
+        contentMd5: "not-base64-md5",
+        contentType: "application/octet-stream",
+        expiresInSeconds: 60,
+        key: "uploads/owner/object",
+      }),
+    ).rejects.toThrow("Content-MD5 无效");
   });
 });

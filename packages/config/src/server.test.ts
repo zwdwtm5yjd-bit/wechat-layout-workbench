@@ -33,6 +33,9 @@ describe("parseServerEnvironment", () => {
       brandPackageBytes: 100 * 1024 * 1024,
     });
     expect(configuration.objectStorage.publicEndpoint).toBe("http://localhost:9000");
+    expect(configuration.objectStorage.addressingStyle).toBe("path");
+    expect(configuration.objectStorage.publicAddressingStyle).toBe("path");
+    expect(configuration.objectStorage.metadataHeaderPrefix).toBe("x-amz-meta-");
   });
 
   it("reports missing critical keys without echoing another secret", () => {
@@ -89,9 +92,24 @@ describe("parseServerEnvironment", () => {
       parseServerEnvironment({
         ...validEnvironment,
         APP_ENV: "production",
+        PUBLIC_WEB_URL: "https://app.example.com",
+        S3_ENDPOINT: "https://storage.example.com",
+        S3_PUBLIC_ENDPOINT: "https://assets.example.com",
+        S3_BUCKET: "wechat-layout-production",
+        SMTP_HOST: "smtp.example.com",
+      }),
+    ).toThrow(/S3_ADDRESSING_STYLE.*S3_PUBLIC_ADDRESSING_STYLE/);
+
+    expect(() =>
+      parseServerEnvironment({
+        ...validEnvironment,
+        APP_ENV: "production",
         PUBLIC_WEB_URL: "http://example.com",
+        S3_ADDRESSING_STYLE: "virtual-hosted",
         S3_ENDPOINT: "https://storage.example.com",
         S3_BUCKET: "wechat-layout-production",
+        S3_METADATA_HEADER_PREFIX: "x-cos-meta-",
+        S3_PUBLIC_ADDRESSING_STYLE: "virtual-hosted",
         SMTP_HOST: "smtp.example.com",
       }),
     ).toThrow(/PUBLIC_WEB_URL.*HTTPS/);
@@ -101,12 +119,33 @@ describe("parseServerEnvironment", () => {
         ...validEnvironment,
         APP_ENV: "production",
         PUBLIC_WEB_URL: "https://app.example.com",
+        S3_ADDRESSING_STYLE: "virtual-hosted",
         S3_ENDPOINT: "https://storage.internal.example.com",
         S3_PUBLIC_ENDPOINT: "http://storage.example.com",
+        S3_METADATA_HEADER_PREFIX: "x-cos-meta-",
+        S3_PUBLIC_ADDRESSING_STYLE: "virtual-hosted",
         S3_BUCKET: "wechat-layout-production",
         SMTP_HOST: "smtp.example.com",
       }),
     ).toThrow(/S3_PUBLIC_ENDPOINT.*HTTPS/);
+
+    const configuration = parseServerEnvironment({
+      ...validEnvironment,
+      APP_ENV: "production",
+      PUBLIC_WEB_URL: "https://app.example.com",
+      S3_ADDRESSING_STYLE: "virtual-hosted",
+      S3_BUCKET: "wechat-layout-production",
+      S3_ENDPOINT: "https://cos.ap-shanghai.myqcloud.com",
+      S3_METADATA_HEADER_PREFIX: "x-cos-meta-",
+      S3_PUBLIC_ADDRESSING_STYLE: "bucket-endpoint",
+      S3_PUBLIC_ENDPOINT: "https://assets.example.com",
+      SMTP_HOST: "smtp.example.com",
+    });
+    expect(configuration.objectStorage).toMatchObject({
+      addressingStyle: "virtual-hosted",
+      metadataHeaderPrefix: "x-cos-meta-",
+      publicAddressingStyle: "bucket-endpoint",
+    });
   });
 
   it("rejects application and Node environment mixing", () => {

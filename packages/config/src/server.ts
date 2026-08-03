@@ -10,6 +10,8 @@ import { SecretValue } from "./secret.js";
 
 const portSchema = z.coerce.number().int().min(1).max(65_535);
 const positiveIntegerSchema = z.coerce.number().int().positive();
+const objectStorageAddressingStyleSchema = z.enum(["path", "virtual-hosted", "bucket-endpoint"]);
+const objectStorageMetadataHeaderPrefixSchema = z.enum(["x-amz-meta-", "x-cos-meta-"]);
 const placeholderTokens = ["change_me", "replace_me"];
 
 const booleanStringSchema = z.preprocess((value) => {
@@ -56,6 +58,9 @@ export const serverEnvironmentSchema = z
     }),
     S3_ENDPOINT: z.url(),
     S3_PUBLIC_ENDPOINT: z.url(),
+    S3_ADDRESSING_STYLE: objectStorageAddressingStyleSchema,
+    S3_PUBLIC_ADDRESSING_STYLE: objectStorageAddressingStyleSchema,
+    S3_METADATA_HEADER_PREFIX: objectStorageMetadataHeaderPrefixSchema,
     S3_REGION: z.string().trim().min(1),
     S3_BUCKET: z
       .string()
@@ -142,6 +147,9 @@ export interface ServerConfiguration {
   readonly objectStorage: Readonly<{
     endpoint: string;
     publicEndpoint: string;
+    addressingStyle: "path" | "virtual-hosted" | "bucket-endpoint";
+    publicAddressingStyle: "path" | "virtual-hosted" | "bucket-endpoint";
+    metadataHeaderPrefix: "x-amz-meta-" | "x-cos-meta-";
     region: string;
     bucket: string;
     accessKeyId: SecretValue;
@@ -197,6 +205,13 @@ export function parseServerEnvironment(input: EnvironmentInput): ServerConfigura
       input.S3_PUBLIC_ENDPOINT ??
       input.S3_ENDPOINT ??
       (isProduction ? undefined : "http://localhost:9000"),
+    S3_ADDRESSING_STYLE: input.S3_ADDRESSING_STYLE ?? (isProduction ? undefined : "path"),
+    S3_PUBLIC_ADDRESSING_STYLE:
+      input.S3_PUBLIC_ADDRESSING_STYLE ??
+      input.S3_ADDRESSING_STYLE ??
+      (isProduction ? undefined : "path"),
+    S3_METADATA_HEADER_PREFIX:
+      input.S3_METADATA_HEADER_PREFIX ?? (isProduction ? undefined : "x-amz-meta-"),
     S3_REGION: input.S3_REGION ?? "us-east-1",
     S3_BUCKET: input.S3_BUCKET ?? (isProduction ? undefined : `wechat-layout-${environment}`),
     SMTP_HOST: input.SMTP_HOST ?? (isProduction ? undefined : "localhost"),
@@ -231,6 +246,9 @@ export function parseServerEnvironment(input: EnvironmentInput): ServerConfigura
     objectStorage: Object.freeze({
       endpoint: value.S3_ENDPOINT,
       publicEndpoint: value.S3_PUBLIC_ENDPOINT,
+      addressingStyle: value.S3_ADDRESSING_STYLE,
+      publicAddressingStyle: value.S3_PUBLIC_ADDRESSING_STYLE,
+      metadataHeaderPrefix: value.S3_METADATA_HEADER_PREFIX,
       region: value.S3_REGION,
       bucket: value.S3_BUCKET,
       accessKeyId: new SecretValue(value.S3_ACCESS_KEY_ID),

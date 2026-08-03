@@ -149,6 +149,9 @@
   仅 80 / 443 暴露、非 root 与只读容器、内部数据网络、显式迁移及受保护的部署/回滚命令；
 - 生产配置会在启动前校验 HTTPS Origin、TLS 文件、占位值、镜像版本、Secret 强度以及
   PostgreSQL / Redis 内部凭据一致性；CI 构建并检查全部生产镜像。
+- `S2-BACKUP-001` 数据库备份基础：PostgreSQL 流式备份、AES-256-GCM、HMAC Manifest、
+  SHA-256、独立备份 Bucket 上传、失败告警、每日 Timer 示例及只恢复到新数据库的演练报告；
+- CI 使用真实 PostgreSQL 18 验证 5 篇含图片、主题引用和快照的测试文章可加密备份并恢复。
 
 本阶段尚未实现资源管理 UI、DOCX 文件导入、扩展组件包、兼容问题自动修复管理、SVG 执行、
 微信连接或微信草稿同步。
@@ -421,6 +424,11 @@ docs/                        00—16 号开发文件与开发记录
 - 数据库密码、Session 密钥、对象存储密钥和微信凭据不得写入代码、文档、前端或日志；
 - `S3_ENDPOINT` 用于服务端内网访问，`S3_PUBLIC_ENDPOINT` 用于生成浏览器可访问的签名
   URL；生产环境两者都必须使用 HTTPS；
+- `S3_ADDRESSING_STYLE` 与 `S3_PUBLIC_ADDRESSING_STYLE` 分别声明两个 Endpoint 的寻址
+  方式：MinIO 使用 `path`，区域级 COS 域名使用 `virtual-hosted`，已绑定单个
+  Bucket 的自定义域名使用 `bucket-endpoint`；
+- COS 使用 `S3_METADATA_HEADER_PREFIX=x-cos-meta-`，S3 / MinIO 使用
+  `x-amz-meta-`；读取器同时识别两种响应头；
 - 微信含图验收时，运行中的 API 与 `acceptance:seed` 必须使用同一个公网 HTTPS
   `S3_PUBLIC_ENDPOINT`。Docker Compose 支持用宿主环境变量覆盖本地默认值；变更后必须重建或
   重启 API，不能只给 seed 进程临时设置；
@@ -430,9 +438,12 @@ docs/                        00—16 号开发文件与开发记录
 
 `S1-TEST-001` 的自动化与验收数据准备、`S1-JOB-001`、`S1-THEME-002` 和
 `S1-COMPONENT-002` 已实现。V0.1 标签前还需关闭真实 Safari / Edge 与微信公众号后台人工
-门禁。`S2-OPS-001` 的生产运行制品已进入实现阶段；公网部署仍需真实 CVM、域名与 TLS、COS、
-Secret 注入，以及备份恢复和监控配置。详细状态见
+门禁。`S2-OPS-001` 生产运行制品和 `S2-BACKUP-001` 数据库备份恢复制品均已通过自动化验收；
+公网部署仍需真实 CVM、域名与 TLS、COS、Secret 注入、每日 Timer、季度恢复演练和监控。
+详细状态见
 [V0.1 发布检查清单](./docs/testing/V0.1-release-checklist.md)。
 生产部署入口与未关闭门槛见
 [S2-OPS-001 生产运行制品](./docs/deployment/S2-OPS-001-production-runtime.md)。
+数据库备份格式、每日调度与恢复演练见
+[S2-BACKUP-001 数据库备份与恢复基础](./docs/deployment/S2-BACKUP-001-database-recovery.md)。
 完整设计依据见 [docs](./docs/)。

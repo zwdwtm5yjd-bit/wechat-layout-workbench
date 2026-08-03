@@ -38,6 +38,8 @@ chmod 600 .env.production
 - 镜像仓库路径及不可变 `RELEASE_TAG`；
 - PostgreSQL 与 Redis 独立长密码；
 - 公网 HTTPS COS Endpoint、Bucket 和最小权限密钥；
+- 与 COS 域名匹配的 `S3_ADDRESSING_STYLE` / `S3_PUBLIC_ADDRESSING_STYLE`，以及
+  `S3_METADATA_HEADER_PREFIX=x-cos-meta-`；
 - SMTP 配置；
 - 五个互不相同、至少 32 字符的应用安全密钥。
 
@@ -108,7 +110,10 @@ unset PREVIOUS_RELEASE_TAG CONFIRM_DATABASE_COMPATIBLE_ROLLBACK
 - 在真实 CVM 上配置 Docker、磁盘、时钟同步、系统补丁和日志轮转；
 - 推送镜像、部署、重启恢复与公网 HTTPS / Clipboard API 验收；
 - COS CORS、版本控制、生命周期和最小权限策略；
-- S2-BACKUP-001 的自动备份、加密、哈希与恢复演练；
+- 在真实 CVM/COS 启用并验收 S2-BACKUP-001 的每日备份、失败告警与季度恢复演练；
 - S2-OPS-002 的日志、指标和告警。
 
 完成这些真实环境门槛前，只能声明“生产制品可构建”，不能声明“已经公网生产上线”。
+
+数据库备份与恢复入口见
+[`S2-BACKUP-001-database-recovery.md`](./S2-BACKUP-001-database-recovery.md)。

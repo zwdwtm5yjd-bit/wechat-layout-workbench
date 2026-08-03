@@ -24,6 +24,8 @@ export interface ObjectStorage {
   createUploadUrl(input: {
     readonly key: string;
     readonly contentType: string;
+    readonly contentLength?: number;
+    readonly contentMd5?: string;
     readonly expiresInSeconds: number;
     readonly metadata?: Readonly<Record<string, string>>;
   }): Promise<SignedObjectRequest>;
@@ -46,6 +48,9 @@ export interface ObjectStorage {
 export interface S3CompatibleObjectStorageOptions {
   readonly endpoint: string;
   readonly publicEndpoint?: string;
+  readonly addressingStyle?: ObjectStorageAddressingStyle;
+  readonly publicAddressingStyle?: ObjectStorageAddressingStyle;
+  readonly metadataHeaderPrefix?: ObjectStorageMetadataHeaderPrefix;
   readonly region: string;
   readonly bucket: string;
   readonly accessKeyId: string;
@@ -53,6 +58,9 @@ export interface S3CompatibleObjectStorageOptions {
   readonly request?: typeof fetch;
   readonly now?: () => Date;
 }
+
+export type ObjectStorageAddressingStyle = "path" | "virtual-hosted" | "bucket-endpoint";
+export type ObjectStorageMetadataHeaderPrefix = "x-amz-meta-" | "x-cos-meta-";
 
 export class ObjectStorageError extends Error {
   override readonly name = "ObjectStorageError";
@@ -162,21 +170,53 @@ function signature(input: {
     .digest("hex");
 }
 
-function endpointUrl(endpoint: string, bucket: string, key: string): URL {
+function endpointUrl(
+  endpoint: string,
+  bucket: string,
+  key: string,
+  addressingStyle: ObjectStorageAddressingStyle,
+): URL {
   const url = new URL(endpoint);
-  if (url.username !== "" || url.password !== "" || url.search !== "" || url.hash !== "") {
-    throw new Error("对象存储 Endpoint 不能包含凭据、查询参数或片段");
+  if (
+    (url.protocol !== "http:" && url.protocol !== "https:") ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.search !== "" ||
+    url.hash !== ""
+  ) {
+    throw new Error("对象存储 Endpoint 必须是不含凭据、查询参数或片段的 HTTP(S) URL");
   }
   const basePath = url.pathname.replace(/\/+$/, "");
-  url.pathname = `${basePath}/${awsEncode(bucket)}/${canonicalKey(key)}`;
+  if (addressingStyle === "virtual-hosted") {
+    url.hostname = `${bucket}.${url.hostname}`;
+  }
+  const bucketSegment = addressingStyle === "path" ? `/${awsEncode(bucket)}` : "";
+  url.pathname = `${basePath}${bucketSegment}/${canonicalKey(key)}`;
   return url;
+}
+
+function metadataHeaders(
+  metadata: Readonly<Record<string, string>>,
+  prefix: ObjectStorageMetadataHeaderPrefix,
+): Readonly<Record<string, string>> {
+  return Object.fromEntries(
+    Object.entries(metadata).map(([name, value]) => {
+      const normalizedName = name.toLowerCase();
+      if (!/^[a-z0-9][a-z0-9-]*$/.test(normalizedName) || /[\r\n]/.test(value)) {
+        throw new Error("对象存储自定义元数据无效");
+      }
+      return [`${prefix}${normalizedName}`, value];
+    }),
+  );
 }
 
 function responseMetadata(headers: Headers): Readonly<Record<string, string>> {
   const metadata: Record<string, string> = {};
   for (const [name, value] of headers.entries()) {
-    if (name.startsWith("x-amz-meta-")) {
-      metadata[name.slice("x-amz-meta-".length)] = value;
+    for (const prefix of ["x-amz-meta-", "x-cos-meta-"] as const) {
+      if (name.startsWith(prefix)) {
+        metadata[name.slice(prefix.length)] = value;
+      }
     }
   }
   return metadata;
@@ -224,6 +264,9 @@ export class S3CompatibleObjectStorage implements ObjectStorage {
 
   readonly #endpoint: string;
   readonly #publicEndpoint: string;
+  readonly #addressingStyle: ObjectStorageAddressingStyle;
+  readonly #publicAddressingStyle: ObjectStorageAddressingStyle;
+  readonly #metadataHeaderPrefix: ObjectStorageMetadataHeaderPrefix;
   readonly #region: string;
   readonly #accessKeyId: string;
   readonly #secretAccessKey: string;
@@ -234,8 +277,34 @@ export class S3CompatibleObjectStorage implements ObjectStorage {
     if (options.accessKeyId.trim() === "" || options.secretAccessKey.trim() === "") {
       throw new Error("对象存储凭据不能为空");
     }
+    if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(options.bucket)) {
+      throw new Error("对象存储 Bucket 名称无效");
+    }
+    const addressingStyles: readonly ObjectStorageAddressingStyle[] = [
+      "path",
+      "virtual-hosted",
+      "bucket-endpoint",
+    ];
+    if (
+      (options.addressingStyle !== undefined &&
+        !addressingStyles.includes(options.addressingStyle)) ||
+      (options.publicAddressingStyle !== undefined &&
+        !addressingStyles.includes(options.publicAddressingStyle))
+    ) {
+      throw new Error("对象存储寻址方式无效");
+    }
+    if (
+      options.metadataHeaderPrefix !== undefined &&
+      options.metadataHeaderPrefix !== "x-amz-meta-" &&
+      options.metadataHeaderPrefix !== "x-cos-meta-"
+    ) {
+      throw new Error("对象存储自定义元数据头前缀无效");
+    }
     this.#endpoint = options.endpoint;
     this.#publicEndpoint = options.publicEndpoint ?? options.endpoint;
+    this.#addressingStyle = options.addressingStyle ?? "path";
+    this.#publicAddressingStyle = options.publicAddressingStyle ?? this.#addressingStyle;
+    this.#metadataHeaderPrefix = options.metadataHeaderPrefix ?? "x-amz-meta-";
     this.#region = options.region;
     this.bucket = options.bucket;
     this.#accessKeyId = options.accessKeyId;
@@ -247,21 +316,34 @@ export class S3CompatibleObjectStorage implements ObjectStorage {
   async createUploadUrl(input: {
     readonly key: string;
     readonly contentType: string;
+    readonly contentLength?: number;
+    readonly contentMd5?: string;
     readonly expiresInSeconds: number;
     readonly metadata?: Readonly<Record<string, string>>;
   }): Promise<SignedObjectRequest> {
+    if (
+      input.contentLength !== undefined &&
+      (!Number.isSafeInteger(input.contentLength) || input.contentLength < 1)
+    ) {
+      throw new Error("上传对象大小必须是正安全整数");
+    }
+    if (input.contentMd5 !== undefined) {
+      const decoded = Buffer.from(input.contentMd5, "base64");
+      if (decoded.byteLength !== 16 || decoded.toString("base64") !== input.contentMd5) {
+        throw new Error("上传对象 Content-MD5 无效");
+      }
+    }
     return this.#presign({
       method: "PUT",
       key: input.key,
       expiresInSeconds: input.expiresInSeconds,
       headers: {
         "content-type": input.contentType,
-        ...Object.fromEntries(
-          Object.entries(input.metadata ?? {}).map(([name, value]) => [
-            `x-amz-meta-${name.toLowerCase()}`,
-            value,
-          ]),
-        ),
+        ...(input.contentLength === undefined
+          ? {}
+          : { "content-length": String(input.contentLength) }),
+        ...(input.contentMd5 === undefined ? {} : { "content-md5": input.contentMd5 }),
+        ...metadataHeaders(input.metadata ?? {}, this.#metadataHeaderPrefix),
       },
     });
   }
@@ -318,12 +400,7 @@ export class S3CompatibleObjectStorage implements ObjectStorage {
       body: input.bytes,
       headers: {
         "content-type": input.contentType,
-        ...Object.fromEntries(
-          Object.entries(input.metadata ?? {}).map(([name, value]) => [
-            `x-amz-meta-${name.toLowerCase()}`,
-            value,
-          ]),
-        ),
+        ...metadataHeaders(input.metadata ?? {}, this.#metadataHeaderPrefix),
       },
     });
     if (!response.ok) {
@@ -361,7 +438,12 @@ export class S3CompatibleObjectStorage implements ObjectStorage {
     }
     const now = this.#now();
     const { date, timestamp } = dateParts(now);
-    const url = endpointUrl(this.#publicEndpoint, this.bucket, input.key);
+    const url = endpointUrl(
+      this.#publicEndpoint,
+      this.bucket,
+      input.key,
+      this.#publicAddressingStyle,
+    );
     const headerSet = canonicalHeaders({ host: url.host, ...input.headers });
     const scope = `${date}/${this.#region}/${service}/aws4_request`;
     const parameters = {
@@ -406,7 +488,7 @@ export class S3CompatibleObjectStorage implements ObjectStorage {
   ): Promise<Response> {
     const now = this.#now();
     const { date, timestamp } = dateParts(now);
-    const url = endpointUrl(this.#endpoint, this.bucket, key);
+    const url = endpointUrl(this.#endpoint, this.bucket, key, this.#addressingStyle);
     const payloadHash = input.body === undefined ? emptyPayloadHash : sha256(input.body);
     const requestHeaders = {
       ...(input.headers ?? {}),

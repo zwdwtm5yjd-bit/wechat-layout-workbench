@@ -7,6 +7,9 @@ project_root="$(cd "$script_dir/../.." && pwd)"
 env_file="${PRODUCTION_ENV_FILE:-$project_root/.env.production}"
 compose_file="$project_root/infrastructure/compose/docker-compose.prod.yml"
 action="${1:-config}"
+if [[ $# -gt 0 ]]; then
+  shift
+fi
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "未找到 Docker。生产部署需要 Docker Engine 与 Compose v2。" >&2
@@ -35,7 +38,6 @@ compose() {
 }
 
 validate() {
-  pnpm --filter @wechat-layout/config build >/dev/null
   node --import tsx "$script_dir/validate-production-config.ts" --env-file "$env_file"
   compose --profile migration config --quiet
 }
@@ -65,6 +67,14 @@ case "$action" in
     for service in web api worker scheduler database-migrate; do
       compose --profile migration build "$service"
     done
+    ;;
+  backup)
+    validate
+    node --import tsx "$script_dir/database-backup.ts" create --env-file "$env_file" "$@"
+    ;;
+  backup-verify)
+    validate
+    node --import tsx "$script_dir/database-backup.ts" verify --env-file "$env_file" "$@"
     ;;
   deploy)
     validate
@@ -96,6 +106,10 @@ case "$action" in
     health
     compose ps
     ;;
+  restore-drill)
+    validate
+    node --import tsx "$script_dir/database-backup.ts" restore-drill --env-file "$env_file" "$@"
+    ;;
   health)
     validate
     health
@@ -110,7 +124,7 @@ case "$action" in
     compose down
     ;;
   *)
-    echo "未知操作：$action。可用操作：config、build、deploy、rollback、health、ps、logs、down。" >&2
+    echo "未知操作：$action。可用操作：config、build、backup、backup-verify、deploy、rollback、restore-drill、health、ps、logs、down。" >&2
     exit 2
     ;;
 esac

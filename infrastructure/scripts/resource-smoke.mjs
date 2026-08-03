@@ -21,6 +21,9 @@ const connection = createDatabaseConnection(process.env.DATABASE_URL, {
 const storage = new S3CompatibleObjectStorage({
   endpoint: process.env.S3_ENDPOINT,
   publicEndpoint: process.env.S3_PUBLIC_ENDPOINT,
+  addressingStyle: process.env.S3_ADDRESSING_STYLE,
+  publicAddressingStyle: process.env.S3_PUBLIC_ADDRESSING_STYLE,
+  metadataHeaderPrefix: process.env.S3_METADATA_HEADER_PREFIX,
   region: process.env.S3_REGION,
   bucket: process.env.S3_BUCKET,
   accessKeyId: process.env.S3_ACCESS_KEY_ID,
