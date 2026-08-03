@@ -308,8 +308,8 @@ describe("transactional document resource bindings", () => {
         traceId: `trace-${createUuidV7()}`,
       }),
     ]);
-    const [resource] = await connection.sql<{ deletedAt: Date | null; status: string }[]>`
-      select deleted_at as "deletedAt", status
+    const [resource] = await connection.sql<{ isDeleted: boolean; status: string }[]>`
+      select deleted_at is not null as "isDeleted", status
       from content.resources
       where id = ${resourceId}::uuid
     `;
@@ -320,14 +320,14 @@ describe("transactional document resource bindings", () => {
 
     if (saveResult.kind === "saved") {
       expect(trashResult).toMatchObject({ kind: "in_use" });
-      expect(resource).toMatchObject({ deletedAt: null, status: "active" });
+      expect(resource).toMatchObject({ isDeleted: false, status: "active" });
       expect(current).toMatchObject({ documentVersion: 2, document: changed });
       expect(rows).toEqual([expect.objectContaining({ resourceId })]);
     } else {
       expect(saveResult).toMatchObject({ kind: "invalid_resources" });
       expect(trashResult).toMatchObject({ kind: "trashed" });
       expect(resource?.status).toBe("trash");
-      expect(resource?.deletedAt).toBeInstanceOf(Date);
+      expect(resource?.isDeleted).toBe(true);
       expect(current).toMatchObject({ documentVersion: 1, document });
       expect(rows).toEqual([]);
     }
