@@ -236,16 +236,19 @@ export class ArticleService {
     if (existing.deletedAt !== null) {
       throw stateConflict("回收站中的文章不能复制");
     }
-    const article = await this.repository.duplicate(ownerUserId, articleId, {
+    const result = await this.repository.duplicate(ownerUserId, articleId, {
       ...(body.title === undefined ? {} : { title: normalizedTitle(body.title) }),
       ...(body.targetAccountId === undefined ? {} : { targetAccountId: body.targetAccountId }),
       contentGroupMode: body.contentGroupMode,
       context,
     });
-    if (article === null) {
+    if (result.kind === "not_found") {
       throw notFound();
     }
-    return toArticleDetailDto(article);
+    if (result.kind === "invalid_resources") {
+      throw stateConflict("文章包含不存在、不可用或不属于当前用户的资源，不能复制");
+    }
+    return toArticleDetailDto(result.article);
   }
 
   async archive(

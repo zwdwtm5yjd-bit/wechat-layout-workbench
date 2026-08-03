@@ -1,5 +1,7 @@
 import { collectDocumentEntries, type DocumentV1 } from "@wechat-layout/document-schema";
 
+import { collectDocumentResourceReferences } from "../documents/document-resource-references.js";
+
 import type {
   SnapshotPackageManifestEntry,
   SnapshotResourceManifestEntry,
@@ -67,28 +69,7 @@ export function buildSnapshotManifests(
       });
     }
 
-    if (node.type === "imageBlock") {
-      const reference = { blockId: node.attrs.blockId, usageType: "image" };
-      addResource(resources, node.attrs.resourceId, reference);
-      addResource(resources, node.attrs.originalResourceId, {
-        ...reference,
-        usageType: "image_original",
-      });
-      addResource(resources, node.attrs.watermarkId, {
-        ...reference,
-        usageType: "watermark",
-      });
-    } else if (node.type === "svgInteraction") {
-      node.attrs.resourceIds.forEach((resourceId) => {
-        addResource(resources, resourceId, {
-          blockId: node.attrs.blockId,
-          usageType: "svg_asset",
-        });
-      });
-      addResource(resources, node.attrs.fallbackResourceId, {
-        blockId: node.attrs.blockId,
-        usageType: "svg_fallback",
-      });
+    if (node.type === "svgInteraction") {
       addPackage({
         kind: "svg",
         packageId: node.attrs.templateId,
@@ -101,6 +82,13 @@ export function buildSnapshotManifests(
         version: node.attrs.frozenVersion ?? null,
       });
     }
+  }
+
+  for (const reference of collectDocumentResourceReferences(document)) {
+    addResource(resources, reference.resourceId, {
+      blockId: reference.blockId,
+      usageType: reference.usageType,
+    });
   }
 
   return {

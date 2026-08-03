@@ -70,6 +70,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium webkit
       - run: pnpm docker:dev
+      - run: pnpm db:test:migrations
       - run: pnpm test:e2e
       - run: pnpm docker:smoke
       - if: failure()

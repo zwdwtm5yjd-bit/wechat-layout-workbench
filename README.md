@@ -299,7 +299,8 @@ pnpm docker:down
 乐观锁验收；同时覆盖手动快照、编辑后快照游离、恢复前安全版本、恢复后新版本、
 陈旧版本恢复回滚、复制前快照和数据库不可变触发器；粘贴导入还会验证危险内容清洗、
 Source Blocks、刷新恢复、结构确认、幂等重放、版本冲突和导入后快照；资源流程会真实验证
-私有直传、签名下载、匿名拒绝、去重、错误 MIME、伪图片、引用保护和软删除；最后通过重启
+私有直传、签名下载、匿名拒绝、去重、错误 MIME、伪图片、文档保存自动绑定/解绑、引用保护
+和软删除；最后通过重启
 PostgreSQL、Redis、MinIO 检查命名卷的数据持久性；正式复制流程会验证服务端渲染、
 兼容门禁、双格式 Payload、复制记录、快照和审计持久化；任务中心还会覆盖幂等创建、SSE
 回放、自动/手动重试、永久失败只执行一次和运行中取消；主题流程会验证目录、试穿不落库、
@@ -334,6 +335,7 @@ pnpm db:migrate
 pnpm db:check
 pnpm db:seed
 pnpm db:test:migrations
+pnpm acceptance:seed
 pnpm build
 pnpm lint
 pnpm typecheck
@@ -347,6 +349,9 @@ pnpm format:check
 `pnpm test:integration` 使用 Testcontainers 启动隔离的 PostgreSQL、Redis 和 MinIO；
 `pnpm test:e2e` 要求先运行 `pnpm docker:dev`，并使用 Chromium 与 WebKit 验证核心用户流程。
 首次执行 E2E 前可用 `pnpm exec playwright install chromium webkit` 安装测试浏览器。
+`pnpm acceptance:seed` 需显式设置 `ACCEPTANCE_SCOPE=safari` 或 `wechat`，用于通过正式 API
+准备人工验收文章；它不写复制成功记录，也不会发布内容。完整命令和记录模板见
+[微信公众号后台人工测试记录](./docs/testing/wechat-manual-test-record.md)。
 
 单独启动应用：
 
@@ -412,12 +417,16 @@ docs/                        00—16 号开发文件与开发记录
 - 数据库密码、Session 密钥、对象存储密钥和微信凭据不得写入代码、文档、前端或日志；
 - `S3_ENDPOINT` 用于服务端内网访问，`S3_PUBLIC_ENDPOINT` 用于生成浏览器可访问的签名
   URL；生产环境两者都必须使用 HTTPS；
+- 微信含图验收时，运行中的 API 与 `acceptance:seed` 必须使用同一个公网 HTTPS
+  `S3_PUBLIC_ENDPOINT`。Docker Compose 支持用宿主环境变量覆盖本地默认值；变更后必须重建或
+  重启 API，不能只给 seed 进程临时设置；
 - 服务端 Secret 在字符串化、JSON 序列化和 Node.js 检查输出中默认显示为 `[REDACTED]`。
 
 ## 下一步
 
-`S1-TEST-001`、`S1-JOB-001`、`S1-THEME-002` 与 `S1-COMPONENT-002` 已完成并通过本地
-全链路终验。V0.1 上线前还需关闭真实 Safari、微信公众号后台和远端 CI 验收门禁。详细
-状态见
+`S1-TEST-001` 的自动化与验收数据准备、`S1-JOB-001`、`S1-THEME-002` 和
+`S1-COMPONENT-002` 已实现。V0.1 标签前还需关闭真实 Safari / Edge、微信公众号后台和
+当前提交远端 CI 门禁；公网生产部署还需另行完成生产运行制品、域名与 TLS、Secret 注入、
+对象存储、备份回滚和监控配置。详细状态见
 [V0.1 发布检查清单](./docs/testing/V0.1-release-checklist.md)。
 完整设计依据见 [docs](./docs/)。

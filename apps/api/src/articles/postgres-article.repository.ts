@@ -25,6 +25,11 @@ import {
 } from "drizzle-orm";
 
 import { DATABASE_CONNECTION } from "../database/database.module.js";
+import {
+  freezeSnapshotDocumentResources,
+  replaceActiveDocumentResources,
+  validateDocumentResources,
+} from "../documents/postgres-document-resources.js";
 import { buildSnapshotManifests } from "../snapshots/snapshot-manifest.js";
 import { ARTICLE_TRASH_RETENTION_DAYS } from "./article.constants.js";
 import type {
@@ -39,6 +44,7 @@ import type {
   ArticleStatusHistoryRecord,
   CreateArticleInput,
   DuplicateArticleInput,
+  DuplicateArticleResult,
   UpdateArticleInput,
 } from "./article.types.js";
 
@@ -384,7 +390,7 @@ export class PostgresArticleRepository implements ArticleRepository {
     ownerUserId: string,
     articleId: string,
     input: DuplicateArticleInput,
-  ): Promise<ArticleDetailRecord | null> {
+  ): Promise<DuplicateArticleResult> {
     const now = new Date();
     const duplicateArticleId = createUuidV7();
     const duplicateDocumentId = createUuidV7();
@@ -403,7 +409,7 @@ export class PostgresArticleRepository implements ArticleRepository {
         .for("update");
 
       if (sourceArticle === undefined) {
-        return false;
+        return { kind: "not_found" } as const;
       }
 
       const [sourceDocument] = await transaction
@@ -417,6 +423,13 @@ export class PostgresArticleRepository implements ArticleRepository {
       }
 
       const sourceDocumentJson = sourceDocument.documentJson as unknown as DocumentV1;
+      const validatedResources = await validateDocumentResources(transaction, {
+        document: sourceDocumentJson,
+        ownerUserId,
+      });
+      if (validatedResources.kind === "invalid_resources") {
+        return validatedResources;
+      }
       const manifests = buildSnapshotManifests(sourceDocumentJson, sourceArticle);
       const [latestSnapshot] = await transaction
         .select({ snapshotNumber: articleSnapshots.snapshotNumber })
@@ -443,6 +456,11 @@ export class PostgresArticleRepository implements ArticleRepository {
         note: "复制文章前自动保存",
         createdBy: input.context.actorUserId,
         createdAt: now,
+      });
+      await freezeSnapshotDocumentResources(transaction, {
+        articleId,
+        resources: validatedResources.value,
+        snapshotId: sourceSnapshotId,
       });
       await transaction
         .update(articles)
@@ -529,6 +547,11 @@ export class PostgresArticleRepository implements ArticleRepository {
         createdAt: now,
         updatedAt: now,
       });
+      await replaceActiveDocumentResources(transaction, {
+        articleId: duplicateArticleId,
+        resources: validatedResources.value,
+        replacedAt: now,
+      });
       await transaction.insert(articleStatusHistory).values({
         id: createUuidV7(),
         articleId: duplicateArticleId,
@@ -546,10 +569,17 @@ export class PostgresArticleRepository implements ArticleRepository {
           sourceSnapshotId,
         }),
       );
-      return true;
+      return { kind: "created" } as const;
     });
 
-    return created ? this.findDetail(ownerUserId, duplicateArticleId) : null;
+    if (created.kind !== "created") {
+      return created;
+    }
+    const article = await this.findDetail(ownerUserId, duplicateArticleId);
+    if (article === null) {
+      throw new Error("已创建的文章副本无法读取");
+    }
+    return { kind: "created", article };
   }
 
   async archive(

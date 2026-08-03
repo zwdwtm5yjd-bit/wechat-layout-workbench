@@ -550,7 +550,7 @@ export const articleResources = contentSchema.table(
     resourceId: uuid("resource_id")
       .notNull()
       .references(() => resources.id, { onDelete: "restrict" }),
-    blockId: varchar("block_id", { length: 100 }),
+    blockId: varchar("block_id", { length: 128 }),
     usageType: varchar("usage_type", { length: 50 }).notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
     frozenBySnapshotId: uuid("frozen_by_snapshot_id").references(() => articleSnapshots.id, {
@@ -567,6 +567,17 @@ export const articleResources = contentSchema.table(
       .on(table.resourceId)
       .where(sql`${table.deletedAt} is null`),
     index("idx_article_resources_snapshot").on(table.frozenBySnapshotId),
+    uniqueIndex("uq_article_resources_live_binding")
+      .on(table.articleId, table.resourceId, sql`coalesce(${table.blockId}, '')`, table.usageType)
+      .where(sql`${table.frozenBySnapshotId} is null and ${table.deletedAt} is null`),
+    uniqueIndex("uq_article_resources_snapshot_binding")
+      .on(
+        table.frozenBySnapshotId,
+        table.resourceId,
+        sql`coalesce(${table.blockId}, '')`,
+        table.usageType,
+      )
+      .where(sql`${table.frozenBySnapshotId} is not null and ${table.deletedAt} is null`),
     check("ck_article_resources_sort_order", sql`${table.sortOrder} >= 0`),
   ],
 );

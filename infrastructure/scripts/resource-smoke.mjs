@@ -303,27 +303,54 @@ try {
   assert.equal(fakeResponse.status, 400);
   assert.equal(fakePayload.error?.code, "RESOURCE_IMAGE_INVALID");
 
-  referenceArticleId = createUuidV7();
-  await connection.sql`
-    insert into content.articles (id, owner_user_id, title)
-    values (${referenceArticleId}::uuid, ${userId}::uuid, '资源引用保护验收')
-  `;
-  await connection.sql`
-    insert into content.article_resources (
-      id,
-      article_id,
-      resource_id,
-      block_id,
-      usage_type
-    )
-    values (
-      ${createUuidV7()}::uuid,
-      ${referenceArticleId}::uuid,
-      ${resource.id}::uuid,
-      'image-smoke-1',
-      'inline_image'
-    )
-  `;
+  const referenceArticle = await responseData(
+    await write("/api/v1/articles", "POST", sessionCookies, login.csrfToken, {
+      title: "资源引用保护验收",
+      contentType: "smoke",
+      sourceType: "blank",
+      layoutStrength: "standard",
+    }),
+    201,
+  );
+  referenceArticleId = referenceArticle.id;
+  const currentDocument = await responseData(
+    await globalThis.fetch(`${apiBaseUrl}/api/v1/articles/${referenceArticleId}/document`, {
+      headers: { cookie: sessionCookies },
+    }),
+    200,
+  );
+  const imageDocument = globalThis.structuredClone(currentDocument.document);
+  imageDocument.content = {
+    ...imageDocument.content,
+    content: [
+      {
+        type: "imageBlock",
+        attrs: {
+          blockId: "image-smoke-1",
+          locked: false,
+          resourceId: resource.id,
+          alt: "Docker 资源绑定烟测",
+        },
+      },
+    ],
+  };
+  imageDocument.meta = { ...imageDocument.meta, updatedAt: new Date().toISOString() };
+  const imageSaved = await responseData(
+    await write(
+      `/api/v1/articles/${referenceArticleId}/document`,
+      "PUT",
+      sessionCookies,
+      login.csrfToken,
+      {
+        baseVersion: currentDocument.documentVersion,
+        schemaVersion: currentDocument.schemaVersion,
+        document: imageDocument,
+        lastTransactionId: createUuidV7(),
+        transactionOrigin: "resource_smoke_bind",
+      },
+    ),
+    200,
+  );
   const references = await responseData(
     await globalThis.fetch(`${apiBaseUrl}/api/v1/resources/${resource.id}/references`, {
       headers: { cookie: sessionCookies },
@@ -332,6 +359,8 @@ try {
   );
   assert.equal(references.total, 1);
   assert.equal(references.items[0]?.kind, "article");
+  assert.equal(references.items[0]?.blockId, "image-smoke-1");
+  assert.equal(references.items[0]?.usageType, "image");
 
   const protectedDelete = await write(
     `/api/v1/resources/${resource.id}`,
@@ -343,10 +372,32 @@ try {
   assert.equal(protectedDelete.status, 409);
   assert.equal(protectedPayload.error?.code, "RESOURCE_IN_USE");
 
-  await connection.sql`
-    delete from content.article_resources
-    where article_id = ${referenceArticleId}::uuid
-  `;
+  const emptyDocument = globalThis.structuredClone(imageDocument);
+  emptyDocument.content = { ...emptyDocument.content, content: [] };
+  emptyDocument.meta = { ...emptyDocument.meta, updatedAt: new Date().toISOString() };
+  await responseData(
+    await write(
+      `/api/v1/articles/${referenceArticleId}/document`,
+      "PUT",
+      sessionCookies,
+      login.csrfToken,
+      {
+        baseVersion: imageSaved.documentVersion,
+        schemaVersion: currentDocument.schemaVersion,
+        document: emptyDocument,
+        lastTransactionId: createUuidV7(),
+        transactionOrigin: "resource_smoke_unbind",
+      },
+    ),
+    200,
+  );
+  const releasedReferences = await responseData(
+    await globalThis.fetch(`${apiBaseUrl}/api/v1/resources/${resource.id}/references`, {
+      headers: { cookie: sessionCookies },
+    }),
+    200,
+  );
+  assert.equal(releasedReferences.total, 0);
   await responseData(
     await write(`/api/v1/resources/${resource.id}`, "DELETE", sessionCookies, login.csrfToken),
     200,
@@ -392,6 +443,12 @@ try {
     )
   `;
   if (referenceArticleId !== undefined) {
+    await connection.sql`
+      delete from content.article_status_history where article_id = ${referenceArticleId}::uuid
+    `;
+    await connection.sql`
+      delete from content.article_documents where article_id = ${referenceArticleId}::uuid
+    `;
     await connection.sql`
       delete from content.articles where id = ${referenceArticleId}::uuid
     `;

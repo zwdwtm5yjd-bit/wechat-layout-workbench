@@ -6,6 +6,7 @@ import type {
 } from "@wechat-layout/wechat-renderer";
 
 import type { RequestContext } from "../common/http/request-context.js";
+import type { DocumentResourceReference } from "../documents/document-resource-references.js";
 
 export type CopyMutationContext = RequestContext & { readonly actorUserId: string };
 export type CopyRecordStatus = "failed" | "success";
@@ -60,6 +61,10 @@ export interface RenderOutputRecord {
 export type PersistRenderOutputResult =
   | { readonly kind: "created"; readonly output: RenderOutputRecord }
   | { readonly kind: "not_found" }
+  | {
+      readonly kind: "invalid_resources";
+      readonly invalidReferences: readonly DocumentResourceReference[];
+    }
   | {
       readonly kind: "version_conflict";
       readonly currentVersion: number;

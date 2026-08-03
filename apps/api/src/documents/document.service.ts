@@ -207,6 +207,14 @@ export class DocumentService {
     if (result.kind === "not_found") {
       throw notFound();
     }
+    if (result.kind === "invalid_resources") {
+      throw invalidRequest(
+        result.invalidReferences.map((reference) => ({
+          path: `document${reference.path}`,
+          message: "资源不存在、不可用或不属于当前用户",
+        })),
+      );
+    }
     if (result.kind === "conflict") {
       throw versionConflict(
         articleId,

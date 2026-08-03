@@ -17,6 +17,10 @@ import type { CompatibilityReport, WechatOutputMode } from "@wechat-layout/wecha
 import { and, desc, eq, isNull } from "drizzle-orm";
 
 import { DATABASE_CONNECTION } from "../database/database.module.js";
+import {
+  freezeSnapshotDocumentResources,
+  validateDocumentResources,
+} from "../documents/postgres-document-resources.js";
 import { buildSnapshotManifests } from "../snapshots/snapshot-manifest.js";
 import type {
   CopyRenderSource,
@@ -141,6 +145,7 @@ export class PostgresCopyRepository implements CopyRepository {
           eq(articleResources.articleId, articleId),
           eq(resources.ownerUserId, ownerUserId),
           eq(resources.status, "active"),
+          isNull(articleResources.frozenBySnapshotId),
           isNull(articleResources.deletedAt),
           isNull(resources.deletedAt),
         ),
@@ -191,6 +196,13 @@ export class PostgresCopyRepository implements CopyRepository {
           currentVersion: document.documentVersion,
         };
       }
+      const validatedResources = await validateDocumentResources(transaction, {
+        document: input.source.document,
+        ownerUserId: input.ownerUserId,
+      });
+      if (validatedResources.kind === "invalid_resources") {
+        return validatedResources;
+      }
 
       const snapshotId = createUuidV7();
       const outputId = createUuidV7();
@@ -221,6 +233,11 @@ export class PostgresCopyRepository implements CopyRepository {
         note: outputStatus === "ready" ? "正式复制前自动快照" : "复制兼容检查未通过",
         createdBy: input.context.actorUserId,
         createdAt: input.generatedAt,
+      });
+      await freezeSnapshotDocumentResources(transaction, {
+        articleId: article.id,
+        resources: validatedResources.value,
+        snapshotId,
       });
       const [inserted] = await transaction
         .insert(renderOutputs)

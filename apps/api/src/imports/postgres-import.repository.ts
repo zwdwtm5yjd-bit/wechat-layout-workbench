@@ -14,6 +14,11 @@ import { DOCUMENT_SCHEMA_VERSION, validateDocument } from "@wechat-layout/docume
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 
 import { DATABASE_CONNECTION } from "../database/database.module.js";
+import {
+  freezeSnapshotDocumentResources,
+  replaceActiveDocumentResources,
+  validateDocumentResources,
+} from "../documents/postgres-document-resources.js";
 import { statisticsForDocument } from "../documents/document-statistics.js";
 import { buildSnapshotManifests } from "../snapshots/snapshot-manifest.js";
 import { buildImportedDocument } from "./paste-parser.js";
@@ -279,6 +284,18 @@ export class PostgresImportRepository implements ImportRepository {
       if (documentRow === undefined) {
         throw new Error("粘贴导入文档创建失败");
       }
+      const initialResources = await validateDocumentResources(transaction, {
+        document,
+        ownerUserId: input.ownerUserId,
+      });
+      if (initialResources.kind === "invalid_resources") {
+        throw new Error("粘贴导入生成了不可用的资源引用");
+      }
+      await replaceActiveDocumentResources(transaction, {
+        articleId,
+        resources: initialResources.value,
+        replacedAt: now,
+      });
 
       const [sourceDocument] = await transaction
         .insert(sourceDocuments)
@@ -456,6 +473,13 @@ export class PostgresImportRepository implements ImportRepository {
         throw new Error("导入确认生成了无效 Document Schema V1 文档");
       }
       const documentStatistics = statisticsForDocument(validation.data);
+      const validatedResources = await validateDocumentResources(transaction, {
+        document: validation.data,
+        ownerUserId: input.ownerUserId,
+      });
+      if (validatedResources.kind === "invalid_resources") {
+        throw new Error("导入确认生成了不可用的资源引用");
+      }
       const [updatedDocument] = await transaction
         .update(articleDocuments)
         .set({
@@ -477,6 +501,11 @@ export class PostgresImportRepository implements ImportRepository {
       if (updatedDocument === undefined) {
         throw new Error("导入确认乐观锁在持有文档行锁后异常失败");
       }
+      await replaceActiveDocumentResources(transaction, {
+        articleId: input.articleId,
+        resources: validatedResources.value,
+        replacedAt: now,
+      });
 
       for (const block of blockRows) {
         const role = requestedRoles.get(block.sourceBlockId);
@@ -515,6 +544,11 @@ export class PostgresImportRepository implements ImportRepository {
         note: "粘贴导入与结构确认完成",
         createdBy: input.context.actorUserId,
         createdAt: now,
+      });
+      await freezeSnapshotDocumentResources(transaction, {
+        articleId: input.articleId,
+        resources: validatedResources.value,
+        snapshotId,
       });
 
       const title =

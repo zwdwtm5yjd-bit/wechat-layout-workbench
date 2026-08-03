@@ -1,5 +1,6 @@
 import type { DocumentV1 } from "@wechat-layout/document-schema";
 
+import type { DocumentResourceReference } from "../documents/document-resource-references.js";
 import type { AUTOMATIC_SNAPSHOT_REASONS, SNAPSHOT_REASONS } from "./snapshot.constants.js";
 
 export type SnapshotReason = (typeof SNAPSHOT_REASONS)[number];
@@ -72,6 +73,10 @@ export interface RestoreSnapshotInput {
 
 export type CreateSnapshotResult =
   | { readonly kind: "created"; readonly snapshot: ArticleSnapshotRecord }
+  | {
+      readonly kind: "invalid_resources";
+      readonly invalidReferences: readonly DocumentResourceReference[];
+    }
   | { readonly kind: "not_found" };
 
 export type RestoreSnapshotResult =
@@ -88,6 +93,10 @@ export type RestoreSnapshotResult =
       readonly currentVersion: number;
       readonly lastTransactionId: string | null;
       readonly lastSavedAt: Date;
+    }
+  | {
+      readonly kind: "invalid_resources";
+      readonly invalidReferences: readonly DocumentResourceReference[];
     }
   | { readonly kind: "not_found" };
 

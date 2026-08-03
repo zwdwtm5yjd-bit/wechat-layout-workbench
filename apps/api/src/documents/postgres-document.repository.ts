@@ -20,6 +20,10 @@ import type {
   SaveArticleDocumentInput,
   SaveArticleDocumentResult,
 } from "./document.types.js";
+import {
+  replaceActiveDocumentResources,
+  validateDocumentResources,
+} from "./postgres-document-resources.js";
 
 type JsonObject = Record<string, unknown>;
 
@@ -140,18 +144,31 @@ export class PostgresDocumentRepository implements ArticleDocumentRepository {
 
   async save(input: SaveArticleDocumentInput): Promise<SaveArticleDocumentResult> {
     return this.connection.db.transaction(async (transaction) => {
+      const [lockedArticle] = await transaction
+        .select({ id: articles.id })
+        .from(articles)
+        .where(
+          and(
+            eq(articles.id, input.articleId),
+            eq(articles.ownerUserId, input.ownerUserId),
+            isNull(articles.deletedAt),
+          ),
+        )
+        .limit(1)
+        .for("update");
+      if (lockedArticle === undefined) {
+        return { kind: "not_found" };
+      }
+
       const [currentRow] = await transaction
         .select(currentDocumentSelection)
         .from(articleDocuments)
         .innerJoin(articles, eq(articles.id, articleDocuments.articleId))
         .where(
-          and(
-            eq(articleDocuments.articleId, input.articleId),
-            eq(articles.ownerUserId, input.ownerUserId),
-            isNull(articles.deletedAt),
-          ),
+          and(eq(articleDocuments.articleId, input.articleId), eq(articles.id, lockedArticle.id)),
         )
-        .limit(1);
+        .limit(1)
+        .for("update");
 
       if (currentRow === undefined) {
         return { kind: "not_found" };
@@ -171,6 +188,14 @@ export class PostgresDocumentRepository implements ArticleDocumentRepository {
           lastTransactionId: current.lastTransactionId,
           lastSavedAt: current.lastSavedAt,
         };
+      }
+
+      const validatedResources = await validateDocumentResources(transaction, {
+        document: input.document,
+        ownerUserId: input.ownerUserId,
+      });
+      if (validatedResources.kind === "invalid_resources") {
+        return validatedResources;
       }
 
       const now = new Date();
@@ -225,6 +250,12 @@ export class PostgresDocumentRepository implements ArticleDocumentRepository {
           lastSavedAt: latest.lastSavedAt,
         };
       }
+
+      await replaceActiveDocumentResources(transaction, {
+        articleId: input.articleId,
+        resources: validatedResources.value,
+        replacedAt: now,
+      });
 
       await transaction
         .update(articles)

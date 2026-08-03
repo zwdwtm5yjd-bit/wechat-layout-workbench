@@ -65,6 +65,8 @@ const expectedIndexes = [
   "idx_users_status",
   "idx_users_last_login_at",
   "uq_article_documents_article",
+  "uq_article_resources_live_binding",
+  "uq_article_resources_snapshot_binding",
   "uq_article_snapshots_number",
   "uq_jobs_idempotency_key",
   "uq_resources_owner_content",
@@ -211,7 +213,7 @@ export async function verifyDatabaseSchema(
     invalidIdentifierColumns.length > 0
       ? `主键不是无默认值 UUID：${invalidIdentifierColumns.join(", ")}`
       : undefined,
-    migrationCount < 1 ? "没有已应用的数据库迁移" : undefined,
+    migrationCount < 6 ? `数据库迁移数量不足：${migrationCount}/6` : undefined,
     snapshotImmutabilityTriggerCount !== 1
       ? `快照不可变触发器数量错误：${snapshotImmutabilityTriggerCount}/1`
       : undefined,

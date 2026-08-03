@@ -26,7 +26,7 @@ x-server-application-environment: &server-application-environment
   DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
   REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
   S3_ENDPOINT: http://minio:9000
-  S3_PUBLIC_ENDPOINT: http://localhost:${MINIO_API_PORT:-9000}
+  S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:${MINIO_API_PORT:-9000}}
   S3_REGION: us-east-1
   S3_BUCKET: ${MINIO_BUCKET:?MINIO_BUCKET is required}
   S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}

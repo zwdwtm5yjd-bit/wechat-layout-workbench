@@ -42,6 +42,20 @@ function invalidSnapshot(): ApiException {
   });
 }
 
+function unavailableResources(references: readonly { readonly path: string }[]): ApiException {
+  return new ApiException(HttpStatus.CONFLICT, {
+    code: "SNAPSHOT_RESOURCES_UNAVAILABLE",
+    message: "快照包含不存在、不可用或不属于当前用户的资源，未修改当前文章",
+    details: {
+      fields: references.map((reference) => ({
+        path: `document${reference.path}`,
+        message: "资源不存在、不可用或不属于当前用户",
+      })),
+    },
+    retryable: false,
+  });
+}
+
 function versionConflict(
   articleId: string,
   submittedVersion: number,
@@ -204,6 +218,9 @@ export class SnapshotService {
     if (result.kind === "not_found") {
       throw notFound();
     }
+    if (result.kind === "invalid_resources") {
+      throw unavailableResources(result.invalidReferences);
+    }
     if (result.kind === "conflict") {
       throw versionConflict(
         articleId,
@@ -240,6 +257,9 @@ export class SnapshotService {
     });
     if (result.kind === "not_found") {
       throw notFound();
+    }
+    if (result.kind === "invalid_resources") {
+      throw unavailableResources(result.invalidReferences);
     }
     return toDetail(result.snapshot);
   }
