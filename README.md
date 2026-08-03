@@ -16,14 +16,15 @@
 `S1-COMPAT-001 兼容规则基础`、`S1-COPY-001 一键复制` 和
 `S1-WEB-002 V0.1 页面`、`S1-TEST-001 V0.1 测试基线` 和
 `S1-JOB-001 BullMQ 任务中心`、`S1-THEME-002 首批基础主题` 和
-`S1-COMPONENT-002 首批基础组件`、`S2-OPS-001 生产运行制品`、
+`S1-COMPONENT-002 首批基础组件`、`S2-IMPORT-001 Python DOCX Worker`、
+`S2-OPS-001 生产运行制品`、
 `S2-BACKUP-001 数据库备份恢复` 和 `S2-OPS-002 日志监控仓库制品`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
 - NestJS API 基础框架；
 - BullMQ Node.js Worker 与 Scheduler 调度骨架；
-- Python DOCX Worker 服务占位；
+- Python DOCX Worker 与安全 OOXML 解析边界；
 - 共享包边界；
 - TypeScript、ESLint、Prettier 与 Vitest 基线；
 - public / server 分层配置入口与 Zod 启动校验；
@@ -146,6 +147,13 @@
 - Owner 隔离的任务列表、详情、取消、重试 API，以及基于数据库事件的 SSE 实时流；
 - `Last-Event-ID` 原精度断线续传，Redis 重启后任务记录与完整事件仍可读取；
 - Testcontainers 覆盖成功、幂等、自动/手动重试、永久失败、取消和 Redis 重启持久性。
+- 私有 DOCX 直传、`POST /api/v1/imports/docx` 异步导入和 `import-docx` 任务链路；
+- 冻结的 `DOCX Intermediate v1`、稳定 Source Block 映射、标题/编号/链接识别、
+  图片顺序与去重、表格中间结构和 Word/WPS 来源识别；
+- ZIP 路径穿越、重复/加密成员、解压大小与压缩比、XML DTD/实体、宏、
+  ActiveX 和 OLE 嵌入对象拒绝；
+- Worker 保留原始 DOCX 资源和完整中间 JSON，内嵌图片入库后在单个
+  PostgreSQL 事务中生成 Document V1、Source Blocks、资源引用、状态历史和审计记录。
 - `S2-OPS-001` 生产制品基础：固定摘要的多阶段 Node / Nginx 镜像、生产 Compose、HTTPS 入口、
   仅 80 / 443 暴露、非 root 与只读容器、内部数据网络、显式迁移及受保护的部署/回滚命令；
 - 生产配置会在启动前校验 HTTPS Origin、TLS 文件、占位值、镜像版本、Secret 强度以及
@@ -157,7 +165,7 @@
   OpenTelemetry Trace、Tempo、Grafana 预置面板、Node Exporter、Alertmanager 与基础告警；
   Grafana 只绑定宿主回环地址，真实告警接收仍需在生产等价环境验收。
 
-本阶段尚未实现资源管理 UI、DOCX 文件导入、扩展组件包、兼容问题自动修复管理、SVG 执行、
+本阶段尚未实现资源管理 UI、DOCX 导入页面、扩展组件包、兼容问题自动修复管理、SVG 执行、
 微信连接或微信草稿同步。
 
 ## 环境要求
@@ -232,6 +240,7 @@ API 基础端点：
 导入端点：
 
 - 创建粘贴导入：`POST /api/v1/imports/paste`；
+- 从已上传的私有 DOCX 资源创建异步导入：`POST /api/v1/imports/docx`；
 - 读取可刷新恢复的结构：`GET /api/v1/imports/:articleId/structure`；
 - 确认完整结构并生成快照：`PUT /api/v1/imports/:articleId/structure`。
 
@@ -373,14 +382,17 @@ pnpm --filter @wechat-layout/worker dev
 pnpm --filter @wechat-layout/scheduler dev
 ```
 
-Python 服务占位验证：
+Python DOCX Worker 验证：
 
 ```bash
-PYTHONPATH=services/docx-worker-python/src python3 -m docx_worker
+pnpm test:python
+PYTHONPATH=services/docx-worker-python/src python3 -m docx_worker --help
 ```
 
 API 启动后执行 `pnpm api:generate`，会读取 `/api/openapi.json` 并刷新 Web 使用的
-OpenAPI 类型。生成文件不可手工编辑。
+OpenAPI 类型。也可以用 `pnpm --filter @wechat-layout/api openapi:write /tmp/openapi.json`
+离线生成契约，再通过 `OPENAPI_SCHEMA_URL=file:///tmp/openapi.json pnpm api:generate`
+刷新类型。生成文件不可手工编辑。
 
 Web 生产构建固定使用 Next.js 的 Webpack 模式；开发环境仍使用默认开发构建器。这样可以
 规避 Next.js 16.2.12 Turbopack 在中文工作区路径下的 UTF-8 标识符崩溃。
@@ -394,7 +406,7 @@ apps/
   worker/                    BullMQ 异步任务 Worker
   scheduler/                 调度进程占位
 services/
-  docx-worker-python/        Python DOCX Worker 占位
+  docx-worker-python/        Python DOCX Worker、中间契约与安全 OOXML 解析器
 packages/
   api-contracts/
   component-registry/

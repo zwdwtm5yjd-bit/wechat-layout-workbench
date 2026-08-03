@@ -18,12 +18,12 @@ import {
   RESOURCE_ACCESS_MIN_SECONDS,
   RESOURCE_ACCESS_PURPOSES,
   RESOURCE_ACCESS_VARIANTS,
-  RESOURCE_IMAGE_MIME_TYPES,
+  RESOURCE_UPLOAD_MIME_TYPES,
 } from "./resource.constants.js";
 import type {
   ResourceAccessPurpose,
   ResourceAccessVariant,
-  ResourceImageMimeType,
+  ResourceUploadMimeType,
 } from "./resource.types.js";
 
 export class CreateResourceUploadDto {
@@ -32,9 +32,9 @@ export class CreateResourceUploadDto {
   @Length(1, 255)
   filename!: string;
 
-  @ApiProperty({ enum: RESOURCE_IMAGE_MIME_TYPES, type: String })
-  @IsEnum(RESOURCE_IMAGE_MIME_TYPES)
-  mimeType!: ResourceImageMimeType;
+  @ApiProperty({ enum: RESOURCE_UPLOAD_MIME_TYPES, type: String })
+  @IsEnum(RESOURCE_UPLOAD_MIME_TYPES)
+  mimeType!: ResourceUploadMimeType;
 
   @ApiProperty({ maximum: 1_073_741_824, minimum: 1, type: Number })
   @Type(() => Number)
@@ -122,7 +122,7 @@ export class ResourceDto {
   @ApiProperty({ nullable: true, type: String })
   originalFilename!: string | null;
 
-  @ApiProperty({ enum: RESOURCE_IMAGE_MIME_TYPES, type: String })
+  @ApiProperty({ enum: RESOURCE_UPLOAD_MIME_TYPES, type: String })
   mimeType!: string;
 
   @ApiProperty({ nullable: true, type: String })

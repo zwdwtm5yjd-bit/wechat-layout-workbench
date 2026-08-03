@@ -251,7 +251,7 @@ class InMemoryResourceRepository implements ResourceRepository {
       id: createUuidV7(),
       ownerUserId: input.ownerUserId,
       accountId: input.accountId,
-      resourceType: "image",
+      resourceType: input.resourceType,
       sourceType: "upload",
       originalFilename: input.filename,
       storageProvider: input.storageProvider,
@@ -327,7 +327,7 @@ class InMemoryResourceRepository implements ResourceRepository {
     },
     {
       provide: RESOURCE_RUNTIME_OPTIONS,
-      useValue: { maximumImageBytes: 2 * 1024 * 1024 },
+      useValue: { maximumDocxBytes: 50 * 1024 * 1024, maximumImageBytes: 2 * 1024 * 1024 },
     },
     {
       provide: APP_GUARD,
@@ -588,5 +588,58 @@ describe("resource HTTP flow", () => {
         .expect(400);
       expect(rejected.body.error.code).toBe("RESOURCE_IMAGE_INVALID");
     }
+  });
+
+  it("retains DOCX uploads as private document resources", async () => {
+    const docxMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    const docx = Uint8Array.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00]);
+    const sha256 = bytesHash(docx);
+    const upload = await supertest(application.getHttpServer())
+      .post("/api/v1/resources/uploads")
+      .set("x-csrf-token", csrfToken)
+      .send({
+        filename: "采访稿.docx",
+        mimeType: docxMime,
+        fileSize: docx.byteLength,
+        sha256,
+      })
+      .expect(201);
+    const uploadId = upload.body.data.uploadId as string;
+    const session = sessions.sessions.get(uploadId);
+    expect(session).toBeDefined();
+    if (session === undefined) return;
+
+    const etag = storage.stageUpload(session, docx);
+    const completed = await supertest(application.getHttpServer())
+      .post(`/api/v1/resources/uploads/${uploadId}/complete`)
+      .set("x-csrf-token", csrfToken)
+      .send({ etag })
+      .expect(200);
+    expect(completed.body.data).toMatchObject({
+      resourceType: "document",
+      originalFilename: "采访稿.docx",
+      mimeType: docxMime,
+      fileExtension: "docx",
+      width: null,
+      height: null,
+      thumbnail: null,
+      sha256,
+      status: "active",
+      isPrivate: true,
+    });
+    const resource = repository.resources.get(completed.body.data.id as string);
+    expect(resource?.storageKey).toMatch(/\/original\.docx$/);
+    expect(storage.objects.get(resource?.storageKey ?? "")?.bytes).toEqual(docx);
+
+    await supertest(application.getHttpServer())
+      .post("/api/v1/resources/uploads")
+      .set("x-csrf-token", csrfToken)
+      .send({
+        filename: "wrong.zip",
+        mimeType: docxMime,
+        fileSize: docx.byteLength,
+        sha256: "f".repeat(64),
+      })
+      .expect(400);
   });
 });

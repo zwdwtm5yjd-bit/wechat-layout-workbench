@@ -10,6 +10,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "lint": "eslint . --max-warnings 0",
+    "openapi:write": "tsx src/openapi/generate-openapi.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --root . --passWithNoTests"
   },

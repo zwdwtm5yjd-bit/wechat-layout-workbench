@@ -14,8 +14,10 @@ import {
   WORKER_HEARTBEAT_KEY,
   WORKER_HEARTBEAT_TTL_SECONDS,
 } from "@wechat-layout/job-runtime";
+import { S3CompatibleObjectStorage } from "@wechat-layout/storage-adapter";
 import { createClient, type RedisClientType } from "redis";
 
+import { createDocxImportHandler } from "./docx-handler.js";
 import { maintenanceProbeHandler } from "./maintenance-handler.js";
 
 interface CancellationMessage {
@@ -44,6 +46,17 @@ async function bootstrap(): Promise<void> {
     { applicationName: "wechat-layout-worker" },
   );
   const queues = new JobQueueRegistry(redisUrl);
+  const storage = new S3CompatibleObjectStorage({
+    endpoint: configuration.objectStorage.endpoint,
+    publicEndpoint: configuration.objectStorage.publicEndpoint,
+    addressingStyle: configuration.objectStorage.addressingStyle,
+    publicAddressingStyle: configuration.objectStorage.publicAddressingStyle,
+    metadataHeaderPrefix: configuration.objectStorage.metadataHeaderPrefix,
+    region: configuration.objectStorage.region,
+    bucket: configuration.objectStorage.bucket,
+    accessKeyId: revealSecret(configuration.objectStorage.accessKeyId),
+    secretAccessKey: revealSecret(configuration.objectStorage.secretAccessKey),
+  });
   const heartbeat: RedisClientType = createClient({ url: redisUrl });
   const cancellation: RedisClientType = heartbeat.duplicate();
   heartbeat.on("error", () => undefined);
@@ -59,6 +72,16 @@ async function bootstrap(): Promise<void> {
       queues,
       registrations: [
         {
+          queueName: "import-docx",
+          handlers: {
+            "import.docx.parse": createDocxImportHandler({
+              database,
+              storage,
+              maximumDocxBytes: configuration.limits.docxFileBytes,
+            }),
+          },
+        },
+        {
           queueName: "maintenance",
           handlers: { "maintenance.probe": maintenanceProbeHandler },
         },
@@ -72,7 +95,7 @@ async function bootstrap(): Promise<void> {
         JSON.stringify({
           instanceId,
           timestamp: new Date().toISOString(),
-          queues: ["maintenance"],
+          queues: ["import-docx", "maintenance"],
           concurrency: configuration.application.workerConcurrency,
         }),
         { EX: WORKER_HEARTBEAT_TTL_SECONDS },

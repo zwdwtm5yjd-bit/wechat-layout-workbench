@@ -1,15 +1,18 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import { REDIS_CLIENT, type RedisClient } from "../redis/redis.module.js";
-import type { ResourceImageMimeType, UploadSession, UploadSessionStore } from "./resource.types.js";
+import { RESOURCE_DOCX_MIME_TYPE, RESOURCE_IMAGE_MIME_TYPES } from "./resource.constants.js";
+import type {
+  ResourceUploadMimeType,
+  UploadSession,
+  UploadSessionStore,
+} from "./resource.types.js";
 
 const keyPrefix = "resource-upload:";
 const sha256Pattern = /^[a-f0-9]{64}$/;
-const allowedMimeTypes = new Set<ResourceImageMimeType>([
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/gif",
+const allowedMimeTypes = new Set<ResourceUploadMimeType>([
+  ...RESOURCE_IMAGE_MIME_TYPES,
+  RESOURCE_DOCX_MIME_TYPE,
 ]);
 
 function isUploadSession(value: unknown): value is UploadSession {
@@ -23,7 +26,7 @@ function isUploadSession(value: unknown): value is UploadSession {
     (session.accountId === null || typeof session.accountId === "string") &&
     typeof session.filename === "string" &&
     typeof session.mimeType === "string" &&
-    allowedMimeTypes.has(session.mimeType as ResourceImageMimeType) &&
+    allowedMimeTypes.has(session.mimeType as ResourceUploadMimeType) &&
     typeof session.fileSize === "number" &&
     Number.isSafeInteger(session.fileSize) &&
     session.fileSize > 0 &&

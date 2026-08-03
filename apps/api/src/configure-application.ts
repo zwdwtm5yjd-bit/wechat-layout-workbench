@@ -1,5 +1,5 @@
 import { type INestApplication, RequestMethod } from "@nestjs/common";
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { DocumentBuilder, type OpenAPIObject, SwaggerModule } from "@nestjs/swagger";
 import type { AppEnvironment } from "@wechat-layout/config";
 
 import {
@@ -13,7 +13,7 @@ export function configureApplication(
   application: INestApplication,
   environment: AppEnvironment,
   publicWebUrl?: string,
-): void {
+): OpenAPIObject {
   if (publicWebUrl !== undefined) {
     application.enableCors({
       origin: publicWebUrl,
@@ -50,4 +50,5 @@ export function configureApplication(
     raw: ["json"],
     ui: environment !== "production",
   });
+  return openApiDocument;
 }

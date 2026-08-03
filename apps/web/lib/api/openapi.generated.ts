@@ -414,6 +414,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/imports/docx": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 使用已上传的 DOCX 原文件创建异步导入任务 */
+    post: operations["DocxImportController_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/imports/paste": {
     parameters: {
       query?: never;
@@ -425,6 +442,22 @@ export interface paths {
     put?: never;
     /** 清洗 HTML/纯文本并创建待结构确认的粘贴导入 */
     post: operations["ImportController_createPaste"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/internal/metrics": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["MetricsController_getMetrics"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -577,7 +610,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** 创建私有图片直传会话，或复用当前用户的相同资源 */
+    /** 创建私有图片或 DOCX 直传会话，或复用相同资源 */
     post: operations["ResourceController_createUpload"];
     delete?: never;
     options?: never;
@@ -1157,7 +1190,12 @@ export interface components {
       filename: string;
       fileSize: number;
       /** @enum {string} */
-      mimeType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+      mimeType:
+        | "image/png"
+        | "image/jpeg"
+        | "image/webp"
+        | "image/gif"
+        | "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       sha256: string;
     };
     CreateSnapshotDto: {
@@ -1192,6 +1230,36 @@ export interface components {
       /** Format: uuid */
       sessionId: string;
       user: components["schemas"]["AuthUserDto"];
+    };
+    DocxImportDto: {
+      /** Format: uuid */
+      accountId?: string | null;
+      /**
+       * @default preserve_structure
+       * @enum {string}
+       */
+      cleaningMode: "preserve_structure" | "plain_text" | "preserve_compatible";
+      /** @default general */
+      contentType: string;
+      /**
+       * @default standard
+       * @enum {string}
+       */
+      layoutStrength: "light" | "standard" | "strong";
+      /** Format: uuid */
+      resourceId: string;
+    };
+    DocxImportJobDto: {
+      /** Format: uuid */
+      articleId: string;
+      /** Format: uuid */
+      jobId: string;
+    };
+    DocxImportJobResponseDto: {
+      data: components["schemas"]["DocxImportJobDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
     };
     DuplicateArticleDto: {
       /**
@@ -1463,7 +1531,12 @@ export interface components {
       id: string;
       isPrivate: boolean;
       /** @enum {string} */
-      mimeType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+      mimeType:
+        | "image/png"
+        | "image/jpeg"
+        | "image/webp"
+        | "image/gif"
+        | "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       originalFilename: string | null;
       /** Format: date-time */
       purgeAfter: string | null;
@@ -3177,6 +3250,59 @@ export interface operations {
       };
     };
   };
+  DocxImportController_create: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DocxImportDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocxImportJobResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description DOCX 资源不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 资源不是可导入的活动 DOCX */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   ImportController_createPaste: {
     parameters: {
       query?: never;
@@ -3209,6 +3335,23 @@ export interface operations {
       };
       /** @description CSRF 校验失败 */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  MetricsController_getMetrics: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
         headers: {
           [name: string]: unknown;
         };

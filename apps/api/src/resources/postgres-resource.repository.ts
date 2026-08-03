@@ -179,7 +179,7 @@ export class PostgresResourceRepository implements ResourceRepository {
             id: resourceId,
             ownerUserId: input.ownerUserId,
             accountId: input.accountId,
-            resourceType: "image",
+            resourceType: input.resourceType,
             sourceType: "upload",
             originalFilename: input.filename,
             storageProvider: input.storageProvider,
@@ -214,6 +214,7 @@ export class PostgresResourceRepository implements ResourceRepository {
           beforeSummary: null,
           afterSummary: {
             mimeType: input.mimeType,
+            resourceType: input.resourceType,
             fileSize: input.fileSize,
             width: input.width,
             height: input.height,

@@ -50,7 +50,7 @@ export class ResourceController {
   ) {}
 
   @Post("uploads")
-  @ApiOperation({ summary: "创建私有图片直传会话，或复用当前用户的相同资源" })
+  @ApiOperation({ summary: "创建私有图片或 DOCX 直传会话，或复用相同资源" })
   @ApiHeader({ name: "X-CSRF-Token", required: true })
   @ApiBody({ type: () => CreateResourceUploadDto })
   @ApiCreatedResponse({ type: ResourceUploadResponseDto })

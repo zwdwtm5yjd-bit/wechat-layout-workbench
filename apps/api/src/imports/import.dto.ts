@@ -86,6 +86,53 @@ export class PasteImportDto {
   layoutStrength: "light" | "standard" | "strong" = "standard";
 }
 
+export class DocxImportDto {
+  @ApiProperty({ format: "uuid", type: String })
+  @IsUUID()
+  resourceId!: string;
+
+  @ApiPropertyOptional({ format: "uuid", nullable: true, type: String })
+  @IsOptional()
+  @IsUUID()
+  accountId?: string | null;
+
+  @ApiPropertyOptional({ default: "preserve_structure", enum: IMPORT_CLEANING_MODES, type: String })
+  @IsOptional()
+  @IsEnum(IMPORT_CLEANING_MODES)
+  cleaningMode: ImportCleaningMode = "preserve_structure";
+
+  @ApiPropertyOptional({ default: "general", maxLength: 50, type: String })
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  @Matches(/^[a-z][a-z0-9_-]*$/)
+  contentType = "general";
+
+  @ApiPropertyOptional({ default: "standard", enum: layoutStrengths, type: String })
+  @IsOptional()
+  @IsEnum(layoutStrengths)
+  layoutStrength: "light" | "standard" | "strong" = "standard";
+}
+
+export class DocxImportJobDto {
+  @ApiProperty({ format: "uuid", type: String })
+  jobId!: string;
+
+  @ApiProperty({ format: "uuid", type: String })
+  articleId!: string;
+}
+
+export class DocxImportJobResponseDto {
+  @ApiProperty({ example: true, type: Boolean })
+  success!: boolean;
+
+  @ApiProperty({ type: () => DocxImportJobDto })
+  data!: DocxImportJobDto;
+
+  @ApiProperty({ type: () => ApiMetaOpenApiModel })
+  meta!: ApiMetaOpenApiModel;
+}
+
 export class ConfirmImportBlockDto {
   @ApiProperty({ maxLength: 100, type: String })
   @IsString()

@@ -2,14 +2,19 @@ import type { RequestContext } from "../common/http/request-context.js";
 import type {
   RESOURCE_ACCESS_PURPOSES,
   RESOURCE_ACCESS_VARIANTS,
+  RESOURCE_DOCX_MIME_TYPE,
   RESOURCE_IMAGE_MIME_TYPES,
+  RESOURCE_UPLOAD_MIME_TYPES,
 } from "./resource.constants.js";
 
 export type ResourceImageMimeType = (typeof RESOURCE_IMAGE_MIME_TYPES)[number];
+export type ResourceDocxMimeType = typeof RESOURCE_DOCX_MIME_TYPE;
+export type ResourceUploadMimeType = (typeof RESOURCE_UPLOAD_MIME_TYPES)[number];
 export type ResourceAccessPurpose = (typeof RESOURCE_ACCESS_PURPOSES)[number];
 export type ResourceAccessVariant = (typeof RESOURCE_ACCESS_VARIANTS)[number];
 
 export interface ResourceRuntimeOptions {
+  readonly maximumDocxBytes: number;
   readonly maximumImageBytes: number;
 }
 
@@ -57,7 +62,7 @@ export interface UploadSession {
   readonly ownerUserId: string;
   readonly accountId: string | null;
   readonly filename: string;
-  readonly mimeType: ResourceImageMimeType;
+  readonly mimeType: ResourceUploadMimeType;
   readonly fileSize: number;
   readonly sha256: string;
   readonly objectKey: string;
@@ -78,11 +83,12 @@ export interface CreateValidatedResourceInput {
   readonly storageProvider: string;
   readonly storageBucket: string;
   readonly storageKey: string;
-  readonly mimeType: ResourceImageMimeType;
+  readonly resourceType: "image" | "document";
+  readonly mimeType: ResourceUploadMimeType;
   readonly fileExtension: string;
   readonly fileSize: number;
-  readonly width: number;
-  readonly height: number;
+  readonly width: number | null;
+  readonly height: number | null;
   readonly sha256: string;
   readonly metadata: ResourceMetadata;
   readonly context: RequestContext & { readonly actorUserId: string };

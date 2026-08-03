@@ -18,6 +18,7 @@ COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY --chown=node:node turbo.json tsconfig.base.json tsconfig.package.json ./
 COPY --chown=node:node apps ./apps
 COPY --chown=node:node packages ./packages
+COPY --chown=node:node services ./services
 
 FROM source AS dependencies
 
@@ -95,7 +96,18 @@ CMD ["node", "dist/main.js"]
 
 FROM node-runtime AS worker
 
+USER root
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV DOCX_WORKER_PYTHON=python3 \
+    DOCX_WORKER_PYTHONPATH=/workspace/services/docx-worker-python/src
+
 WORKDIR /workspace/apps/worker
+
+USER node
 
 CMD ["node", "dist/main.js"]
 

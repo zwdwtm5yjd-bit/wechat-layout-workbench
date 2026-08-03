@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wechat-layout-docx-worker"
-version = "0.0.0"
-description = "DOCX import worker skeleton for the WeChat layout workbench"
-requires-python = ">=3.13,<3.15"
+version = "0.1.0"
+description = "Safe DOCX parser and import worker for the WeChat layout workbench"
+requires-python = ">=3.11,<3.15"
 dependencies = []
 
 [project.scripts]

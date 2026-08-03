@@ -30,6 +30,7 @@ import { PostgresResourceRepository } from "./postgres-resource.repository.js";
     {
       provide: RESOURCE_RUNTIME_OPTIONS,
       useFactory: () => ({
+        maximumDocxBytes: loadServerEnvironment().limits.docxFileBytes,
         maximumImageBytes: loadServerEnvironment().limits.imageFileBytes,
       }),
     },
