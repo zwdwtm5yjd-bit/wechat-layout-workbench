@@ -191,6 +191,8 @@ if [[ "${PRODUCTION_TEMPLATE_BUILD:-}" == "1" ]]; then
   docker run \
     --rm \
     --read-only \
+    --add-host api:127.0.0.1 \
+    --add-host web:127.0.0.1 \
     --tmpfs /tmp:rw,size=16m,mode=1777 \
     --tmpfs /var/cache/nginx:rw,size=32m,mode=0755,uid=101,gid=101 \
     --tmpfs /etc/nginx/conf.d:rw,size=4m,mode=0755,uid=101,gid=101 \
