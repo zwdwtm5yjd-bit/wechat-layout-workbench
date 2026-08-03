@@ -21,6 +21,6 @@ COPY --chown=node:node packages ./packages
 USER node
 
 RUN pnpm install --frozen-lockfile \
-    && pnpm --filter @wechat-layout/config build
+    && pnpm --filter "./packages/**" build
 
 CMD ["pnpm", "dev"]

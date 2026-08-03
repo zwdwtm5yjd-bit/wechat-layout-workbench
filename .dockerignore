@@ -5,7 +5,7 @@
 .venv
 coverage
 data
-dist
+**/dist
 docs
 node_modules
 tmp
