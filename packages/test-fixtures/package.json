@@ -22,5 +22,8 @@
   },
   "dependencies": {
     "@wechat-layout/document-schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@wechat-layout/component-registry": "workspace:*"
   }
 }

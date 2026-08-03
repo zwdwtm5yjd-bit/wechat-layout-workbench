@@ -25,6 +25,23 @@
 3. AI 科技文章；
 4. 极端样稿。
 
+## 验收数据准备
+
+`acceptance:seed` 目前只支持为真实 Safari 复制测试准备一篇不含图片的法律样稿。执行前必须保证 API 和 Web 可访问，并使用现有的 active Owner 账号；脚本不直连或绕过 API 写数据库，不会创建或修改 Owner 密码，也不会覆盖已有文章，而是以带运行标识的标题新建文章。正常登录会更新登录时间、会话和审计记录；请使用正确密码，避免错误尝试累计并触发锁定。
+
+```bash
+export ACCEPTANCE_OWNER_EMAIL="<现有 Owner 邮箱>"
+read -s "ACCEPTANCE_OWNER_PASSWORD?Owner password: "
+export ACCEPTANCE_OWNER_PASSWORD
+ACCEPTANCE_SCOPE=safari pnpm acceptance:seed
+```
+
+如 API 或 Web 不使用默认地址 `http://127.0.0.1:3001` 和 `http://127.0.0.1:3000`，可另设 `ACCEPTANCE_API_BASE_URL` 和 `ACCEPTANCE_WEB_BASE_URL`。只有回环地址可使用 HTTP，远程地址必须使用 HTTPS，登录请求不会跟随重定向。成功后命令会输出新文章的 `editorUrl`、所用主题和四个“主题 × Renderer 模式”输出 ID。
+
+该命令只请求并检查 `standard`、`wechat_safe` 的 Copy Payload 非空，不会操作浏览器剪贴板、不会写入“复制成功”记录，也不会代替本页的 Safari 点击、粘贴和微信公众号后台人工验证。输出法律样稿后，仍须由执行人打开 `editorUrl` 完成本页记录。
+
+`ACCEPTANCE_SCOPE=wechat` **尚未实现**四篇含图样稿的资源上传与文章准备。该 scope 会先拒绝非公网 HTTPS 的 `S3_PUBLIC_ENDPOINT`，即使端点通过检查也会明确报错并在写入数据前退出。因此当前不得用它把四篇微信公众号后台验收标记为通过；完整验收需先提供可从微信后台访问的公网 HTTPS 图片地址并实现含图种子流程。
+
 ## 操作与结果
 
 | 步骤 | Chrome | Safari | 证据或备注 |
@@ -45,6 +62,7 @@
 - 严重兼容问题必须在复制前阻断；
 - Safari 无法写入富文本剪贴板时，手动复制兜底必须可用；
 - “复制成功”只表示写入剪贴板，不得声称已经发布。
+- `acceptance:seed` 的 payload 预检结果不得代替浏览器剪贴板和微信公众号后台人工结果。
 
 ## 缺陷记录
 

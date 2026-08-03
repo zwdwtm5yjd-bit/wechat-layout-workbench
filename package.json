@@ -9,6 +9,7 @@
     "pnpm": "10.x"
   },
   "scripts": {
+    "acceptance:seed": "node --import tsx infrastructure/scripts/acceptance-seed.ts",
     "dev": "turbo run dev",
     "docker:dev": "bash infrastructure/scripts/docker-dev.sh up",
     "docker:down": "bash infrastructure/scripts/docker-dev.sh down",

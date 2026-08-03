@@ -5,6 +5,51 @@ const lockedSourceHash = `sha256:${"b".repeat(64)}`;
 
 type TopLevelBlock = Exclude<BlockNode, { readonly type: "listItem" }>;
 
+type SemanticCardFixtureRole =
+  "advantage" | "case" | "data" | "legal_issue" | "limitation" | "parameter";
+
+const semanticCardComponentReferences = {
+  advantage: {
+    componentId: "cmp_notice_success_green_002",
+    componentVariantId: "default",
+    variant: "success",
+  },
+  case: {
+    componentId: "cmp_notice_info_blue_001",
+    componentVariantId: "default",
+    variant: "info",
+  },
+  data: {
+    componentId: "cmp_data_progress_metric_003",
+    componentVariantId: "default",
+    variant: "progress",
+  },
+  legal_issue: {
+    componentId: "cmp_notice_warning_amber_003",
+    componentVariantId: "default",
+    variant: "warning",
+  },
+  limitation: {
+    componentId: "cmp_notice_warning_amber_003",
+    componentVariantId: "default",
+    variant: "warning",
+  },
+  parameter: {
+    componentId: "cmp_notice_info_blue_001",
+    componentVariantId: "default",
+    variant: "info",
+  },
+} as const satisfies Readonly<
+  Record<
+    SemanticCardFixtureRole,
+    {
+      readonly componentId: string;
+      readonly componentVariantId: "default";
+      readonly variant: string;
+    }
+  >
+>;
+
 export interface StandardArticleFixture {
   readonly id: "ai_technology" | "extreme" | "legal" | "party_inspection";
   readonly name: string;
@@ -16,6 +61,15 @@ export interface PasteSourceFixture {
   readonly detectedSourceHint: "auto" | "html" | "markdown" | "plain_text" | "word";
   readonly html: string;
   readonly plainText: string;
+}
+
+export interface MaterializeAcceptanceFixtureInput {
+  readonly articleId: string;
+  readonly createdAt: string;
+  readonly documentId: string;
+  readonly fixture: StandardArticleFixture;
+  readonly resourceIds: Readonly<Record<string, string>>;
+  readonly updatedAt: string;
 }
 
 function attrs(blockId: string, semanticRole: string, locked = true) {
@@ -94,17 +148,22 @@ function card(
   eyebrow: string,
   title: string,
   body: string,
-  semanticRole: string,
+  semanticRole: SemanticCardFixtureRole,
+  footer?: string,
 ): TopLevelBlock {
+  const componentReference = semanticCardComponentReferences[semanticRole];
+
   return {
     attrs: {
       ...attrs(blockId, semanticRole, false),
       compatibilityLevel: "safe",
-      componentId: `fixture_${semanticRole}`,
+      componentId: componentReference.componentId,
       componentVersion: "1.0.0",
+      componentVariantId: componentReference.componentVariantId,
       eyebrow,
+      ...(footer === undefined ? {} : { footer }),
       title,
-      variant: "line-left",
+      variant: componentReference.variant,
     },
     content: [
       {
@@ -194,7 +253,7 @@ export const partyInspectionArticleFixture: StandardArticleFixture = {
       "查阅制度材料 128 份",
       "形成问题清单 12 项",
     ]),
-    card("party_data", "关键数据", "整改完成率 92%", "本轮巡察已完成阶段性问题整改。", "data"),
+    card("party_data", "关键数据", "整改完成率", "92%", "data", "本轮巡察已完成阶段性问题整改。"),
     quote("party_quote", "发现问题不是终点，推动解决问题才是巡察工作的落脚点。", "巡察工作组"),
     image("party_image", 1, "巡察工作现场"),
     {
@@ -336,6 +395,51 @@ export const standardArticleFixtures = [
   aiTechnologyArticleFixture,
   extremeArticleFixture,
 ] as const satisfies readonly StandardArticleFixture[];
+
+function nestedBlocks(node: BlockNode): readonly BlockNode[] {
+  switch (node.type) {
+    case "blockquote":
+    case "brandFooter":
+    case "bulletList":
+    case "listItem":
+    case "orderedList":
+    case "semanticCard":
+      return node.content ?? [];
+    default:
+      return [];
+  }
+}
+
+/**
+ * Creates an isolated release-acceptance document from an immutable standard fixture.
+ * Fixture image IDs are deliberately unusable outside tests, so every such ID must be
+ * replaced explicitly before the document enters a real renderer or persistence path.
+ */
+export function materializeAcceptanceFixture(input: MaterializeAcceptanceFixtureInput): DocumentV1 {
+  const materialized = structuredClone(input.fixture.document);
+  materialized.articleId = input.articleId;
+  materialized.documentId = input.documentId;
+  materialized.meta.createdAt = input.createdAt;
+  materialized.meta.updatedAt = input.updatedAt;
+
+  const rewriteImageResources = (node: BlockNode): void => {
+    if (node.type === "imageBlock" && node.attrs.resourceId.startsWith("fixture_resource_")) {
+      const originalResourceId = node.attrs.resourceId;
+      const replacementResourceId = input.resourceIds[originalResourceId];
+      if (replacementResourceId === undefined) {
+        throw new Error(
+          `Acceptance fixture ${input.fixture.id} is missing resourceIds mapping for block ${node.attrs.blockId}: ${originalResourceId}`,
+        );
+      }
+      node.attrs.resourceId = replacementResourceId;
+    }
+
+    nestedBlocks(node).forEach(rewriteImageResources);
+  };
+
+  materialized.content.content.forEach(rewriteImageResources);
+  return materialized;
+}
 
 export const pasteSourceFixtures = {
   maliciousHtml: {

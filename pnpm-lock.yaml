@@ -315,6 +315,10 @@ importers:
       '@wechat-layout/document-schema':
         specifier: workspace:*
         version: link:../document-schema
+    devDependencies:
+      '@wechat-layout/component-registry':
+        specifier: workspace:*
+        version: link:../component-registry
 
   packages/wechat-connector: {}
 
