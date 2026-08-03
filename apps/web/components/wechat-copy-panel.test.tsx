@@ -113,7 +113,9 @@ describe("WechatCopyPanel", () => {
         status: "success",
       }),
     );
-    expect(screen.getByText(/此操作不代表文章已发布/)).not.toBeNull();
+    const visibleToast = (await screen.findByRole("button", { name: "关闭通知" })).parentElement;
+    expect(visibleToast).not.toBeNull();
+    expect(visibleToast?.textContent).toContain("此操作不代表文章已发布");
   });
 
   it("shares the exact formal render result with the compatibility drawer", async () => {
