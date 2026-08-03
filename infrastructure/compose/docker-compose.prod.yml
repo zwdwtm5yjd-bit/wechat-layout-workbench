@@ -30,6 +30,9 @@ x-server-environment: &server-environment
   FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:?FIELD_ENCRYPTION_KEY is required}
   ASSET_SIGNING_KEY: ${ASSET_SIGNING_KEY:?ASSET_SIGNING_KEY is required}
   BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY is required}
+  METRICS_BEARER_TOKEN: ${METRICS_BEARER_TOKEN:?METRICS_BEARER_TOKEN is required}
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:?OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is required}
+  LOKI_PUSH_URL: ${LOKI_PUSH_URL:?LOKI_PUSH_URL is required}
   FEATURE_WECHAT_SYNC_ENABLED: ${FEATURE_WECHAT_SYNC_ENABLED:-false}
   FEATURE_REMOTE_COMPONENTS_ENABLED: ${FEATURE_REMOTE_COMPONENTS_ENABLED:-false}
   MAX_JSON_BODY_BYTES: ${MAX_JSON_BODY_BYTES:-2097152}
@@ -50,6 +53,7 @@ x-json-logging: &json-logging
 x-node-service: &node-service
   init: true
   restart: unless-stopped
+  user: node
   read_only: true
   security_opt:
     - no-new-privileges:true
@@ -59,6 +63,18 @@ x-node-service: &node-service
   stop_grace_period: 30s
   tmpfs:
     - /tmp:size=64m,mode=1777
+  logging: *json-logging
+
+x-observability-service: &observability-service
+  restart: unless-stopped
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  pids_limit: 128
+  tmpfs:
+    - /tmp:size=32m,mode=1777
   logging: *json-logging
 
 services:
@@ -192,6 +208,7 @@ services:
       - edge
       - data
       - egress
+      - observability
 
   worker:
     <<: *node-service
@@ -332,11 +349,204 @@ services:
       - data
     logging: *json-logging
 
+  prometheus:
+    <<: *observability-service
+    image: prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996
+    user: "65534:65534"
+    cpus: "0.75"
+    mem_limit: 1g
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --storage.tsdb.retention.size=20GB
+    volumes:
+      - type: bind
+        source: ../monitoring/prometheus/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+        read_only: true
+      - type: bind
+        source: ../monitoring/prometheus/alerts.yml
+        target: /etc/prometheus/rules/alerts.yml
+        read_only: true
+      - prometheus-data:/prometheus
+    secrets:
+      - source: metrics_bearer_token
+        target: metrics-bearer-token
+    depends_on:
+      api:
+        condition: service_healthy
+      alertmanager:
+        condition: service_started
+      node-exporter:
+        condition: service_started
+    networks:
+      - observability
+
+  alertmanager:
+    <<: *observability-service
+    image: prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
+    user: "65534:65534"
+    cpus: "0.25"
+    mem_limit: 256m
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - type: bind
+        source: ../monitoring/alertmanager/alertmanager.yml
+        target: /etc/alertmanager/alertmanager.yml
+        read_only: true
+      - alertmanager-data:/alertmanager
+    secrets:
+      - source: alertmanager_webhook_url
+        target: alertmanager-webhook-url
+    networks:
+      - observability
+      - egress
+
+  grafana:
+    <<: *observability-service
+    image: grafana/grafana:12.1.1@sha256:a1701c2180249361737a99a01bc770db39381640e4d631825d38ff4535efa47d
+    user: "472:0"
+    cpus: "0.75"
+    mem_limit: 768m
+    environment:
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_PLUGINS_CHECK_FOR_UPDATES: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana-admin-password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: http://127.0.0.1:${GRAFANA_HOST_PORT:-3002}
+    ports:
+      - name: grafana-local
+        host_ip: 127.0.0.1
+        target: 3000
+        published: "${GRAFANA_HOST_PORT:-3002}"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: ../monitoring/grafana/provisioning
+        target: /etc/grafana/provisioning
+        read_only: true
+      - type: bind
+        source: ../monitoring/grafana/dashboards
+        target: /var/lib/grafana/dashboards
+        read_only: true
+      - grafana-data:/var/lib/grafana
+    secrets:
+      - source: grafana_admin_password
+        target: grafana-admin-password
+    depends_on:
+      loki:
+        condition: service_started
+      prometheus:
+        condition: service_started
+      tempo:
+        condition: service_started
+    networks:
+      - edge
+      - observability
+
+  loki:
+    <<: *observability-service
+    image: grafana/loki:3.5.3@sha256:3165cecce301ce5b9b6e3530284b080934a05cd5cafac3d3d82edcb887b45ecd
+    user: "10001:10001"
+    cpus: "0.75"
+    mem_limit: 1g
+    command:
+      - -config.file=/etc/loki/loki.yml
+    volumes:
+      - type: bind
+        source: ../monitoring/loki/loki.yml
+        target: /etc/loki/loki.yml
+        read_only: true
+      - loki-data:/loki
+    networks:
+      - observability
+
+  tempo:
+    <<: *observability-service
+    image: grafana/tempo:2.8.2@sha256:0ef775495967cd5d7a6b2e146b6ea695d624803c8db8349fb8ce4164f719f9b7
+    user: "10001:10001"
+    cpus: "0.50"
+    mem_limit: 768m
+    command:
+      - -config.file=/etc/tempo/tempo.yml
+    volumes:
+      - type: bind
+        source: ../monitoring/tempo/tempo.yml
+        target: /etc/tempo/tempo.yml
+        read_only: true
+      - tempo-data:/var/tempo
+    networks:
+      - observability
+
+  otel-collector:
+    <<: *observability-service
+    image: otel/opentelemetry-collector-contrib:0.133.0@sha256:98274b756324abdb2473fa0c898247a246091e861e61d1548f9be483198eecea
+    user: "10001:10001"
+    cpus: "0.50"
+    mem_limit: 512m
+    command:
+      - --config=/etc/otelcol-contrib/config.yml
+    volumes:
+      - type: bind
+        source: ../monitoring/otel-collector/config.yml
+        target: /etc/otelcol-contrib/config.yml
+        read_only: true
+    depends_on:
+      tempo:
+        condition: service_started
+    networks:
+      - observability
+
+  node-exporter:
+    <<: *observability-service
+    image: prom/node-exporter:v1.9.1@sha256:d00a542e409ee618a4edc67da14dd48c5da66726bbd5537ab2af9c1dfc442c8a
+    user: "65534:65534"
+    cpus: "0.25"
+    mem_limit: 256m
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/containers/storage/.+)($$|/)
+    volumes:
+      - type: bind
+        source: /
+        target: /host
+        read_only: true
+        bind:
+          propagation: rslave
+    networks:
+      - observability
+
 volumes:
   postgres-data:
     name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-postgres-data
   redis-data:
     name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-redis-data
+  prometheus-data:
+    name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-prometheus-data
+  alertmanager-data:
+    name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-alertmanager-data
+  grafana-data:
+    name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-grafana-data
+  loki-data:
+    name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-loki-data
+  tempo-data:
+    name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-tempo-data
+
+secrets:
+  metrics_bearer_token:
+    environment: METRICS_BEARER_TOKEN
+  alertmanager_webhook_url:
+    environment: ALERTMANAGER_WEBHOOK_URL
+  grafana_admin_password:
+    environment: GRAFANA_ADMIN_PASSWORD
 
 networks:
   edge:
@@ -346,3 +556,6 @@ networks:
     internal: true
   egress:
     driver: bridge
+  observability:
+    driver: bridge
+    internal: true

@@ -81,8 +81,27 @@ export function validateProductionConfiguration(
   const postgresUser = required("POSTGRES_USER");
   const postgresPassword = required("POSTGRES_PASSWORD", 24, true);
   const redisPassword = required("REDIS_PASSWORD", 24, true);
+  const metricsBearerToken = required("METRICS_BEARER_TOKEN", 32, true);
+  const grafanaAdminPassword = required("GRAFANA_ADMIN_PASSWORD", 32, true);
   const certificatePath = required("TLS_CERTIFICATE_PATH");
   const privateKeyPath = required("TLS_PRIVATE_KEY_PATH");
+
+  const productionSecrets = [
+    postgresPassword,
+    redisPassword,
+    metricsBearerToken,
+    grafanaAdminPassword,
+    ...[
+      "SESSION_SECRET",
+      "CSRF_SECRET",
+      "FIELD_ENCRYPTION_KEY",
+      "ASSET_SIGNING_KEY",
+      "BACKUP_ENCRYPTION_KEY",
+    ].map((key) => input[key]?.trim() ?? ""),
+  ].filter(Boolean);
+  if (new Set(productionSecrets).size !== productionSecrets.length) {
+    issues.push("生产数据库、Redis、应用、指标与 Grafana Secret 必须互不相同");
+  }
 
   const domainLabels = appDomain.split(".");
   if (
@@ -165,6 +184,24 @@ export function validateProductionConfiguration(
     ) {
       issues.push("REDIS_URL: 必须与 Compose 内部 redis 服务及 REDIS_PASSWORD 一致");
     }
+  }
+
+  const alertmanagerWebhookUrl = parsedUrl(
+    required("ALERTMANAGER_WEBHOOK_URL", 1, true),
+    "ALERTMANAGER_WEBHOOK_URL",
+    issues,
+  );
+  if (alertmanagerWebhookUrl !== null && alertmanagerWebhookUrl.protocol !== "https:") {
+    issues.push("ALERTMANAGER_WEBHOOK_URL: 必须使用 HTTPS");
+  }
+
+  const grafanaHostPort = Number(input.GRAFANA_HOST_PORT ?? "3002");
+  if (
+    !Number.isSafeInteger(grafanaHostPort) ||
+    grafanaHostPort < 1024 ||
+    grafanaHostPort > 65_535
+  ) {
+    issues.push("GRAFANA_HOST_PORT: 必须是 1024 到 65535 之间的整数");
   }
 
   try {

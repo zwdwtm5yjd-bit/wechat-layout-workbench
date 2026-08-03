@@ -9,12 +9,14 @@ import { RequestLoggingInterceptor } from "./common/http/request-logging.interce
 import { ResponseEnvelopeInterceptor } from "./common/http/response-envelope.interceptor.js";
 import { StructuredLoggerService } from "./common/http/structured-logger.service.js";
 import { HealthModule } from "./health/health.module.js";
+import { ApplicationMetrics } from "./observability/application-metrics.service.js";
 
 @Module({
   imports: [HealthModule],
   providers: [
     RequestContextService,
     RequestContextMiddleware,
+    ApplicationMetrics,
     StructuredLoggerService,
     {
       provide: APP_PIPE,
@@ -33,6 +35,7 @@ import { HealthModule } from "./health/health.module.js";
       useClass: ResponseEnvelopeInterceptor,
     },
   ],
+  exports: [ApplicationMetrics],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

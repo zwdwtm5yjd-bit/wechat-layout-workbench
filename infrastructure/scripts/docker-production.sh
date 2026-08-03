@@ -57,6 +57,18 @@ health() {
   echo "生产健康检查通过：$health_url"
 }
 
+observability_health() {
+  compose exec -T api node -e \
+    "const targets=['http://prometheus:9090/-/healthy','http://alertmanager:9093/-/healthy','http://grafana:3000/api/health','http://loki:3100/ready','http://tempo:3200/ready','http://otel-collector:8888/metrics','http://node-exporter:9100/metrics'];Promise.all(targets.map(async(url)=>{const response=await fetch(url);if(!response.ok)throw new Error(url+' returned '+response.status)})).catch(error=>{console.error(error.message);process.exit(1)})"
+  echo "Prometheus、Alertmanager、Grafana、Loki、Tempo、OpenTelemetry Collector 与 Node Exporter 健康检查通过。"
+}
+
+send_synthetic_alert() {
+  compose exec -T api node -e \
+    "const now=new Date();const end=new Date(now.getTime()+120000);fetch('http://alertmanager:9093/api/v2/alerts',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify([{labels:{alertname:'WechatLayoutSyntheticAlert',severity:'warning',service:'operations-test'},annotations:{summary:'公众号智能视觉排版监控链路测试',description:'这是由 docker:prod:alert-test 主动发送的测试告警。'},startsAt:now.toISOString(),endsAt:end.toISOString(),generatorURL:'https://prometheus.io/'}])}).then(response=>{if(!response.ok)throw new Error('Alertmanager returned '+response.status)}).catch(error=>{console.error(error.message);process.exit(1)})"
+  echo "测试告警已提交至 Alertmanager；请在告警接收端确认 firing 与后续 resolved 通知。"
+}
+
 case "$action" in
   config)
     validate
@@ -83,9 +95,12 @@ case "$action" in
       exit 1
     fi
     compose up --detach --wait --no-build postgres redis
+    compose up --detach --wait --no-build alertmanager loki tempo otel-collector node-exporter
     compose --profile migration run --rm --no-deps database-migrate
     compose up --detach --wait --no-build web api worker scheduler nginx
+    compose up --detach --wait --no-build prometheus grafana
     health
+    observability_health
     compose ps
     ;;
   rollback)
@@ -113,18 +128,24 @@ case "$action" in
   health)
     validate
     health
+    observability_health
+    ;;
+  alert-test)
+    validate
+    observability_health
+    send_synthetic_alert
     ;;
   ps)
     compose ps
     ;;
   logs)
-    compose logs --follow --tail=200 nginx web api worker scheduler
+    compose logs --follow --tail=200 nginx web api worker scheduler prometheus alertmanager grafana loki tempo otel-collector node-exporter
     ;;
   down)
     compose down
     ;;
   *)
-    echo "未知操作：$action。可用操作：config、build、backup、backup-verify、deploy、rollback、restore-drill、health、ps、logs、down。" >&2
+    echo "未知操作：$action。可用操作：config、build、backup、backup-verify、deploy、rollback、restore-drill、health、alert-test、ps、logs、down。" >&2
     exit 2
     ;;
 esac

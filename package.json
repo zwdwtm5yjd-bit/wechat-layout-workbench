@@ -24,6 +24,7 @@
     "docker:prod:config": "bash infrastructure/scripts/docker-production.sh config",
     "docker:prod:deploy": "bash infrastructure/scripts/docker-production.sh deploy",
     "docker:prod:health": "bash infrastructure/scripts/docker-production.sh health",
+    "docker:prod:alert-test": "bash infrastructure/scripts/docker-production.sh alert-test",
     "docker:prod:rollback": "bash infrastructure/scripts/docker-production.sh rollback",
     "docker:prod:restore-drill": "bash infrastructure/scripts/docker-production.sh restore-drill",
     "docker:prod:template": "bash infrastructure/scripts/production-template-test.sh",

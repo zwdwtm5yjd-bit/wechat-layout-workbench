@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import "./instrumentation.js";
 
 import { NestFactory } from "@nestjs/core";
 import { loadServerEnvironment } from "@wechat-layout/config/server";

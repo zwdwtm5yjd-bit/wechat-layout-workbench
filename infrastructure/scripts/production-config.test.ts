@@ -10,6 +10,7 @@ const redisPassword = "prod-redis-password-000000001";
 const validEnvironment = {
   APP_DOMAIN: "app.example.com",
   APP_ENV: "production",
+  ALERTMANAGER_WEBHOOK_URL: "https://alerts.example.com/hooks/observability",
   ASSET_SIGNING_KEY: "asset-signing-key-000000000000000000000000000004",
   BACKUP_ALERT_WEBHOOK_URL: "https://alerts.example.com/hooks/database-backup",
   BACKUP_DIRECTORY: "/var/lib/wechat-layout/backups",
@@ -32,14 +33,19 @@ const validEnvironment = {
   FEATURE_REMOTE_COMPONENTS_ENABLED: "false",
   FEATURE_WECHAT_SYNC_ENABLED: "false",
   FIELD_ENCRYPTION_KEY: "field-encryption-key-000000000000000000000000003",
+  GRAFANA_ADMIN_PASSWORD: "grafana-admin-password-000000000000001",
+  GRAFANA_HOST_PORT: "3002",
   IMAGE_REPOSITORY: "registry.example.com/wechat-layout",
   LOG_LEVEL: "info",
+  LOKI_PUSH_URL: "http://loki:3100/loki/api/v1/push",
+  METRICS_BEARER_TOKEN: "metrics-bearer-token-000000000000001",
   NEXT_PUBLIC_API_BASE_URL: "https://app.example.com",
   NEXT_PUBLIC_APP_NAME: "公众号智能视觉排版工具",
   NEXT_PUBLIC_APP_URL: "https://app.example.com",
   NEXT_PUBLIC_FEATURE_REMOTE_COMPONENTS_ENABLED: "false",
   NEXT_PUBLIC_FEATURE_WECHAT_SYNC_ENABLED: "false",
   NODE_ENV: "production",
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://otel-collector:4318/v1/traces",
   POSTGRES_DB: "wechat_layout",
   POSTGRES_PASSWORD: postgresPassword,
   POSTGRES_USER: "wechat_app",
@@ -142,5 +148,17 @@ describe("validateProductionConfiguration", () => {
       expect(String(error)).not.toContain(postgresPassword);
       expect(String(error)).not.toContain(validEnvironment.SESSION_SECRET);
     }
+  });
+
+  it("rejects a Grafana password reused from an application secret", () => {
+    expect(() =>
+      validateProductionConfiguration(
+        {
+          ...validEnvironment,
+          GRAFANA_ADMIN_PASSWORD: validEnvironment.SESSION_SECRET,
+        },
+        { fileExists: () => true },
+      ),
+    ).toThrow(/Grafana Secret 必须互不相同/);
   });
 });

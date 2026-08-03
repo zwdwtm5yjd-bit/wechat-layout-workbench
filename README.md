@@ -16,7 +16,8 @@
 `S1-COMPAT-001 兼容规则基础`、`S1-COPY-001 一键复制` 和
 `S1-WEB-002 V0.1 页面`、`S1-TEST-001 V0.1 测试基线` 和
 `S1-JOB-001 BullMQ 任务中心`、`S1-THEME-002 首批基础主题` 和
-`S1-COMPONENT-002 首批基础组件`：
+`S1-COMPONENT-002 首批基础组件`、`S2-OPS-001 生产运行制品`、
+`S2-BACKUP-001 数据库备份恢复` 和 `S2-OPS-002 日志监控仓库制品`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
@@ -152,6 +153,9 @@
 - `S2-BACKUP-001` 数据库备份基础：PostgreSQL 流式备份、AES-256-GCM、HMAC Manifest、
   SHA-256、独立备份 Bucket 上传、失败告警、每日 Timer 示例及只恢复到新数据库的演练报告；
 - CI 使用真实 PostgreSQL 18 验证 5 篇含图片、主题引用和快照的测试文章可加密备份并恢复。
+- `S2-OPS-002` 监控制品：受保护 Prometheus 指标、API/队列/Worker 指标、Loki 结构化日志、
+  OpenTelemetry Trace、Tempo、Grafana 预置面板、Node Exporter、Alertmanager 与基础告警；
+  Grafana 只绑定宿主回环地址，真实告警接收仍需在生产等价环境验收。
 
 本阶段尚未实现资源管理 UI、DOCX 文件导入、扩展组件包、兼容问题自动修复管理、SVG 执行、
 微信连接或微信草稿同步。
@@ -439,11 +443,13 @@ docs/                        00—16 号开发文件与开发记录
 `S1-TEST-001` 的自动化与验收数据准备、`S1-JOB-001`、`S1-THEME-002` 和
 `S1-COMPONENT-002` 已实现。V0.1 标签前还需关闭真实 Safari / Edge 与微信公众号后台人工
 门禁。`S2-OPS-001` 生产运行制品和 `S2-BACKUP-001` 数据库备份恢复制品均已通过自动化验收；
-公网部署仍需真实 CVM、域名与 TLS、COS、Secret 注入、每日 Timer、季度恢复演练和监控。
+公网部署仍需真实 CVM、域名与 TLS、COS、Secret 注入、每日 Timer、季度恢复演练和监控实效验收。
 详细状态见
 [V0.1 发布检查清单](./docs/testing/V0.1-release-checklist.md)。
 生产部署入口与未关闭门槛见
 [S2-OPS-001 生产运行制品](./docs/deployment/S2-OPS-001-production-runtime.md)。
 数据库备份格式、每日调度与恢复演练见
 [S2-BACKUP-001 数据库备份与恢复基础](./docs/deployment/S2-BACKUP-001-database-recovery.md)。
+日志、指标、Trace、Grafana 与告警见
+[S2-OPS-002 日志、指标与告警](./docs/deployment/S2-OPS-002-observability.md)。
 完整设计依据见 [docs](./docs/)。

@@ -75,6 +75,9 @@ export const serverEnvironmentSchema = z
     FIELD_ENCRYPTION_KEY: secretSchema(32),
     ASSET_SIGNING_KEY: secretSchema(32),
     BACKUP_ENCRYPTION_KEY: secretSchema(32),
+    METRICS_BEARER_TOKEN: secretSchema(32),
+    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: z.url().optional(),
+    LOKI_PUSH_URL: z.url().optional(),
     FEATURE_WECHAT_SYNC_ENABLED: booleanStringSchema,
     FEATURE_REMOTE_COMPONENTS_ENABLED: booleanStringSchema,
     MAX_JSON_BODY_BYTES: positiveIntegerSchema,
@@ -89,6 +92,7 @@ export const serverEnvironmentSchema = z
       ["FIELD_ENCRYPTION_KEY", value.FIELD_ENCRYPTION_KEY],
       ["ASSET_SIGNING_KEY", value.ASSET_SIGNING_KEY],
       ["BACKUP_ENCRYPTION_KEY", value.BACKUP_ENCRYPTION_KEY],
+      ["METRICS_BEARER_TOKEN", value.METRICS_BEARER_TOKEN],
     ] as const;
 
     if (new Set(secrets.map(([, secret]) => secret)).size !== secrets.length) {
@@ -128,6 +132,34 @@ export const serverEnvironmentSchema = z
           path: ["LOG_LEVEL"],
         });
       }
+
+      for (const [key, expectedHost, expectedPort, expectedPath] of [
+        ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "otel-collector", "4318", "/v1/traces"],
+        ["LOKI_PUSH_URL", "loki", "3100", "/loki/api/v1/push"],
+      ] as const) {
+        const endpoint = value[key];
+        if (endpoint === undefined) {
+          context.addIssue({ code: "custom", message: "生产环境必须配置", path: [key] });
+          continue;
+        }
+        const url = new URL(endpoint);
+        if (
+          url.protocol !== "http:" ||
+          url.hostname !== expectedHost ||
+          url.port !== expectedPort ||
+          url.username !== "" ||
+          url.password !== "" ||
+          url.search !== "" ||
+          url.hash !== "" ||
+          url.pathname !== expectedPath
+        ) {
+          context.addIssue({
+            code: "custom",
+            message: `必须使用内部 http://${expectedHost}:${expectedPort}${expectedPath}`,
+            path: [key],
+          });
+        }
+      }
     }
   });
 
@@ -162,6 +194,11 @@ export interface ServerConfiguration {
     fieldEncryptionKey: SecretValue;
     assetSigningKey: SecretValue;
     backupEncryptionKey: SecretValue;
+    metricsBearerToken: SecretValue;
+  }>;
+  readonly observability: Readonly<{
+    otlpTracesEndpoint: string | null;
+    lokiPushUrl: string | null;
   }>;
   readonly features: Readonly<{
     wechatSync: boolean;
@@ -200,6 +237,9 @@ export function parseServerEnvironment(input: EnvironmentInput): ServerConfigura
     API_PORT: input.API_PORT ?? "3001",
     WORKER_CONCURRENCY: input.WORKER_CONCURRENCY ?? "2",
     SCHEDULER_INTERVAL_SECONDS: input.SCHEDULER_INTERVAL_SECONDS ?? "60",
+    METRICS_BEARER_TOKEN:
+      input.METRICS_BEARER_TOKEN ??
+      (isProduction ? undefined : "development-metrics-token-0000000000000000000000001"),
     S3_ENDPOINT: input.S3_ENDPOINT ?? (isProduction ? undefined : "http://localhost:9000"),
     S3_PUBLIC_ENDPOINT:
       input.S3_PUBLIC_ENDPOINT ??
@@ -264,6 +304,11 @@ export function parseServerEnvironment(input: EnvironmentInput): ServerConfigura
       fieldEncryptionKey: new SecretValue(value.FIELD_ENCRYPTION_KEY),
       assetSigningKey: new SecretValue(value.ASSET_SIGNING_KEY),
       backupEncryptionKey: new SecretValue(value.BACKUP_ENCRYPTION_KEY),
+      metricsBearerToken: new SecretValue(value.METRICS_BEARER_TOKEN),
+    }),
+    observability: Object.freeze({
+      otlpTracesEndpoint: value.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ?? null,
+      lokiPushUrl: value.LOKI_PUSH_URL ?? null,
     }),
     features: Object.freeze({
       wechatSync: value.FEATURE_WECHAT_SYNC_ENABLED,

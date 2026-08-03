@@ -1,0 +1,103 @@
+groups:
+  - name: wechat-layout-availability
+    rules:
+      - alert: WechatLayoutApiUnavailable
+        expr: up{job="api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: API 指标端点不可用
+          description: Prometheus 已连续 2 分钟无法采集 API。
+
+      - alert: WechatLayoutWorkerHeartbeatMissing
+        expr: wechat_layout_worker_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Worker 心跳中断
+          description: Redis 中的 Worker 心跳已过期或无法读取。
+
+      - alert: WechatLayoutApiHighErrorRate
+        expr: sum(rate(wechat_layout_http_requests_total{status_code=~"5.."}[5m])) / clamp_min(sum(rate(wechat_layout_http_requests_total[5m])), 0.01) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: API 五分钟错误率超过 5%
+          description: 请在 Grafana 中按 route 与 error_code 定位异常请求。
+
+      - alert: WechatLayoutDocumentSaveFailures
+        expr: increase(wechat_layout_http_requests_total{method="PUT",route="/api/v1/articles/:id/document",status_code=~"5.."}[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: 文章保存出现服务端错误
+          description: 最近 5 分钟至少发生一次文章保存 5xx。
+
+      - alert: WechatLayoutObservabilityCollectorFailed
+        expr: wechat_layout_observability_collection_success == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: 业务指标采集器失败
+          description: API 无法从 PostgreSQL 或 Redis 采集运行指标。
+
+  - name: wechat-layout-queues
+    rules:
+      - alert: WechatLayoutQueueBacklog
+        expr: sum by (queue_name) (wechat_layout_jobs{status=~"queued|retry_pending"}) > 20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "任务队列 {{ $labels.queue_name }} 积压"
+          description: 待处理与待重试任务总数已连续 10 分钟超过 20。
+
+      - alert: WechatLayoutQueueStalled
+        expr: wechat_layout_oldest_waiting_job_age_seconds > 300
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "任务队列 {{ $labels.queue_name }} 可能停滞"
+          description: 最老待处理任务已等待超过 5 分钟。
+
+  - name: wechat-layout-host
+    rules:
+      - alert: WechatLayoutHostHighCpu
+        expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) > 0.9
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: 主机 CPU 持续超过 90%
+          description: 主机平均 CPU 使用率已连续 15 分钟过高。
+
+      - alert: WechatLayoutHostLowMemory
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.1
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: 主机可用内存低于 10%
+          description: 请检查容器内存占用并准备扩容或降载。
+
+      - alert: WechatLayoutHostLowDisk
+        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"} < 0.15
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "磁盘 {{ $labels.mountpoint }} 可用空间低于 15%"
+          description: 清理无用文件或扩容磁盘后确认告警恢复。
+
+      - alert: WechatLayoutLokiDeliveryFailure
+        expr: increase(wechat_layout_loki_delivery_failures_total[5m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: API 结构化日志投递 Loki 失败
+          description: stdout 日志仍保留，请检查 Loki 可用性和内部网络。

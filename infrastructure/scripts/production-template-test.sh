@@ -48,6 +48,12 @@ NEXT_PUBLIC_FEATURE_WECHAT_SYNC_ENABLED=false
 NEXT_PUBLIC_FEATURE_REMOTE_COMPONENTS_ENABLED=false
 PUBLIC_WEB_URL=https://app.example.com
 LOG_LEVEL=info
+METRICS_BEARER_TOKEN=metrics-bearer-token-000000000000001
+OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces
+LOKI_PUSH_URL=http://loki:3100/loki/api/v1/push
+GRAFANA_ADMIN_PASSWORD=grafana-admin-password-000000000000001
+GRAFANA_HOST_PORT=3002
+ALERTMANAGER_WEBHOOK_URL=https://alerts.example.com/hooks/observability
 POSTGRES_DB=wechat_layout
 POSTGRES_USER=wechat_app
 POSTGRES_PASSWORD=prod-postgres-password-000001
@@ -117,12 +123,19 @@ node - "$compose_json" <<'NODE'
 const { readFileSync } = require("node:fs");
 const compose = JSON.parse(readFileSync(process.argv[2], "utf8"));
 const requiredServices = [
+  "alertmanager",
   "api",
   "database-migrate",
+  "grafana",
+  "loki",
   "nginx",
+  "node-exporter",
+  "otel-collector",
   "postgres",
+  "prometheus",
   "redis",
   "scheduler",
+  "tempo",
   "web",
   "worker",
 ];
@@ -150,6 +163,10 @@ for (const [name, service] of Object.entries(compose.services)) {
         JSON.stringify(["8080", "8443"]),
       "Nginx 必须将 80/443 映射到非特权端口 8080/8443",
     );
+  } else if (name === "grafana") {
+    invariant(ports.length === 1, "Grafana 必须且只能发布一个回环端口");
+    invariant(ports[0].host_ip === "127.0.0.1", "Grafana 只允许绑定宿主机回环地址");
+    invariant(String(ports[0].target) === "3000", "Grafana 必须映射容器 3000 端口");
   } else {
     invariant(ports.length === 0, `${name} 不得发布宿主端口`);
   }
@@ -161,7 +178,20 @@ for (const [name, service] of Object.entries(compose.services)) {
   );
 }
 
-for (const name of ["api", "database-migrate", "scheduler", "web", "worker"]) {
+for (const name of [
+  "alertmanager",
+  "api",
+  "database-migrate",
+  "grafana",
+  "loki",
+  "node-exporter",
+  "otel-collector",
+  "prometheus",
+  "scheduler",
+  "tempo",
+  "web",
+  "worker",
+]) {
   const service = compose.services[name];
   invariant(service.read_only === true, `${name} 根文件系统必须只读`);
   invariant(service.cap_drop?.includes("ALL"), `${name} 必须删除全部 Linux capabilities`);
@@ -169,6 +199,7 @@ for (const name of ["api", "database-migrate", "scheduler", "web", "worker"]) {
     service.security_opt?.includes("no-new-privileges:true"),
     `${name} 必须启用 no-new-privileges`,
   );
+  invariant(!String(service.user ?? "0").startsWith("0"), `${name} 必须显式使用非 root 用户`);
 }
 
 invariant(compose.services.nginx.user === "101:101", "Nginx 必须以非 root 用户运行");
@@ -177,11 +208,23 @@ invariant(
   "迁移服务必须显式启用",
 );
 invariant(compose.networks.data.internal === true, "数据网络必须禁止外部路由");
+invariant(compose.networks.observability.internal === true, "监控网络必须禁止外部路由");
 invariant(
   compose.services.postgres.image.includes("@sha256:"),
   "PostgreSQL 镜像必须固定 digest",
 );
 invariant(compose.services.redis.image.includes("@sha256:"), "Redis 镜像必须固定 digest");
+for (const name of [
+  "alertmanager",
+  "grafana",
+  "loki",
+  "node-exporter",
+  "otel-collector",
+  "prometheus",
+  "tempo",
+]) {
+  invariant(compose.services[name].image.includes("@sha256:"), `${name} 镜像必须固定 digest`);
+}
 invariant(compose.services.api.environment.APP_ENV === "production", "API 必须使用生产配置");
 invariant(
   compose.services.api.environment.S3_ADDRESSING_STYLE === "virtual-hosted",
@@ -194,6 +237,14 @@ invariant(
 invariant(
   compose.services.api.environment.S3_METADATA_HEADER_PREFIX === "x-cos-meta-",
   "API 必须传入对象存储自定义元数据头前缀",
+);
+invariant(
+  compose.services.api.networks.observability !== undefined,
+  "API 必须接入内部监控网络",
+);
+invariant(
+  compose.services.prometheus.secrets.some((secret) => secret.source === "metrics_bearer_token"),
+  "Prometheus 必须通过 Compose Secret 读取指标凭据",
 );
 
 process.stdout.write("生产 Compose 模板安全约束验收通过。\n");

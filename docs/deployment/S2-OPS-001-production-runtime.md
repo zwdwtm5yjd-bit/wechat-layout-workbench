@@ -14,6 +14,8 @@
 - 所有 Node 容器非 root、只读根文件系统、`no-new-privileges`、删除全部 capabilities；
 - PostgreSQL / Redis 仅加入内部数据网络，不发布宿主端口；
 - 生产资源限制、健康检查、日志轮转和持久数据卷；
+- 内置 S2-OPS-002 的 Prometheus、Alertmanager、Grafana、Loki、Tempo、OpenTelemetry
+  Collector 与 Node Exporter 制品；Grafana 只绑定宿主回环地址；
 - 数据库迁移使用显式 `migration` profile，不随应用启动自动执行；
 - 部署前必须确认备份，回滚前必须确认数据库向后兼容；
 - 生产配置在 Docker 启动前执行服务端、前端、TLS、镜像版本和内部凭据一致性校验；
@@ -81,9 +83,11 @@ unset CONFIRM_PRODUCTION_BACKUP
 1. 校验生产配置与 Compose；
 2. 启动并等待 PostgreSQL / Redis；
 3. 一次性运行显式迁移容器；
-4. 启动 Web / API / Worker / Scheduler / Nginx；
-5. 验证公网 `/health/ready`；
-6. 输出最终容器状态。
+4. 启动 Alertmanager / Loki / Tempo / OpenTelemetry Collector / Node Exporter；
+5. 启动 Web / API / Worker / Scheduler / Nginx；
+6. 启动 Prometheus / Grafana；
+7. 验证公网 `/health/ready` 与内部监控组件；
+8. 输出最终容器状态。
 
 `0004` 资源引用回填迁移期间必须停止旧版本写入。迁移失败不会继续启动新应用。
 
@@ -111,9 +115,11 @@ unset PREVIOUS_RELEASE_TAG CONFIRM_DATABASE_COMPATIBLE_ROLLBACK
 - 推送镜像、部署、重启恢复与公网 HTTPS / Clipboard API 验收；
 - COS CORS、版本控制、生命周期和最小权限策略；
 - 在真实 CVM/COS 启用并验收 S2-BACKUP-001 的每日备份、失败告警与季度恢复演练；
-- S2-OPS-002 的日志、指标和告警。
+- 在真实 CVM 完成 S2-OPS-002 Target、面板、日志、Trace、持久卷与告警接收验收。
 
 完成这些真实环境门槛前，只能声明“生产制品可构建”，不能声明“已经公网生产上线”。
 
 数据库备份与恢复入口见
 [`S2-BACKUP-001-database-recovery.md`](./S2-BACKUP-001-database-recovery.md)。
+日志、指标、Trace 和告警入口见
+[`S2-OPS-002-observability.md`](./S2-OPS-002-observability.md)。

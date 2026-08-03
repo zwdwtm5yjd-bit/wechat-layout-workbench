@@ -63,6 +63,10 @@ server {
     proxy_set_header X-Forwarded-Proto https;
   }
 
+  location = /internal/metrics {
+    return 404;
+  }
+
   location ~ ^/api/v1/jobs/[^/]+/events$ {
     limit_req zone=api_per_ip burst=60 nodelay;
     proxy_pass http://api_upstream;
