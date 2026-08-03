@@ -27,12 +27,14 @@ docker run \
   "$postgres_image" >/dev/null
 
 for _attempt in $(seq 1 30); do
-  if docker exec "$container_name" pg_isready --username wechat_app --dbname backup_source >/dev/null 2>&1; then
+  if docker exec "$container_name" \
+    psql --username wechat_app --dbname backup_source --command "SELECT 1" >/dev/null 2>&1; then
     break
   fi
   sleep 1
 done
-docker exec "$container_name" pg_isready --username wechat_app --dbname backup_source >/dev/null
+docker exec "$container_name" \
+  psql --username wechat_app --dbname backup_source --command "SELECT 1" >/dev/null
 
 for migration in "$project_root"/packages/database/migrations/*.sql; do
   docker exec --interactive "$container_name" \
