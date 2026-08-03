@@ -22,6 +22,27 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 
 const postgresPassword = "document-resource-backfill-password";
 
+async function waitForDatabase(databaseUrl: string): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const probe = createDatabaseConnection(databaseUrl, {
+      applicationName: "document-resource-backfill-readiness",
+      connectTimeoutSeconds: 1,
+      maxConnections: 1,
+    });
+    try {
+      await probe.sql`select 1`;
+      await probe.close();
+      return;
+    } catch (error) {
+      lastError = error;
+      await probe.close().catch(() => undefined);
+      await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    }
+  }
+  throw lastError;
+}
+
 interface MigrationJournal {
   readonly dialect: string;
   readonly entries: readonly {
@@ -245,6 +266,7 @@ describe("document resource migration backfill", () => {
       .withStartupTimeout(120_000)
       .start();
     databaseUrl = `postgresql://wechat_layout:${postgresPassword}@${postgres.getHost()}:${String(postgres.getMappedPort(5432))}/document_resource_backfill_test`;
+    await waitForDatabase(databaseUrl);
     partialFolder = await partialMigrationsFolder();
   });
 

@@ -20,5 +20,5 @@ if [[ "$docker_host_uri" == unix://* && "$docker_host_uri" != "unix:///var/run/d
   export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="${TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE:-/var/run/docker.sock}"
 fi
 
-pnpm --filter @wechat-layout/job-runtime... build
+pnpm --filter @wechat-layout/api... build
 pnpm exec vitest run --config vitest.integration.config.ts
