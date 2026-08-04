@@ -35,6 +35,8 @@ import { ResourceService } from "./resource.service.js";
 import type {
   CreateValidatedResourceInput,
   ResourceRecord,
+  ResourceListInput,
+  ResourceListResult,
   ResourceReference,
   ResourceRepository,
   TrashResourceResult,
@@ -241,6 +243,25 @@ class InMemoryResourceRepository implements ResourceRepository {
     );
   }
 
+  listOwned(ownerId: string, input: ResourceListInput): Promise<ResourceListResult> {
+    const status = input.status ?? "active";
+    const matching = [...this.resources.values()]
+      .filter(
+        (resource) =>
+          resource.ownerUserId === ownerId &&
+          resource.status === status &&
+          (input.resourceType === undefined || resource.resourceType === input.resourceType),
+      )
+      .sort((left, right) => right.createdAt.valueOf() - left.createdAt.valueOf());
+    const offset = (input.page - 1) * input.pageSize;
+    return Promise.resolve({
+      items: matching.slice(offset, offset + input.pageSize),
+      page: input.page,
+      pageSize: input.pageSize,
+      total: matching.length,
+    });
+  }
+
   async createValidated(input: CreateValidatedResourceInput): Promise<ResourceRecord> {
     const existing = await this.findActiveByOwnerHash(input.ownerUserId, input.sha256);
     if (existing !== null) {
@@ -420,6 +441,7 @@ describe("resource HTTP flow", () => {
         "x-amz-meta-sha256": sha256,
       },
     });
+
     const uploadId = upload.body.data.uploadId as string;
     const session = sessions.sessions.get(uploadId);
     expect(session).toBeDefined();
@@ -457,6 +479,12 @@ describe("resource HTTP flow", () => {
     expect(storage.objects.get(thumbnailKey)?.metadata).toMatchObject({
       "parent-sha256": sha256,
     });
+
+    const listed = await supertest(application.getHttpServer())
+      .get("/api/v1/resources?page=1&pageSize=24")
+      .expect(200);
+    expect(listed.body.data).toMatchObject({ page: 1, pageSize: 24, total: 1 });
+    expect(listed.body.data.items[0]).toMatchObject({ sha256, status: "active" });
 
     await supertest(application.getHttpServer())
       .get(`/api/v1/resources/${resourceId}`)

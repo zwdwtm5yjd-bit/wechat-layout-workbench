@@ -169,12 +169,8 @@ describe("ComponentCatalog", () => {
     ).not.toBeNull();
     expect(dialog.querySelector('[data-layout-key="data"]')).not.toBeNull();
     expect(within(dialog).getByText(/组件中心不持有当前文章上下文/)).not.toBeNull();
-    expect(
-      (
-        within(dialog).getByRole("button", {
-          name: "需要先打开一篇文章",
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
+    expect(within(dialog).getByRole("link", { name: "新建文章后使用" }).getAttribute("href")).toBe(
+      "/workspace/articles?new=1",
+    );
   });
 });

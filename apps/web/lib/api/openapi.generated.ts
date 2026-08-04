@@ -688,6 +688,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/resources": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 分页列出当前用户的私有素材 */
+    get: operations["ResourceController_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/resources/{resourceId}": {
     parameters: {
       query?: never;
@@ -1797,6 +1814,12 @@ export interface components {
       /** Format: date-time */
       updatedAt: string;
       width: number | null;
+    };
+    ResourceListResultDto: {
+      items: components["schemas"]["ResourceDto"][];
+      page: number;
+      pageSize: number;
+      total: number;
     };
     ResourceReferenceDto: {
       blockId: string | null;
@@ -4198,6 +4221,32 @@ export interface operations {
       };
       /** @description 任务未失败或错误不可重试 */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ResourceController_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResourceListResultDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
         headers: {
           [name: string]: unknown;
         };

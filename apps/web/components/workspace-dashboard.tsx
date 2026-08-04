@@ -75,7 +75,7 @@ export function WorkspaceDashboard({ today }: { readonly today: string }) {
               <Sparkles aria-hidden="true" size={19} />
             </span>
             <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-medium text-indigo-100">
-              S1-WEB-002
+              已上线
             </span>
           </div>
           <p className="mt-5 text-[12px] font-medium text-indigo-200">V0.1 工作流</p>
@@ -192,15 +192,15 @@ export function WorkspaceDashboard({ today }: { readonly today: string }) {
               </span>
               <span className="text-[11px] text-faint">公众号品牌</span>
             </div>
-            <h2 className="mt-4 text-[14px] font-semibold text-ink">尚未连接公众号</h2>
+            <h2 className="mt-4 text-[14px] font-semibold text-ink">公众号品牌空间已开放</h2>
             <p className="mt-2 text-[12px] leading-5 text-muted">
-              公众号授权属于后续业务任务；当前复制能力不依赖授权。
+              可创建多个公众号品牌空间、设置默认账号，并管理启用与归档状态。
             </p>
             <Link
               className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-medium text-accent"
-              href="/workspace/settings"
+              href="/workspace/accounts"
             >
-              查看设置边界
+              管理公众号
               <ArrowRight aria-hidden="true" size={13} />
             </Link>
           </section>

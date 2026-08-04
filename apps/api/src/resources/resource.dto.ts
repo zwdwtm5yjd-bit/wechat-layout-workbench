@@ -89,6 +89,34 @@ export class CreateResourceAccessUrlDto {
   expiresInSeconds = 300;
 }
 
+export class ResourceListQueryDto {
+  @ApiPropertyOptional({ enum: ["image", "document"], type: String })
+  @IsOptional()
+  @IsEnum(["image", "document"])
+  resourceType?: "image" | "document";
+
+  @ApiPropertyOptional({ default: "active", enum: ["active", "trash"], type: String })
+  @IsOptional()
+  @IsEnum(["active", "trash"])
+  status: "active" | "trash" = "active";
+
+  @ApiPropertyOptional({ default: 1, maximum: 10_000, minimum: 1, type: Number })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10_000)
+  page = 1;
+
+  @ApiPropertyOptional({ default: 24, maximum: 100, minimum: 1, type: Number })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  pageSize = 24;
+}
+
 export class ResourceThumbnailDto {
   @ApiProperty({ type: Boolean })
   available!: boolean;
@@ -219,6 +247,20 @@ export class ResourceReferencesDto {
 
   @ApiProperty({ isArray: true, type: () => ResourceReferenceDto })
   items!: ResourceReferenceDto[];
+}
+
+export class ResourceListResultDto {
+  @ApiProperty({ isArray: true, type: () => ResourceDto })
+  items!: ResourceDto[];
+
+  @ApiProperty({ minimum: 1, type: Number })
+  page!: number;
+
+  @ApiProperty({ minimum: 1, type: Number })
+  pageSize!: number;
+
+  @ApiProperty({ minimum: 0, type: Number })
+  total!: number;
 }
 
 export class ResourceResponseDto {

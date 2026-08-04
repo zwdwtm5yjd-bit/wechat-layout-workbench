@@ -19,6 +19,7 @@ import type {
   CreateResourceAccessUrlDto,
   CreateResourceUploadDto,
   ResourceDto,
+  ResourceListQueryDto,
 } from "./resource.dto.js";
 import { ImageInspectionError, inspectImage } from "./image-inspector.js";
 import type {
@@ -347,6 +348,14 @@ export class ResourceService {
       throw notFound();
     }
     return toDto(resource);
+  }
+
+  async list(ownerUserId: string, query: ResourceListQueryDto) {
+    const result = await this.repository.listOwned(ownerUserId, query);
+    return {
+      ...result,
+      items: result.items.map(toDto),
+    };
   }
 
   async createAccessUrl(ownerUserId: string, resourceId: string, body: CreateResourceAccessUrlDto) {

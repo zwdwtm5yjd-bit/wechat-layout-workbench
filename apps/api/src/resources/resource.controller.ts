@@ -8,6 +8,7 @@ import {
   Inject,
   Param,
   Post,
+  Query,
   Req,
 } from "@nestjs/common";
 import {
@@ -33,6 +34,8 @@ import {
   CreateResourceAccessUrlDto,
   CreateResourceUploadDto,
   ResourceAccessUrlResponseDto,
+  ResourceListQueryDto,
+  ResourceListResultDto,
   ResourceReferencesResponseDto,
   ResourceResponseDto,
   ResourceUploadResponseDto,
@@ -48,6 +51,13 @@ export class ResourceController {
     @Inject(ResourceService)
     private readonly resources: ResourceService,
   ) {}
+
+  @Get()
+  @ApiOperation({ summary: "分页列出当前用户的私有素材" })
+  @ApiOkResponse({ type: ResourceListResultDto })
+  list(@Query() query: ResourceListQueryDto, @CurrentSession() session: AuthenticatedSession) {
+    return this.resources.list(session.user.id, query);
+  }
 
   @Post("uploads")
   @ApiOperation({ summary: "创建私有图片或 DOCX 直传会话，或复用相同资源" })

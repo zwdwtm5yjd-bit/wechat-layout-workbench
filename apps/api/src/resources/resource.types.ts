@@ -57,6 +57,20 @@ export interface ResourceRecord {
   readonly purgeAfter: Date | null;
 }
 
+export interface ResourceListInput {
+  readonly resourceType?: "document" | "image";
+  readonly status?: "active" | "trash";
+  readonly page: number;
+  readonly pageSize: number;
+}
+
+export interface ResourceListResult {
+  readonly items: readonly ResourceRecord[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface UploadSession {
   readonly id: string;
   readonly ownerUserId: string;
@@ -110,6 +124,7 @@ export type TrashResourceResult =
 export interface ResourceRepository {
   findActiveByOwnerHash(ownerUserId: string, sha256: string): Promise<ResourceRecord | null>;
   findOwnedById(ownerUserId: string, resourceId: string): Promise<ResourceRecord | null>;
+  listOwned(ownerUserId: string, input: ResourceListInput): Promise<ResourceListResult>;
   createValidated(input: CreateValidatedResourceInput): Promise<ResourceRecord>;
   listReferences(
     ownerUserId: string,

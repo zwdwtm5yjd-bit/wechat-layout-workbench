@@ -10,13 +10,15 @@ import {
   sourceDocuments,
   users,
 } from "@wechat-layout/database";
-import { and, eq, getTableColumns, isNull } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, isNotNull, isNull } from "drizzle-orm";
 
 import { DATABASE_CONNECTION } from "../database/database.module.js";
 import { RESOURCE_TRASH_RETENTION_DAYS } from "./resource.constants.js";
 import type {
   CreateValidatedResourceInput,
   ResourceMetadata,
+  ResourceListInput,
+  ResourceListResult,
   ResourceRecord,
   ResourceReference,
   ResourceRepository,
@@ -166,6 +168,33 @@ export class PostgresResourceRepository implements ResourceRepository {
       )
       .limit(1);
     return row === undefined ? null : recordFromRow(row);
+  }
+
+  async listOwned(ownerUserId: string, input: ResourceListInput): Promise<ResourceListResult> {
+    const status = input.status ?? "active";
+    const where = and(
+      eq(resources.ownerUserId, ownerUserId),
+      eq(resources.status, status),
+      status === "trash" ? isNotNull(resources.deletedAt) : isNull(resources.deletedAt),
+      input.resourceType === undefined ? undefined : eq(resources.resourceType, input.resourceType),
+    );
+    const offset = (input.page - 1) * input.pageSize;
+    const [rows, totalRows] = await Promise.all([
+      this.connection.db
+        .select()
+        .from(resources)
+        .where(where)
+        .orderBy(desc(resources.createdAt))
+        .limit(input.pageSize)
+        .offset(offset),
+      this.connection.db.select({ total: count() }).from(resources).where(where),
+    ]);
+    return {
+      items: rows.map(recordFromRow),
+      page: input.page,
+      pageSize: input.pageSize,
+      total: Number(totalRows[0]?.total ?? 0),
+    };
   }
 
   async createValidated(input: CreateValidatedResourceInput): Promise<ResourceRecord> {

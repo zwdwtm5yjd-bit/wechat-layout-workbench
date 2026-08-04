@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Dialog } from "radix-ui";
+import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 
 import {
@@ -617,13 +618,12 @@ export function ComponentCatalog() {
                     组件中心不持有当前文章上下文。请进入文章编辑器，从左侧“组件”标签插入。
                   </p>
                 </div>
-                <button
-                  className="mt-6 h-10 w-full rounded-control bg-accent text-[12px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
-                  disabled
-                  type="button"
+                <Link
+                  className="mt-6 flex h-10 w-full items-center justify-center rounded-control bg-accent text-[12px] font-semibold text-white"
+                  href="/workspace/articles?new=1"
                 >
-                  需要先打开一篇文章
-                </button>
+                  新建文章后使用
+                </Link>
               </>
             )}
           </Dialog.Content>

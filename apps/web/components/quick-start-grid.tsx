@@ -11,8 +11,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { useAppToast } from "./ui/app-toast";
-
 interface QuickStartItem {
   readonly description: string;
   readonly href?: string;
@@ -30,7 +28,7 @@ const quickStartItems: readonly QuickStartItem[] = [
   },
   {
     description: "保留标题与段落结构",
-    href: "/workspace/imports/paste?source=word",
+    href: "/workspace/imports/paste?mode=docx",
     icon: FileText,
     label: "Word / WPS",
     shortcut: "⌘ O",
@@ -43,16 +41,19 @@ const quickStartItems: readonly QuickStartItem[] = [
   },
   {
     description: "读取网页正文内容",
+    href: "/workspace/imports/paste?mode=webpage",
     icon: Globe2,
     label: "网页导入",
   },
   {
     description: "复用过往文章结构",
+    href: "/workspace/articles",
     icon: Copy,
     label: "从历史复制",
   },
   {
     description: "从视觉套系开始",
+    href: "/workspace/themes",
     icon: Palette,
     label: "从主题新建",
   },
@@ -60,7 +61,6 @@ const quickStartItems: readonly QuickStartItem[] = [
 
 export function QuickStartGrid() {
   const router = useRouter();
-  const { pushToast } = useAppToast();
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -80,10 +80,7 @@ export function QuickStartGrid() {
                 router.push("/workspace/articles?new=1");
                 return;
               }
-              pushToast({
-                description: "入口与交互状态已经就绪，导入和文章能力将在后续任务接入。",
-                title: `${item.label}暂未开放`,
-              });
+              router.push("/workspace/articles?new=1");
             }}
             type="button"
           >

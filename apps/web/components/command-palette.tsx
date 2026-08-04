@@ -1,12 +1,22 @@
 "use client";
 
-import { FilePlus2, FileUp, LayoutDashboard, Search, Settings, SwatchBook, X } from "lucide-react";
+import {
+  FilePlus2,
+  FileUp,
+  ImageIcon,
+  LayoutDashboard,
+  ListChecks,
+  Radio,
+  Search,
+  Settings,
+  SwatchBook,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
 import { useEffect, useMemo, useState } from "react";
 
 import { useWorkspaceUiStore } from "../stores/workspace-ui-store";
-import { useAppToast } from "./ui/app-toast";
 
 interface CommandItem {
   readonly description: string;
@@ -24,14 +34,33 @@ const commands: readonly CommandItem[] = [
   },
   {
     description: "创建一篇空白文章",
+    href: "/workspace/articles?new=1",
     icon: FilePlus2,
     label: "新建排版",
   },
   {
     description: "从 Word 或 WPS 导入",
-    href: "/workspace/imports/paste?source=word",
+    href: "/workspace/imports/paste?mode=docx",
     icon: FileUp,
     label: "导入文章",
+  },
+  {
+    description: "上传和管理私有图片、DOCX",
+    href: "/workspace/resources",
+    icon: ImageIcon,
+    label: "打开素材库",
+  },
+  {
+    description: "查看后台导入进度",
+    href: "/workspace/jobs",
+    icon: ListChecks,
+    label: "打开任务中心",
+  },
+  {
+    description: "管理公众号品牌空间",
+    href: "/workspace/accounts",
+    icon: Radio,
+    label: "打开公众号",
   },
   {
     description: "浏览可用主题",
@@ -49,7 +78,6 @@ const commands: readonly CommandItem[] = [
 
 export function CommandPalette() {
   const router = useRouter();
-  const { pushToast } = useAppToast();
   const open = useWorkspaceUiStore((state) => state.commandPaletteOpen);
   const setOpen = useWorkspaceUiStore((state) => state.setCommandPaletteOpen);
   const [query, setQuery] = useState("");
@@ -90,16 +118,7 @@ export function CommandPalette() {
   const execute = (command: CommandItem) => {
     setOpen(false);
 
-    if (command.href !== undefined) {
-      router.push(command.href);
-      return;
-    }
-
-    pushToast({
-      description: "交互入口已经就绪，业务能力将在对应开发任务中接入。",
-      title: `${command.label}暂未开放`,
-      tone: "warning",
-    });
+    if (command.href !== undefined) router.push(command.href);
   };
 
   return (
