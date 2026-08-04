@@ -6,6 +6,12 @@ services:
   web:
     cpus: "0.50"
     mem_limit: 768m
+    environment:
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:?NEXT_PUBLIC_APP_NAME is required}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?NEXT_PUBLIC_APP_URL is required}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?NEXT_PUBLIC_API_BASE_URL is required}
+      NEXT_PUBLIC_FEATURE_WECHAT_SYNC_ENABLED: ${NEXT_PUBLIC_FEATURE_WECHAT_SYNC_ENABLED:-false}
+      NEXT_PUBLIC_FEATURE_REMOTE_COMPONENTS_ENABLED: ${NEXT_PUBLIC_FEATURE_REMOTE_COMPONENTS_ENABLED:-false}
     ports:
       - "127.0.0.1:${HOST_WEB_PORT:-3100}:3000"
 
@@ -23,6 +29,9 @@ services:
     pids_limit: 256
     extra_hosts:
       - "assets.ericmm.com:host-gateway"
+    build:
+      args:
+        DEBIAN_MIRROR_HOST: mirrors.cloud.tencent.com
 
   webpage-browser:
     cpus: "0.75"
@@ -30,6 +39,9 @@ services:
     pids_limit: 256
     tmpfs:
       - /tmp:size=128m,mode=1777
+    build:
+      args:
+        DEBIAN_MIRROR_HOST: mirrors.cloud.tencent.com
 
   scheduler:
     cpus: "0.25"
@@ -81,6 +93,7 @@ services:
       - no-new-privileges:true
     networks:
       - storage
+      - edge
 
   minio-init:
     image: minio/mc:RELEASE.2025-08-13T08-35-41Z

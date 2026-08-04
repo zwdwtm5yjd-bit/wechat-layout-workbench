@@ -100,7 +100,12 @@ FROM node-runtime AS worker
 
 USER root
 
-RUN apt-get update \
+ARG DEBIAN_MIRROR_HOST=deb.debian.org
+
+RUN if [ "$DEBIAN_MIRROR_HOST" != "deb.debian.org" ]; then \
+      sed -i "s|deb.debian.org|$DEBIAN_MIRROR_HOST|g" /etc/apt/sources.list.d/debian.sources; \
+    fi \
+    && apt-get update \
     && apt-get install --yes --no-install-recommends python3 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -123,7 +128,12 @@ FROM node-runtime AS webpage-browser
 
 USER root
 
-RUN apt-get update \
+ARG DEBIAN_MIRROR_HOST=deb.debian.org
+
+RUN if [ "$DEBIAN_MIRROR_HOST" != "deb.debian.org" ]; then \
+      sed -i "s|deb.debian.org|$DEBIAN_MIRROR_HOST|g" /etc/apt/sources.list.d/debian.sources; \
+    fi \
+    && apt-get update \
     && apt-get install --yes --no-install-recommends ca-certificates chromium \
     && rm -rf /var/lib/apt/lists/*
 

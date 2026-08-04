@@ -21,7 +21,7 @@ if [[ ! -f "$env_file" ]]; then
 fi
 
 compose() {
-  docker compose \
+  sudo -n docker compose \
     --env-file "$env_file" \
     --file "$production_compose" \
     --file "$host_override" \
@@ -74,9 +74,7 @@ case "$action" in
       exit 1
     fi
     compose run --rm --no-deps \
-      --env BOOTSTRAP_OWNER_PASSWORD \
-      --env SEED_OWNER_EMAIL \
-      --env SEED_OWNER_DISPLAY_NAME \
+      --env-from-file "$credentials_file" \
       api node dist/auth/cli/bootstrap-owner.js
     ;;
   health)

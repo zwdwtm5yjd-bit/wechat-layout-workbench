@@ -62,8 +62,8 @@ umask 077
   echo "SCHEDULER_INTERVAL_SECONDS=60"
   echo
   echo "METRICS_BEARER_TOKEN=$metrics_bearer_token"
-  echo "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://127.0.0.1:4318/v1/traces"
-  echo "LOKI_PUSH_URL=http://127.0.0.1:3100/loki/api/v1/push"
+  echo "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces"
+  echo "LOKI_PUSH_URL=http://loki:3100/loki/api/v1/push"
   echo "GRAFANA_ADMIN_PASSWORD=$grafana_admin_password"
   echo "GRAFANA_HOST_PORT=3202"
   echo "ALERTMANAGER_WEBHOOK_URL=https://visual.ericmm.com/hooks/observability"
