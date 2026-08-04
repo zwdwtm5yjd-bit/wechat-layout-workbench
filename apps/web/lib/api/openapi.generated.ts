@@ -448,6 +448,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/imports/webpage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 创建带 SSRF 防护的异步网页导入任务 */
+    post: operations["WebpageImportController_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/internal/metrics": {
     parameters: {
       query?: never;
@@ -1908,6 +1925,36 @@ export interface components {
       subtitle?: string | null;
       title?: string;
     };
+    WebpageImportDto: {
+      /** Format: uuid */
+      accountId?: string | null;
+      /**
+       * @default preserve_structure
+       * @enum {string}
+       */
+      cleaningMode: "preserve_structure" | "plain_text" | "preserve_compatible";
+      /** @default general */
+      contentType: string;
+      /**
+       * @default standard
+       * @enum {string}
+       */
+      layoutStrength: "light" | "standard" | "strong";
+      /** @example https://example.com/article */
+      url: string;
+    };
+    WebpageImportJobDto: {
+      /** Format: uuid */
+      articleId: string;
+      /** Format: uuid */
+      jobId: string;
+    };
+    WebpageImportJobResponseDto: {
+      data: components["schemas"]["WebpageImportJobDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
   };
   responses: never;
   parameters: never;
@@ -3325,6 +3372,52 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["ImportStructureResponseDto"];
         };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  WebpageImportController_create: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebpageImportDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WebpageImportJobResponseDto"];
+        };
+      };
+      /** @description URL 无效或指向本机/私网 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description 会话不存在、已到期或已撤销 */
       401: {

@@ -69,6 +69,7 @@ COPY --from=production-dependencies --chown=node:node /workspace /workspace
 COPY --from=builder --chown=node:node /workspace/apps/api/dist /workspace/apps/api/dist
 COPY --from=builder --chown=node:node /workspace/apps/worker/dist /workspace/apps/worker/dist
 COPY --from=builder --chown=node:node /workspace/apps/scheduler/dist /workspace/apps/scheduler/dist
+COPY --from=builder --chown=node:node /workspace/apps/webpage-browser/dist /workspace/apps/webpage-browser/dist
 COPY --from=builder --chown=node:node /workspace/apps/web/.next /workspace/apps/web/.next
 
 COPY --from=builder --chown=node:node /workspace/packages/api-contracts/dist /workspace/packages/api-contracts/dist
@@ -85,6 +86,7 @@ COPY --from=builder --chown=node:node /workspace/packages/svg-protocol/dist /wor
 COPY --from=builder --chown=node:node /workspace/packages/test-fixtures/dist /workspace/packages/test-fixtures/dist
 COPY --from=builder --chown=node:node /workspace/packages/wechat-connector/dist /workspace/packages/wechat-connector/dist
 COPY --from=builder --chown=node:node /workspace/packages/wechat-renderer/dist /workspace/packages/wechat-renderer/dist
+COPY --from=builder --chown=node:node /workspace/packages/webpage-import/dist /workspace/packages/webpage-import/dist
 
 USER node
 
@@ -114,6 +116,24 @@ CMD ["node", "dist/main.js"]
 FROM node-runtime AS scheduler
 
 WORKDIR /workspace/apps/scheduler
+
+CMD ["node", "dist/main.js"]
+
+FROM node-runtime AS webpage-browser
+
+USER root
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends ca-certificates chromium \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV HOME=/tmp \
+    CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium \
+    PORT=3010
+
+WORKDIR /workspace/apps/webpage-browser
+
+USER node
 
 CMD ["node", "dist/main.js"]
 

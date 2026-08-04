@@ -19,6 +19,7 @@ import { createClient, type RedisClientType } from "redis";
 
 import { createDocxImportHandler } from "./docx-handler.js";
 import { maintenanceProbeHandler } from "./maintenance-handler.js";
+import { createWebpageImportHandler } from "./webpage-handler.js";
 
 interface CancellationMessage {
   readonly jobId: string;
@@ -85,6 +86,21 @@ async function bootstrap(): Promise<void> {
           queueName: "maintenance",
           handlers: { "maintenance.probe": maintenanceProbeHandler },
         },
+        {
+          queueName: "import-webpage",
+          handlers: {
+            "import.webpage.fetch": createWebpageImportHandler({
+              database,
+              storage,
+              browserEndpoint: configuration.webpageImport.browserEndpoint,
+              maximumHtmlBytes: configuration.webpageImport.maximumHtmlBytes,
+              maximumImageBytes: configuration.limits.imageFileBytes,
+              fetchTimeoutMs: configuration.webpageImport.fetchTimeoutMs,
+              browserTimeoutMs: configuration.webpageImport.browserTimeoutMs,
+              maximumRedirects: configuration.webpageImport.maximumRedirects,
+            }),
+          },
+        },
       ],
       store,
     });
@@ -95,7 +111,7 @@ async function bootstrap(): Promise<void> {
         JSON.stringify({
           instanceId,
           timestamp: new Date().toISOString(),
-          queues: ["import-docx", "maintenance"],
+          queues: ["import-docx", "import-webpage", "maintenance"],
           concurrency: configuration.application.workerConcurrency,
         }),
         { EX: WORKER_HEARTBEAT_TTL_SECONDS },

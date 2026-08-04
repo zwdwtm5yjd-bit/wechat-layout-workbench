@@ -50,6 +50,11 @@ export const serverEnvironmentSchema = z
     API_PORT: portSchema,
     WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(32),
     SCHEDULER_INTERVAL_SECONDS: z.coerce.number().int().min(10),
+    WEBPAGE_BROWSER_ENDPOINT: z.url(),
+    WEBPAGE_FETCH_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000),
+    WEBPAGE_BROWSER_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000),
+    WEBPAGE_MAX_REDIRECTS: z.coerce.number().int().min(0).max(10),
+    MAX_WEBPAGE_HTML_BYTES: positiveIntegerSchema,
     DATABASE_URL: secretSchema(1).refine((value) => /^postgres(?:ql)?:\/\//.test(value), {
       message: "必须是 PostgreSQL 连接地址",
     }),
@@ -123,6 +128,24 @@ export const serverEnvironmentSchema = z
             path: [key],
           });
         }
+      }
+
+      const browserEndpoint = new URL(value.WEBPAGE_BROWSER_ENDPOINT);
+      if (
+        browserEndpoint.protocol !== "http:" ||
+        browserEndpoint.hostname !== "webpage-browser" ||
+        browserEndpoint.port !== "3010" ||
+        browserEndpoint.pathname !== "/" ||
+        browserEndpoint.username !== "" ||
+        browserEndpoint.password !== "" ||
+        browserEndpoint.search !== "" ||
+        browserEndpoint.hash !== ""
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "必须使用内部 http://webpage-browser:3010",
+          path: ["WEBPAGE_BROWSER_ENDPOINT"],
+        });
       }
 
       if (value.LOG_LEVEL === "trace" || value.LOG_LEVEL === "debug") {
@@ -200,6 +223,13 @@ export interface ServerConfiguration {
     otlpTracesEndpoint: string | null;
     lokiPushUrl: string | null;
   }>;
+  readonly webpageImport: Readonly<{
+    browserEndpoint: string;
+    fetchTimeoutMs: number;
+    browserTimeoutMs: number;
+    maximumRedirects: number;
+    maximumHtmlBytes: number;
+  }>;
   readonly features: Readonly<{
     wechatSync: boolean;
     remoteComponents: boolean;
@@ -237,6 +267,13 @@ export function parseServerEnvironment(input: EnvironmentInput): ServerConfigura
     API_PORT: input.API_PORT ?? "3001",
     WORKER_CONCURRENCY: input.WORKER_CONCURRENCY ?? "2",
     SCHEDULER_INTERVAL_SECONDS: input.SCHEDULER_INTERVAL_SECONDS ?? "60",
+    WEBPAGE_BROWSER_ENDPOINT:
+      input.WEBPAGE_BROWSER_ENDPOINT ??
+      (isProduction ? "http://webpage-browser:3010" : "http://localhost:3010"),
+    WEBPAGE_FETCH_TIMEOUT_MS: input.WEBPAGE_FETCH_TIMEOUT_MS ?? "15000",
+    WEBPAGE_BROWSER_TIMEOUT_MS: input.WEBPAGE_BROWSER_TIMEOUT_MS ?? "30000",
+    WEBPAGE_MAX_REDIRECTS: input.WEBPAGE_MAX_REDIRECTS ?? "5",
+    MAX_WEBPAGE_HTML_BYTES: input.MAX_WEBPAGE_HTML_BYTES ?? String(5 * 1024 * 1024),
     METRICS_BEARER_TOKEN:
       input.METRICS_BEARER_TOKEN ??
       (isProduction ? undefined : "development-metrics-token-0000000000000000000000001"),
@@ -309,6 +346,13 @@ export function parseServerEnvironment(input: EnvironmentInput): ServerConfigura
     observability: Object.freeze({
       otlpTracesEndpoint: value.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ?? null,
       lokiPushUrl: value.LOKI_PUSH_URL ?? null,
+    }),
+    webpageImport: Object.freeze({
+      browserEndpoint: value.WEBPAGE_BROWSER_ENDPOINT.replace(/\/$/, ""),
+      fetchTimeoutMs: value.WEBPAGE_FETCH_TIMEOUT_MS,
+      browserTimeoutMs: value.WEBPAGE_BROWSER_TIMEOUT_MS,
+      maximumRedirects: value.WEBPAGE_MAX_REDIRECTS,
+      maximumHtmlBytes: value.MAX_WEBPAGE_HTML_BYTES,
     }),
     features: Object.freeze({
       wechatSync: value.FEATURE_WECHAT_SYNC_ENABLED,

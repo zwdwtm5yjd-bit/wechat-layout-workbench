@@ -5,7 +5,9 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 project_root="$(cd "$script_dir/../.." && pwd)"
 compose_file="$project_root/infrastructure/compose/docker-compose.prod.yml"
-fixture_dir="$(mktemp -d "${TMPDIR:-/tmp}/wechat-layout-production-config.XXXXXX")"
+fixture_parent="$project_root/tmp"
+mkdir -p "$fixture_parent"
+fixture_dir="$(mktemp -d "$fixture_parent/production-config.XXXXXX")"
 env_file="$fixture_dir/production.env"
 certificate_path="$fixture_dir/fullchain.pem"
 private_key_path="$fixture_dir/privkey.pem"
@@ -97,6 +99,11 @@ MAX_DOCX_FILE_BYTES=52428800
 MAX_IMAGE_FILE_BYTES=20971520
 MAX_BRAND_PACKAGE_BYTES=104857600
 WORKER_CONCURRENCY=4
+WEBPAGE_BROWSER_ENDPOINT=http://webpage-browser:3010
+WEBPAGE_FETCH_TIMEOUT_MS=15000
+WEBPAGE_BROWSER_TIMEOUT_MS=30000
+WEBPAGE_MAX_REDIRECTS=5
+MAX_WEBPAGE_HTML_BYTES=5242880
 SCHEDULER_INTERVAL_SECONDS=60
 EOF
 
@@ -138,6 +145,7 @@ const requiredServices = [
   "tempo",
   "web",
   "worker",
+  "webpage-browser",
 ];
 
 function invariant(condition, message) {
@@ -191,6 +199,7 @@ for (const name of [
   "tempo",
   "web",
   "worker",
+  "webpage-browser",
 ]) {
   const service = compose.services[name];
   invariant(service.read_only === true, `${name} 根文件系统必须只读`);
@@ -209,6 +218,17 @@ invariant(
 );
 invariant(compose.networks.data.internal === true, "数据网络必须禁止外部路由");
 invariant(compose.networks.observability.internal === true, "监控网络必须禁止外部路由");
+invariant(compose.networks["browser-control"].internal === true, "浏览器控制网络必须禁止外部路由");
+invariant(
+  compose.services["webpage-browser"].networks.data === undefined,
+  "浏览器服务不得接入数据网络",
+);
+for (const secretName of ["DATABASE_URL", "REDIS_URL", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"]) {
+  invariant(
+    compose.services["webpage-browser"].environment[secretName] === undefined,
+    `浏览器服务不得获取 ${secretName}`,
+  );
+}
 invariant(
   compose.services.postgres.image.includes("@sha256:"),
   "PostgreSQL 镜像必须固定 digest",
@@ -258,11 +278,11 @@ if [[ "${PRODUCTION_TEMPLATE_BUILD:-}" == "1" ]]; then
     --profile migration
   )
   "${production_compose[@]}" build nginx
-  for service in web api worker scheduler database-migrate; do
+  for service in web api worker scheduler database-migrate webpage-browser; do
     "${production_compose[@]}" build "$service"
   done
 
-  for service in web api worker scheduler database-migrate; do
+  for service in web api worker scheduler database-migrate webpage-browser; do
     image="wechat-layout-production-test/$service:production-template-test"
     test "$(docker image inspect --format '{{.Config.User}}' "$image")" = "node"
   done

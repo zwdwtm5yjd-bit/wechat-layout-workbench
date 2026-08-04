@@ -18,6 +18,7 @@
     "@wechat-layout/document-schema": "workspace:*",
     "@wechat-layout/job-runtime": "workspace:*",
     "@wechat-layout/storage-adapter": "workspace:*",
+    "@wechat-layout/webpage-import": "workspace:*",
     "drizzle-orm": "0.45.2",
     "redis": "6.1.0"
   }

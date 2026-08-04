@@ -43,6 +43,11 @@ x-server-environment: &server-environment
   API_PORT: 3001
   WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
   SCHEDULER_INTERVAL_SECONDS: ${SCHEDULER_INTERVAL_SECONDS:-60}
+  WEBPAGE_BROWSER_ENDPOINT: ${WEBPAGE_BROWSER_ENDPOINT:-http://webpage-browser:3010}
+  WEBPAGE_FETCH_TIMEOUT_MS: ${WEBPAGE_FETCH_TIMEOUT_MS:-15000}
+  WEBPAGE_BROWSER_TIMEOUT_MS: ${WEBPAGE_BROWSER_TIMEOUT_MS:-30000}
+  WEBPAGE_MAX_REDIRECTS: ${WEBPAGE_MAX_REDIRECTS:-5}
+  MAX_WEBPAGE_HTML_BYTES: ${MAX_WEBPAGE_HTML_BYTES:-5242880}
 
 x-json-logging: &json-logging
   driver: json-file
@@ -228,6 +233,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      webpage-browser:
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -242,6 +249,43 @@ services:
       start_period: 15s
     networks:
       - data
+      - egress
+      - browser-control
+
+  webpage-browser:
+    <<: *node-service
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/webpage-browser:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-app.prod.Dockerfile
+      target: webpage-browser
+      args: *node-build-args
+    cpus: "2.00"
+    mem_limit: 2g
+    pids_limit: 512
+    environment:
+      APP_ENV: production
+      NODE_ENV: production
+      PORT: 3010
+      CHROMIUM_EXECUTABLE_PATH: /usr/bin/chromium
+      WEBPAGE_BROWSER_TIMEOUT_MS: ${WEBPAGE_BROWSER_TIMEOUT_MS:-30000}
+      MAX_WEBPAGE_HTML_BYTES: ${MAX_WEBPAGE_HTML_BYTES:-5242880}
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3010/health/live').then(response=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    networks:
+      - browser-control
       - egress
 
   scheduler:
@@ -557,5 +601,8 @@ networks:
   egress:
     driver: bridge
   observability:
+    driver: bridge
+    internal: true
+  browser-control:
     driver: bridge
     internal: true

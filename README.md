@@ -17,6 +17,7 @@
 `S1-WEB-002 V0.1 页面`、`S1-TEST-001 V0.1 测试基线` 和
 `S1-JOB-001 BullMQ 任务中心`、`S1-THEME-002 首批基础主题` 和
 `S1-COMPONENT-002 首批基础组件`、`S2-IMPORT-001 Python DOCX Worker`、
+`S2-IMPORT-002 安全网页导入`、
 `S2-OPS-001 生产运行制品`、
 `S2-BACKUP-001 数据库备份恢复` 和 `S2-OPS-002 日志监控仓库制品`：
 
@@ -154,6 +155,12 @@
   ActiveX 和 OLE 嵌入对象拒绝；
 - Worker 保留原始 DOCX 资源和完整中间 JSON，内嵌图片入库后在单个
   PostgreSQL 事务中生成 Document V1、Source Blocks、资源引用、状态历史和审计记录。
+- `POST /api/v1/imports/webpage`、`import-webpage` 队列和 HTTP 优先、隔离 Chromium 回退的
+  异步网页导入链路；每次 DNS 解析和重定向都重新执行 SSRF 校验并固定连接地址；
+- Readability 正文抽取、脚本/广告/隐藏节点清洗、稳定 Source Blocks、私有图片下载和
+  Webpage Intermediate v1；原始 URL、最终 URL、重定向链、抓取策略及警告进入来源元数据；
+- Chromium 服务不持有数据库、Redis 或对象存储凭据，只接入 Worker 控制网和独立出网，
+  生产容器以非 root、只读文件系统和最小权限运行。
 - `S2-OPS-001` 生产制品基础：固定摘要的多阶段 Node / Nginx 镜像、生产 Compose、HTTPS 入口、
   仅 80 / 443 暴露、非 root 与只读容器、内部数据网络、显式迁移及受保护的部署/回滚命令；
 - 生产配置会在启动前校验 HTTPS Origin、TLS 文件、占位值、镜像版本、Secret 强度以及
@@ -165,7 +172,7 @@
   OpenTelemetry Trace、Tempo、Grafana 预置面板、Node Exporter、Alertmanager 与基础告警；
   Grafana 只绑定宿主回环地址，真实告警接收仍需在生产等价环境验收。
 
-本阶段尚未实现资源管理 UI、DOCX 导入页面、扩展组件包、兼容问题自动修复管理、SVG 执行、
+本阶段尚未实现资源管理 UI、DOCX/网页导入页面、扩展组件包、兼容问题自动修复管理、SVG 执行、
 微信连接或微信草稿同步。
 
 ## 环境要求
@@ -241,6 +248,7 @@ API 基础端点：
 
 - 创建粘贴导入：`POST /api/v1/imports/paste`；
 - 从已上传的私有 DOCX 资源创建异步导入：`POST /api/v1/imports/docx`；
+- 从公网 HTTP(S) URL 创建异步网页导入：`POST /api/v1/imports/webpage`；
 - 读取可刷新恢复的结构：`GET /api/v1/imports/:articleId/structure`；
 - 确认完整结构并生成快照：`PUT /api/v1/imports/:articleId/structure`。
 
@@ -380,6 +388,7 @@ pnpm --filter @wechat-layout/web dev
 pnpm --filter @wechat-layout/api dev
 pnpm --filter @wechat-layout/worker dev
 pnpm --filter @wechat-layout/scheduler dev
+pnpm --filter @wechat-layout/webpage-browser dev
 ```
 
 Python DOCX Worker 验证：
@@ -405,6 +414,7 @@ apps/
   api/                       NestJS API
   worker/                    BullMQ 异步任务 Worker
   scheduler/                 调度进程占位
+  webpage-browser/           无业务凭据的隔离 Chromium 网页渲染服务
 services/
   docx-worker-python/        Python DOCX Worker、中间契约与安全 OOXML 解析器
 packages/
@@ -421,6 +431,7 @@ packages/
   test-fixtures/
   wechat-connector/
   wechat-renderer/
+  webpage-import/             SSRF 安全抓取、Readability 与 DOM 清洗
 infrastructure/
   compose/
   docker/

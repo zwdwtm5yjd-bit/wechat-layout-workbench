@@ -47,6 +47,11 @@ x-server-application-environment: &server-application-environment
   MAX_DOCX_FILE_BYTES: 52428800
   MAX_IMAGE_FILE_BYTES: 20971520
   MAX_BRAND_PACKAGE_BYTES: 104857600
+  WEBPAGE_BROWSER_ENDPOINT: http://webpage-browser:3010
+  WEBPAGE_FETCH_TIMEOUT_MS: 15000
+  WEBPAGE_BROWSER_TIMEOUT_MS: 30000
+  WEBPAGE_MAX_REDIRECTS: 5
+  MAX_WEBPAGE_HTML_BYTES: 5242880
 
 services:
   postgres:
@@ -243,6 +248,11 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      webpage-browser:
+        condition: service_healthy
+    networks:
+      - application
+      - browser-control
     healthcheck:
       test:
         [
@@ -255,6 +265,46 @@ services:
       timeout: 3s
       retries: 10
       start_period: 10s
+
+  webpage-browser:
+    image: wechat-layout-webpage-browser-dev:local
+    init: true
+    restart: unless-stopped
+    user: node
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-app.prod.Dockerfile
+      target: webpage-browser
+      args:
+        NEXT_PUBLIC_APP_NAME: 公众号智能视觉排版工具
+        NEXT_PUBLIC_APP_URL: http://localhost:3000
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
+        NEXT_PUBLIC_FEATURE_WECHAT_SYNC_ENABLED: "false"
+        NEXT_PUBLIC_FEATURE_REMOTE_COMPONENTS_ENABLED: "false"
+    environment:
+      APP_ENV: development
+      NODE_ENV: development
+      PORT: 3010
+      CHROMIUM_EXECUTABLE_PATH: /usr/bin/chromium
+      WEBPAGE_BROWSER_TIMEOUT_MS: 30000
+      MAX_WEBPAGE_HTML_BYTES: 5242880
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3010/health/live').then(response=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    networks:
+      - browser-control
+      - browser-egress
 
   scheduler:
     <<: *node-app
@@ -288,4 +338,9 @@ volumes:
 
 networks:
   application:
+    driver: bridge
+  browser-control:
+    driver: bridge
+    internal: true
+  browser-egress:
     driver: bridge

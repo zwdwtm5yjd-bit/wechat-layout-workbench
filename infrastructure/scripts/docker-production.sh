@@ -76,7 +76,7 @@ case "$action" in
   build)
     validate
     compose build --pull nginx
-    for service in web api worker scheduler database-migrate; do
+    for service in web api worker scheduler database-migrate webpage-browser; do
       compose --profile migration build "$service"
     done
     ;;
@@ -97,7 +97,7 @@ case "$action" in
     compose up --detach --wait --no-build postgres redis
     compose up --detach --wait --no-build alertmanager loki tempo otel-collector node-exporter
     compose --profile migration run --rm --no-deps database-migrate
-    compose up --detach --wait --no-build web api worker scheduler nginx
+    compose up --detach --wait --no-build web api webpage-browser worker scheduler nginx
     compose up --detach --wait --no-build prometheus grafana
     health
     observability_health
@@ -139,7 +139,7 @@ case "$action" in
     compose ps
     ;;
   logs)
-    compose logs --follow --tail=200 nginx web api worker scheduler prometheus alertmanager grafana loki tempo otel-collector node-exporter
+    compose logs --follow --tail=200 nginx web api webpage-browser worker scheduler prometheus alertmanager grafana loki tempo otel-collector node-exporter
     ;;
   down)
     compose down

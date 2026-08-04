@@ -37,6 +37,13 @@ describe("parseServerEnvironment", () => {
     expect(configuration.objectStorage.addressingStyle).toBe("path");
     expect(configuration.objectStorage.publicAddressingStyle).toBe("path");
     expect(configuration.objectStorage.metadataHeaderPrefix).toBe("x-amz-meta-");
+    expect(configuration.webpageImport).toEqual({
+      browserEndpoint: "http://localhost:3010",
+      browserTimeoutMs: 30_000,
+      fetchTimeoutMs: 15_000,
+      maximumHtmlBytes: 5 * 1024 * 1024,
+      maximumRedirects: 5,
+    });
   });
 
   it("reports missing critical keys without echoing another secret", () => {
@@ -157,6 +164,27 @@ describe("parseServerEnvironment", () => {
       lokiPushUrl: "http://loki:3100/loki/api/v1/push",
       otlpTracesEndpoint: "http://otel-collector:4318/v1/traces",
     });
+    expect(configuration.webpageImport.browserEndpoint).toBe("http://webpage-browser:3010");
+  });
+
+  it("rejects a production browser renderer outside the isolated service", () => {
+    expect(() =>
+      parseServerEnvironment({
+        ...validEnvironment,
+        APP_ENV: "production",
+        PUBLIC_WEB_URL: "https://app.example.com",
+        S3_ADDRESSING_STYLE: "virtual-hosted",
+        S3_BUCKET: "wechat-layout-production",
+        S3_ENDPOINT: "https://cos-internal.example.com",
+        S3_METADATA_HEADER_PREFIX: "x-cos-meta-",
+        S3_PUBLIC_ADDRESSING_STYLE: "bucket-endpoint",
+        S3_PUBLIC_ENDPOINT: "https://assets.example.com",
+        SMTP_HOST: "smtp.example.com",
+        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://otel-collector:4318/v1/traces",
+        LOKI_PUSH_URL: "http://loki:3100/loki/api/v1/push",
+        WEBPAGE_BROWSER_ENDPOINT: "https://browser.example.com",
+      }),
+    ).toThrow(/WEBPAGE_BROWSER_ENDPOINT.*webpage-browser:3010/);
   });
 
   it("rejects observability endpoints outside their exact internal services", () => {

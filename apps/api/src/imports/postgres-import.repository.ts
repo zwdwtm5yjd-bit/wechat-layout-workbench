@@ -699,13 +699,7 @@ export class PostgresImportRepository implements ImportRepository {
     const sourceQuery = executor
       .select(sourceDocumentSelection)
       .from(sourceDocuments)
-      .where(
-        and(
-          eq(sourceDocuments.articleId, articleId),
-          eq(sourceDocuments.sourceType, "paste"),
-          eq(sourceDocuments.isPrimary, true),
-        ),
-      )
+      .where(and(eq(sourceDocuments.articleId, articleId), eq(sourceDocuments.isPrimary, true)))
       .limit(1);
     const [sourceDocument] = lock ? await sourceQuery.for("update") : await sourceQuery;
     if (sourceDocument === undefined) {

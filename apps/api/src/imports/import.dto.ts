@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  IsUrl,
   Length,
   Matches,
   Min,
@@ -128,6 +129,49 @@ export class DocxImportJobResponseDto {
 
   @ApiProperty({ type: () => DocxImportJobDto })
   data!: DocxImportJobDto;
+
+  @ApiProperty({ type: () => ApiMetaOpenApiModel })
+  meta!: ApiMetaOpenApiModel;
+}
+
+export class WebpageImportDto {
+  @ApiProperty({ example: "https://example.com/article", maxLength: 2_048, type: String })
+  @IsString()
+  @Length(1, 2_048)
+  @IsUrl({ protocols: ["http", "https"], require_protocol: true, require_tld: false })
+  url!: string;
+
+  @ApiPropertyOptional({ format: "uuid", nullable: true, type: String })
+  @IsOptional()
+  @IsUUID()
+  accountId?: string | null;
+
+  @ApiPropertyOptional({ default: "preserve_structure", enum: IMPORT_CLEANING_MODES, type: String })
+  @IsOptional()
+  @IsEnum(IMPORT_CLEANING_MODES)
+  cleaningMode: ImportCleaningMode = "preserve_structure";
+
+  @ApiPropertyOptional({ default: "general", maxLength: 50, type: String })
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  @Matches(/^[a-z][a-z0-9_-]*$/)
+  contentType = "general";
+
+  @ApiPropertyOptional({ default: "standard", enum: layoutStrengths, type: String })
+  @IsOptional()
+  @IsEnum(layoutStrengths)
+  layoutStrength: "light" | "standard" | "strong" = "standard";
+}
+
+export class WebpageImportJobDto extends DocxImportJobDto {}
+
+export class WebpageImportJobResponseDto {
+  @ApiProperty({ example: true, type: Boolean })
+  success!: boolean;
+
+  @ApiProperty({ type: () => WebpageImportJobDto })
+  data!: WebpageImportJobDto;
 
   @ApiProperty({ type: () => ApiMetaOpenApiModel })
   meta!: ApiMetaOpenApiModel;
