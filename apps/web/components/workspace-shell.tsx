@@ -49,7 +49,7 @@ const navigationItems: readonly NavigationItem[] = [
   { href: "/workspace/themes", icon: Paintbrush, label: "主题" },
   { href: "/workspace/components", icon: Blocks, label: "组件" },
   { icon: Sparkles, label: "SVG 互动" },
-  { icon: Radio, label: "公众号" },
+  { href: "/workspace/accounts", icon: Radio, label: "公众号" },
   { icon: ImageUp, label: "素材更新" },
   { href: "/workspace/settings", icon: Settings, label: "设置" },
 ];
@@ -158,9 +158,11 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
             ? { description: "视觉方向与主题预览", title: "主题" }
             : pathname === "/workspace/components"
               ? { description: "微信安全基础区块", title: "组件" }
-              : pathname === "/workspace/settings"
-                ? { description: "本机偏好与功能边界", title: "设置" }
-                : { description: "快速开始与最近工作", title: "工作台" };
+              : pathname.startsWith("/workspace/accounts")
+                ? { description: "内容归属与默认发布空间", title: "公众号" }
+                : pathname === "/workspace/settings"
+                  ? { description: "本机偏好与功能边界", title: "设置" }
+                  : { description: "快速开始与最近工作", title: "工作台" };
 
   return (
     <div className="min-h-screen bg-canvas">

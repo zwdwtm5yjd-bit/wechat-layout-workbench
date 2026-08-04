@@ -43,6 +43,13 @@
       "when": 1785727385412,
       "tag": "0005_past_morg",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785808499286,
+      "tag": "0006_bent_living_tribunal",
+      "breakpoints": true
     }
   ]
 }

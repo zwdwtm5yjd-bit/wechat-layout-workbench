@@ -25,9 +25,11 @@ async function main(): Promise<void> {
       ...(ownerTimezone ? { ownerTimezone } : {}),
     });
     process.stdout.write(
-      result.created
-        ? `开发 Owner 种子已创建：${result.ownerId}（账号保持禁用，请运行 pnpm auth:bootstrap-owner 初始化凭据）。\n`
-        : `开发 Owner 种子已存在：${result.ownerId}。\n`,
+      `${
+        result.created
+          ? `开发 Owner 种子已创建：${result.ownerId}（账号保持禁用，请运行 pnpm auth:bootstrap-owner 初始化凭据）`
+          : `开发 Owner 种子已存在：${result.ownerId}`
+      }；公众号种子新增 ${String(result.accountsCreated)} 个、现有 ${String(result.accountIds.length)} 个。\n`,
     );
   } finally {
     await connection.close();

@@ -1,5 +1,127 @@
 // 此文件由 pnpm api:generate 自动生成，请勿手工编辑。
 export interface paths {
+  "/api/v1/accounts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 列出当前用户的公众号 */
+    get: operations["AccountController_list"];
+    put?: never;
+    /** 创建公众号 */
+    post: operations["AccountController_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/accounts/{accountId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取公众号详情 */
+    get: operations["AccountController_get"];
+    put?: never;
+    post?: never;
+    /** 永久删除无文章关联的公众号 */
+    delete: operations["AccountController_permanentlyDelete"];
+    options?: never;
+    head?: never;
+    /** 更新公众号基础信息 */
+    patch: operations["AccountController_update"];
+    trace?: never;
+  };
+  "/api/v1/accounts/{accountId}/archive": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 归档公众号并移出默认选择 */
+    post: operations["AccountController_archive"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/accounts/{accountId}/default": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 设为唯一默认公众号 */
+    post: operations["AccountController_setDefault"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/accounts/{accountId}/delete-impact": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 预检永久删除影响 */
+    get: operations["AccountController_deleteImpact"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/accounts/{accountId}/disable": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 停用公众号 */
+    post: operations["AccountController_disable"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/accounts/{accountId}/enable": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 启用公众号 */
+    post: operations["AccountController_enable"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/articles": {
     parameters: {
       query?: never;
@@ -758,6 +880,81 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    AccountDeleteImpactDto: {
+      activeArticleCount: number;
+      articleCount: number;
+      blockingReasons: string[];
+      canPermanentlyDelete: boolean;
+    };
+    AccountDeleteImpactResponseDto: {
+      data: components["schemas"]["AccountDeleteImpactDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    AccountDeleteResponseDto: {
+      data: components["schemas"]["AccountDeleteResultDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    AccountDeleteResultDto: {
+      /** Format: uuid */
+      accountId: string;
+      /** @example true */
+      deleted: boolean;
+    };
+    AccountDto: {
+      /** @enum {string} */
+      accountType: "service" | "subscription" | "unknown";
+      /** Format: date-time */
+      archivedAt: string | null;
+      articleCount: number;
+      contentTypes: string[];
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: uuid */
+      currentBrandVersionId: string | null;
+      /** Format: uuid */
+      defaultPaletteId: string | null;
+      /** Format: uuid */
+      defaultThemeId: string | null;
+      description: string | null;
+      /** Format: uuid */
+      id: string;
+      isDefault: boolean;
+      name: string;
+      shortName: string | null;
+      slug: string;
+      /** @enum {string} */
+      status: "draft" | "active" | "disabled" | "archived";
+      /** Format: date-time */
+      updatedAt: string;
+      /** @enum {string} */
+      verificationStatus: "unknown" | "unverified" | "verified";
+    };
+    AccountListResponseDto: {
+      data: components["schemas"]["AccountListResultDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
+    AccountListResultDto: {
+      items: components["schemas"]["AccountDto"][];
+      pagination: components["schemas"]["AccountPaginationDto"];
+    };
+    AccountPaginationDto: {
+      page: number;
+      pageSize: number;
+      total: number;
+      totalPages: number;
+    };
+    AccountResponseDto: {
+      data: components["schemas"]["AccountDto"];
+      meta: components["schemas"]["ApiMetaOpenApiModel"];
+      /** @example true */
+      success: boolean;
+    };
     ApiErrorOpenApiModel: {
       /** @example VALIDATION_FAILED */
       code: string;
@@ -1159,6 +1356,33 @@ export interface components {
       /** @enum {string} */
       status: "success" | "failed";
     };
+    CreateAccountDto: {
+      /**
+       * @default unknown
+       * @enum {string}
+       */
+      accountType: "service" | "subscription" | "unknown";
+      /**
+       * @example [
+       *       "inspection",
+       *       "government"
+       *     ]
+       */
+      contentTypes: string[];
+      /** Format: uuid */
+      defaultThemeId?: string | null;
+      description?: string | null;
+      /** @default false */
+      isDefault: boolean;
+      /** @example 清风巡察 */
+      name: string;
+      shortName?: string | null;
+      /**
+       * @default unknown
+       * @enum {string}
+       */
+      verificationStatus: "unknown" | "unverified" | "verified";
+    };
     CreateArticleDto: {
       /** Format: uuid */
       accountId?: string | null;
@@ -1247,6 +1471,13 @@ export interface components {
       /** Format: uuid */
       sessionId: string;
       user: components["schemas"]["AuthUserDto"];
+    };
+    DeleteAccountDto: {
+      /**
+       * @description 永久删除确认词
+       * @example DELETE
+       */
+      confirmationText: string;
     };
     DocxImportDto: {
       /** Format: uuid */
@@ -1908,6 +2139,18 @@ export interface components {
       items: components["schemas"]["ThemeDto"][];
       total: number;
     };
+    UpdateAccountDto: {
+      /** @enum {string} */
+      accountType?: "service" | "subscription" | "unknown";
+      contentTypes?: string[];
+      /** Format: uuid */
+      defaultThemeId?: string | null;
+      description?: string | null;
+      name?: string;
+      shortName?: string | null;
+      /** @enum {string} */
+      verificationStatus?: "unknown" | "unverified" | "verified";
+    };
     UpdateArticleDto: {
       /** Format: uuid */
       accountId?: string | null;
@@ -1964,6 +2207,323 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  AccountController_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountListResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AccountController_create: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateAccountDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AccountController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        accountId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 公众号不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AccountController_permanentlyDelete: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeleteAccountDto"];
+      };
+    };
+    responses: {
+      /** @description 公众号已永久删除 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountDeleteResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 公众号仍有关联文章 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AccountController_update: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateAccountDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AccountController_archive: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AccountController_setDefault: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 归档或停用公众号不能设为默认 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AccountController_deleteImpact: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountDeleteImpactResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AccountController_disable: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AccountController_enable: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   ArticleController_list: {
     parameters: {
       query?: {

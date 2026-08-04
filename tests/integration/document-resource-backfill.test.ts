@@ -231,7 +231,7 @@ async function expectMigrationStayedAt0003(
   expect(binding).toEqual({ deletedAt: null, sortOrder: input.expectedSortOrder });
   expect(migration?.count).toBe(4);
   expect(indexes?.count).toBe(0);
-  await expect(verifyDatabaseSchema(connection)).rejects.toThrow("数据库迁移数量不足：4/6");
+  await expect(verifyDatabaseSchema(connection)).rejects.toThrow("数据库迁移数量不足：4/7");
 }
 
 async function expectUniqueViolation(operation: () => Promise<unknown>) {
@@ -518,7 +518,7 @@ describe("document resource migration backfill", () => {
     `;
     expect(column?.maximumLength).toBe(128);
     const verification = await verifyDatabaseSchema(connection);
-    expect(verification.migrationCount).toBe(6);
+    expect(verification.migrationCount).toBe(7);
 
     await expectUniqueViolation(() =>
       connection.db.insert(articleResources).values({

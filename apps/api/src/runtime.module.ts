@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 
+import { AccountModule } from "./accounts/account.module.js";
 import { AppModule } from "./app.module.js";
 import { ArticleModule } from "./articles/article.module.js";
 import { AuthModule } from "./auth/auth.module.js";
@@ -16,6 +17,7 @@ import { ThemeModule } from "./themes/theme.module.js";
 @Module({
   imports: [
     AppModule,
+    AccountModule,
     DatabaseModule,
     AuthModule,
     ArticleModule,

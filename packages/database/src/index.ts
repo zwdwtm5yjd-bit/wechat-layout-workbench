@@ -17,6 +17,7 @@ export {
   copyRecords,
   jobEvents,
   jobs,
+  officialAccounts,
   renderOutputs,
   resources,
   sourceBlocks,

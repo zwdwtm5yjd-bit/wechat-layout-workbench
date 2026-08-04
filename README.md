@@ -17,7 +17,7 @@
 `S1-WEB-002 V0.1 页面`、`S1-TEST-001 V0.1 测试基线` 和
 `S1-JOB-001 BullMQ 任务中心`、`S1-THEME-002 首批基础主题` 和
 `S1-COMPONENT-002 首批基础组件`、`S2-IMPORT-001 Python DOCX Worker`、
-`S2-IMPORT-002 安全网页导入`、
+`S2-IMPORT-002 安全网页导入`、`S2-BRAND-001 公众号基础管理`、
 `S2-OPS-001 生产运行制品`、
 `S2-BACKUP-001 数据库备份恢复` 和 `S2-OPS-002 日志监控仓库制品`：
 
@@ -135,7 +135,7 @@
 - 主题中心读取两套已安装官方主题及版本资产，编辑器可分别执行临时试穿和正式应用；
 - 组件中心提供 29 个正式基础组件，目录、编辑器插入、快照依赖与微信 Renderer 共用同一份
   精确版本 Manifest；
-- 设置页开放浏览器本机偏好和快捷键说明，未接入的账号、公众号与通知能力明确禁用；
+- 设置页开放浏览器本机偏好和快捷键说明，未接入的账号、公众号连接与通知能力明确禁用；
 - 主导航、命令面板、文章已复制/已同步筛选和全局新建/导入快捷键完成闭环；
 - 文章预览页读取真实文章与文档，支持手机、平板、桌面宽度和 75%—100% 缩放；
 - 编辑器交付工具串联快速排版说明、设备预览、兼容抽屉和一键复制弹窗；
@@ -161,6 +161,11 @@
   Webpage Intermediate v1；原始 URL、最终 URL、重定向链、抓取策略及警告进入来源元数据；
 - Chromium 服务不持有数据库、Redis 或对象存储凭据，只接入 Worker 控制网和独立出网，
   生产容器以非 root、只读文件系统和最小权限运行。
+- Owner 隔离的公众号创建、列表、详情、更新、停用、启用、归档和唯一默认选择；
+- 公众号内容类型、账号/认证状态、文章占用统计、删除影响预检和确认式永久删除；
+- 默认切换与状态操作在事务内串行，归档或删除当前默认时自动选择启用中的接替者；
+- 三个幂等公众号种子、全量变更审计，以及有任意关联文章时禁止永久删除；
+- 公众号列表与详情页面接入真实 API，品牌资产和微信授权保持明确的未接入状态。
 - `S2-OPS-001` 生产制品基础：固定摘要的多阶段 Node / Nginx 镜像、生产 Compose、HTTPS 入口、
   仅 80 / 443 暴露、非 root 与只读容器、内部数据网络、显式迁移及受保护的部署/回滚命令；
 - 生产配置会在启动前校验 HTTPS Origin、TLS 文件、占位值、镜像版本、Secret 强度以及
@@ -252,6 +257,15 @@ API 基础端点：
 - 读取可刷新恢复的结构：`GET /api/v1/imports/:articleId/structure`；
 - 确认完整结构并生成快照：`PUT /api/v1/imports/:articleId/structure`。
 
+公众号端点：
+
+- 列表与新建：`GET|POST /api/v1/accounts`；
+- 详情与基础信息：`GET|PATCH /api/v1/accounts/:accountId`；
+- 唯一默认、停用、启用和归档：
+  `POST /api/v1/accounts/:accountId/default|disable|enable|archive`；
+- 删除影响预检与确认式永久删除：`GET /api/v1/accounts/:accountId/delete-impact`、
+  `DELETE /api/v1/accounts/:accountId`。
+
 资源端点：
 
 - 创建直传会话或去重：`POST /api/v1/resources/uploads`；
@@ -282,6 +296,7 @@ Web 基础页面：
 - 登录页：`http://localhost:3000/login`；
 - 工作台首页：`http://localhost:3000/workspace`；
 - 文章工作台：`http://localhost:3000/workspace/articles`；
+- 公众号管理：`http://localhost:3000/workspace/accounts`；
 - 粘贴导入：`http://localhost:3000/workspace/imports/paste`；
 - 结构确认：`http://localhost:3000/workspace/imports/:articleId/structure`；
 - 文档会话：`http://localhost:3000/workspace/articles/:articleId`。
