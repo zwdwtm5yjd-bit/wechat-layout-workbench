@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" role="img" aria-labelledby="title">
+  <title id="title">青绿水墨远山</title>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#f7f3e8" stop-opacity="0"/>
+      <stop offset="1" stop-color="#edf3ef" stop-opacity=".92"/>
+    </linearGradient>
+    <linearGradient id="far" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#abc7c0" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#5d8984" stop-opacity=".56"/>
+    </linearGradient>
+    <linearGradient id="near" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#567f79" stop-opacity=".66"/>
+      <stop offset="1" stop-color="#263b3a" stop-opacity=".9"/>
+    </linearGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="7"/></filter>
+  </defs>
+  <rect width="1200" height="320" fill="url(#sky)"/>
+  <path d="M0 238c116-56 196-28 270-107 56-59 105 41 171 22 65-20 81-94 146-82 66 13 92 103 167 103 86 0 127-107 209-76 73 28 119 106 237 110v112H0Z" fill="url(#far)"/>
+  <path d="M0 277c96-31 168-19 238-71 46-34 90-36 135 8 43 41 92 39 142 11 83-46 137-33 194 11 58 45 122 37 190-16 84-65 177-35 301 33v67H0Z" fill="url(#near)"/>
+  <path d="M0 250c176-22 299 14 452-5 184-23 307-37 464-2 97 22 188 24 284 7" fill="none" stroke="#f8f5ed" stroke-width="22" stroke-linecap="round" opacity=".68" filter="url(#soft)"/>
+  <circle cx="970" cy="58" r="20" fill="#c96755" opacity=".88"/>
+  <path d="M88 276c18-24 23-39 21-57m-2 23 25-19m-27 34-24-16m74 46c9-34 9-53 1-75m3 39 28-22m-30 42-29-20" fill="none" stroke="#324b47" stroke-width="4" stroke-linecap="round" opacity=".72"/>
+</svg>

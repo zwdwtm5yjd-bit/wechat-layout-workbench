@@ -11,6 +11,7 @@ import {
   Quote,
   Search,
   ShieldCheck,
+  Sparkles,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -32,6 +33,7 @@ const layoutIcons: Readonly<Record<ComponentPreview["layoutKey"], LucideIcon>> =
   image: Blocks,
   notice: Info,
   quote: Quote,
+  visual: Sparkles,
 };
 
 const categories = ["全部", ...COMPONENT_CATALOG_GROUPS] as const;
@@ -70,6 +72,55 @@ function defaultSlotText(component: ComponentPreview, slotId: string, fallback =
 function ComponentSample({ component }: { readonly component: ComponentPreview }) {
   const { layoutKey, sample } = component.asset.preview;
   const variant = previewVariant(component);
+
+  if (layoutKey === "visual") {
+    const gallery = (sample.imageCount ?? 0) > 0;
+    const dark = variant === "tech_orbit_hero" || variant === "film_triptych";
+    return (
+      <div
+        className={`relative min-h-52 overflow-hidden ${dark ? "bg-[#102d4c]" : "bg-[#fbf7ef]"}`}
+        data-layout-key={layoutKey}
+        data-variant={variant}
+      >
+        {sample.assetPath === undefined ? null : (
+          <span
+            aria-label={`${sample.assetKind === "png" ? "PNG" : "SVG"} 原创视觉资产`}
+            className={`absolute inset-0 bg-cover bg-center bg-no-repeat ${gallery ? "opacity-55" : "opacity-95"}`}
+            role="img"
+            style={{ backgroundImage: `url(${sample.assetPath})` }}
+          />
+        )}
+        {gallery ? (
+          <div className="absolute inset-x-5 top-14 grid grid-cols-3 gap-1.5">
+            {Array.from({ length: sample.imageCount ?? 0 }, (_, index) => (
+              <span
+                className={`block border-4 border-white/90 bg-gradient-to-br ${index % 2 === 0 ? "from-amber-200 to-orange-400" : "from-sky-200 to-emerald-400"} h-20 shadow-sm`}
+                key={index}
+              />
+            ))}
+          </div>
+        ) : null}
+        <div
+          className={`relative z-10 ${gallery ? "mt-36" : "mt-20"} mx-5 mb-5 rounded-md border px-4 py-3 shadow-sm backdrop-blur-[1px] ${dark ? "border-white/15 bg-[#102d4c]/88 text-white" : "border-white/70 bg-white/88 text-stone-800"}`}
+        >
+          <p
+            className={`text-[8px] font-semibold tracking-[0.18em] ${dark ? "text-amber-300" : "text-amber-700"}`}
+          >
+            {sample.eyebrow}
+          </p>
+          <p className="mt-1 truncate text-[14px] font-bold">{sample.title}</p>
+          <p
+            className={`mt-1 line-clamp-2 text-[9px] leading-4 ${dark ? "text-white/70" : "text-stone-600"}`}
+          >
+            {sample.body}
+          </p>
+        </div>
+        <span className="absolute top-3 right-3 rounded-full border border-white/60 bg-white/75 px-2 py-1 text-[8px] font-semibold text-stone-700 backdrop-blur">
+          {sample.assetKind?.toUpperCase()}
+        </span>
+      </div>
+    );
+  }
 
   if (layoutKey === "divider") {
     const preset = component.asset.manifest.insertionPreset;
@@ -486,8 +537,8 @@ export function ComponentCatalog() {
           <p className="text-[12px] font-medium text-accent">OFFICIAL COMPONENTS</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">组件</h1>
           <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted">
-            浏览 41 个正式组件，覆盖标题、引用、提示、数据、图片、分隔与文末。
-            目录、编辑器和微信输出共用同一份组件 Manifest。
+            浏览 {V0_COMPONENT_PREVIEWS.length} 个正式组件，包含原创 PNG / SVG
+            高级模块、图集、标题、提示、数据与文末。 目录、编辑器和微信输出共用同一份组件 Manifest。
           </p>
         </div>
         <label className="relative w-full md:w-72">

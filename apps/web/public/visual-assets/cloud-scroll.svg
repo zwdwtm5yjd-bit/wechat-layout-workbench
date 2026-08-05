@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 180" role="img" aria-labelledby="title">
+  <title id="title">金线祥云卷纹</title>
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#b98b38" stop-opacity="0"/>
+      <stop offset=".22" stop-color="#d6b363"/>
+      <stop offset=".5" stop-color="#b98b38"/>
+      <stop offset=".78" stop-color="#d6b363"/>
+      <stop offset="1" stop-color="#b98b38" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="M0 91h392c-2-24 17-45 43-45 14 0 27 6 35 16 11-24 35-41 63-41 38 0 69 30 69 68 0 28-17 52-41 62h278c-15-8-25-24-25-42 0-26 21-47 47-47 9 0 18 3 25 7 10-22 32-37 58-37 35 0 63 28 63 63 0 34-27 62-61 63h294" fill="none" stroke="url(#gold)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M444 106c-11 0-20-9-20-20s9-20 20-20c14 0 24 13 20 26-5 17-28 20-39 7m408 19c-14 0-25-11-25-25 0-13 11-24 24-24 17 0 29 16 24 32-7 20-34 22-47 7" fill="none" stroke="#d6b363" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+  <circle cx="600" cy="91" r="6" fill="#9f1d24"/>
+  <circle cx="581" cy="91" r="3" fill="#d6b363"/>
+  <circle cx="619" cy="91" r="3" fill="#d6b363"/>
+</svg>

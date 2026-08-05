@@ -269,9 +269,9 @@ describe("component manifest", () => {
 });
 
 describe("official component assets", () => {
-  it("ships exactly 41 immutable, uniquely versioned assets in the audited category split", () => {
-    expect(OFFICIAL_COMPONENT_ASSETS).toHaveLength(41);
-    expect(OFFICIAL_COMPONENT_MANIFESTS).toHaveLength(41);
+  it("ships exactly 53 immutable, uniquely versioned assets in the audited category split", () => {
+    expect(OFFICIAL_COMPONENT_ASSETS).toHaveLength(53);
+    expect(OFFICIAL_COMPONENT_MANIFESTS).toHaveLength(53);
     expect(
       OFFICIAL_COMPONENT_ASSETS.reduce<Record<string, number>>((counts, asset) => {
         const key =
@@ -291,9 +291,15 @@ describe("official component assets", () => {
       DATA: 5,
       DIVIDER: 4,
       FOOTER: 3,
+      GALLERY: 2,
+      GOV: 2,
+      HERO: 2,
       IMAGE: 5,
+      INTRO: 2,
       NOTICE: 6,
       QUOTE: 6,
+      SVG: 3,
+      TECH: 1,
     });
     expect(
       new Set(
@@ -301,7 +307,7 @@ describe("official component assets", () => {
           (manifest) => `${manifest.componentId}@${manifest.version}`,
         ),
       ).size,
-    ).toBe(41);
+    ).toBe(53);
     expect(Object.isFrozen(OFFICIAL_COMPONENT_ASSETS)).toBe(true);
     expect(Object.isFrozen(OFFICIAL_COMPONENT_ASSETS[0]?.manifest.insertionPreset)).toBe(true);
     expect(Object.isFrozen(OFFICIAL_COMPONENT_ASSETS[0]?.preview.sample)).toBe(true);
@@ -313,7 +319,7 @@ describe("official component assets", () => {
       expect(result.success, `${asset.manifest.componentId}: ${JSON.stringify(result)}`).toBe(true);
     });
     const registry = createOfficialComponentRegistry();
-    expect(registry.query()).toHaveLength(41);
+    expect(registry.query()).toHaveLength(53);
 
     OFFICIAL_COMPONENT_ASSETS.forEach((asset) => {
       expect(asset.preview.name).toBe(asset.manifest.name);

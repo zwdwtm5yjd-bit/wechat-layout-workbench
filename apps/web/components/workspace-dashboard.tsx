@@ -213,7 +213,8 @@ export function WorkspaceDashboard({ today }: { readonly today: string }) {
             </div>
             <h2 className="mt-4 text-[14px] font-semibold text-ink">预览目录已开放</h2>
             <p className="mt-2 text-[12px] leading-5 text-muted">
-              可查看 10 套正式主题和 41 个已安装基础组件，均使用精确版本资产。
+              可查看 10 套正式主题和 53 个已安装组件（含原创 PNG / SVG
+              高级模块），均使用精确版本资产。
             </p>
             <div className="mt-4 flex items-center gap-3 text-[11px] text-faint">
               <Link
@@ -227,7 +228,7 @@ export function WorkspaceDashboard({ today }: { readonly today: string }) {
                 href="/workspace/components"
               >
                 <Sparkles aria-hidden="true" size={12} />
-                41 组件
+                53 组件
               </Link>
             </div>
           </section>

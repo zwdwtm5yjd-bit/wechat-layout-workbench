@@ -17,6 +17,9 @@ afterEach(() => {
 });
 
 const expectedGroupCounts = {
+  高级模块: 7,
+  SVG装饰: 3,
+  图集模块: 2,
   一级标题: 6,
   二级标题: 6,
   引用: 6,
@@ -31,6 +34,12 @@ function expectedPreviewContract(asset: OfficialComponentAsset): {
   readonly categoryLabel: keyof typeof expectedGroupCounts;
   readonly layoutKey: OfficialComponentPreviewLayout;
 } {
+  if (asset.preview.layoutKey === "visual") {
+    return {
+      categoryLabel: asset.preview.categoryLabel as keyof typeof expectedGroupCounts,
+      layoutKey: "visual",
+    };
+  }
   switch (asset.manifest.category) {
     case "HEAD":
       if (asset.manifest.insertionPreset.nodeType !== "heading") {
@@ -87,17 +96,23 @@ function expectRequiredPreviewSample(asset: OfficialComponentAsset): void {
     case "footer":
       expect((sample.footer ?? sample.body)?.trim(), message).toBeTruthy();
       break;
+    case "visual":
+      expect(sample.assetPath?.trim(), message).toBeTruthy();
+      expect(sample.assetKind, message).toMatch(/^(png|svg)$/u);
+      expect(sample.title?.trim(), message).toBeTruthy();
+      expect(sample.body?.trim(), message).toBeTruthy();
+      break;
   }
 }
 
 describe("ComponentCatalog", () => {
-  it("derives the complete 41-item catalog from the official registry assets", () => {
-    expect(OFFICIAL_COMPONENT_ASSETS).toHaveLength(41);
-    expect(V0_COMPONENT_PREVIEWS).toHaveLength(41);
+  it("derives the complete 53-item catalog from the official registry assets", () => {
+    expect(OFFICIAL_COMPONENT_ASSETS).toHaveLength(53);
+    expect(V0_COMPONENT_PREVIEWS).toHaveLength(53);
     expect(V0_COMPONENT_PREVIEWS.map((component) => component.id)).toEqual(
       OFFICIAL_COMPONENT_ASSETS.map((asset) => asset.manifest.componentId),
     );
-    expect(new Set(V0_COMPONENT_PREVIEWS.map((component) => component.id)).size).toBe(41);
+    expect(new Set(V0_COMPONENT_PREVIEWS.map((component) => component.id)).size).toBe(53);
 
     const actualGroupCounts = Object.fromEntries(
       Object.keys(expectedGroupCounts).map((group) => [
@@ -122,7 +137,7 @@ describe("ComponentCatalog", () => {
     const user = userEvent.setup();
     const { container } = render(<ComponentCatalog />);
 
-    expect(screen.getByText("41 个正式组件")).not.toBeNull();
+    expect(screen.getByText("53 个正式组件")).not.toBeNull();
     for (const [group, count] of Object.entries(expectedGroupCounts)) {
       await user.click(screen.getByRole("tab", { name: new RegExp(`^${group}`) }));
       expect(container.querySelectorAll("[data-component-card]")).toHaveLength(count);

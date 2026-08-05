@@ -896,7 +896,7 @@ export function ArticleEditor({
                 <input
                   className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
                   onChange={(event) => setComponentQuery(event.target.value)}
-                  placeholder="搜索标题、引用或场景"
+                  placeholder="搜索山水、SVG、图集或场景"
                   value={componentQuery}
                 />
               </label>
@@ -936,9 +936,24 @@ export function ArticleEditor({
                   }}
                   type="button"
                 >
-                  <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent-soft text-accent">
-                    <Blocks aria-hidden="true" size={13} />
-                  </span>
+                  {component.layoutKey === "visual" &&
+                  component.asset.preview.sample.assetPath !== undefined ? (
+                    <span
+                      aria-hidden="true"
+                      className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md border border-line bg-white bg-cover bg-center"
+                      style={{
+                        backgroundImage: `url(${component.asset.preview.sample.assetPath})`,
+                      }}
+                    >
+                      <span className="absolute right-1 bottom-1 rounded bg-black/60 px-1 py-0.5 text-[7px] font-bold tracking-wide text-white uppercase">
+                        {component.asset.preview.sample.assetKind}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent-soft text-accent">
+                      <Blocks aria-hidden="true" size={13} />
+                    </span>
+                  )}
                   <span className="min-w-0">
                     <span className="block truncate text-[10px] font-semibold text-ink">
                       {component.name}

@@ -556,7 +556,9 @@ function pendingImage(
 
 function isPendingImageResource(resourceId: string): boolean {
   return (
-    resourceId === "component_slot_image_pending" || resourceId === "component_slot_qrcode_pending"
+    resourceId === "component_slot_image_pending" ||
+    resourceId === "component_slot_qrcode_pending" ||
+    (resourceId.startsWith("component_slot_") && resourceId.endsWith("_pending"))
   );
 }
 

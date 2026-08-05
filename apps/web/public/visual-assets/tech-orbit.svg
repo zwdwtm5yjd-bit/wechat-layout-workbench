@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title">
+  <title id="title">蓝金科技轨道</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0c2548"/><stop offset="1" stop-color="#164e7a"/></linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#63c5e8" stop-opacity="0"/><stop offset=".5" stop-color="#8edcff"/><stop offset="1" stop-color="#d3a84a" stop-opacity="0"/></linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0v48" fill="none" stroke="#9fd5e7" stroke-width="1" opacity=".1"/></pattern>
+  </defs>
+  <rect width="1200" height="360" rx="30" fill="url(#bg)"/>
+  <rect width="1200" height="360" rx="30" fill="url(#grid)"/>
+  <g fill="none" stroke="url(#glow)"><ellipse cx="945" cy="174" rx="198" ry="70" stroke-width="3"/><ellipse cx="945" cy="174" rx="142" ry="122" stroke-width="2" transform="rotate(-22 945 174)"/><ellipse cx="945" cy="174" rx="81" ry="154" stroke-width="2" transform="rotate(35 945 174)"/></g>
+  <circle cx="945" cy="174" r="24" fill="#d3a84a"/><circle cx="795" cy="125" r="8" fill="#8edcff"/><circle cx="1068" cy="239" r="6" fill="#fff3c4"/>
+  <path d="M62 281h402" stroke="#8edcff" stroke-width="3" opacity=".65"/><path d="M62 300h236" stroke="#d3a84a" stroke-width="3" opacity=".8"/>
+</svg>

@@ -35,6 +35,9 @@ export const V0_THEME_PREVIEWS: readonly ThemePreview[] = [
 ] as const;
 
 export const COMPONENT_CATALOG_GROUPS = [
+  "高级模块",
+  "SVG装饰",
+  "图集模块",
   "一级标题",
   "二级标题",
   "引用",
@@ -80,6 +83,8 @@ function componentGroup(asset: OfficialComponentAsset): ComponentCatalogGroup {
       return "分割线";
     case "footer":
       return "文末";
+    case "visual":
+      return "高级模块";
   }
 }
 

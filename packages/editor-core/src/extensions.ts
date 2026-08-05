@@ -562,6 +562,34 @@ function createSemanticCardExtension(
     apply(footer, node.attrs.footer);
   }
 
+  function applyVisualVariant(
+    node: { readonly attrs: Readonly<Record<string, unknown>> },
+    dom: HTMLElement,
+    artwork: HTMLElement,
+  ): void {
+    const variant = typeof node.attrs.variant === "string" ? node.attrs.variant : "";
+    if (variant === "") {
+      delete dom.dataset.componentVariant;
+      artwork.hidden = true;
+      return;
+    }
+    dom.dataset.componentVariant = variant;
+    artwork.hidden = ![
+      "autumn_persimmon_intro",
+      "bamboo_note",
+      "civic_red_banner",
+      "civic_red_notice",
+      "cloud_scroll_heading",
+      "festival_lantern_hero",
+      "film_triptych",
+      "ink_mountain_hero",
+      "leaf_story_intro",
+      "magazine_duo",
+      "mist_mountain_heading",
+      "tech_orbit_hero",
+    ].includes(variant);
+  }
+
   return Node.create({
     name: "semanticCard",
     group: "block",
@@ -598,6 +626,9 @@ function createSemanticCardExtension(
           "data-component-id": descriptor.componentId,
           "data-component-renderer": descriptor.rendererKey,
           "data-component-state": descriptor.state,
+          ...(typeof node.attrs.variant === "string"
+            ? { "data-component-variant": node.attrs.variant }
+            : {}),
           ...(descriptor.version === undefined
             ? {}
             : { "data-component-version": descriptor.version }),
@@ -615,6 +646,9 @@ function createSemanticCardExtension(
         const label = document.createElement("div");
         label.className = "editor-semantic-card__label";
         label.contentEditable = "false";
+        const artwork = document.createElement("div");
+        artwork.className = "editor-semantic-card__artwork";
+        artwork.contentEditable = "false";
         const eyebrow = document.createElement("div");
         eyebrow.className = "editor-semantic-card__eyebrow";
         eyebrow.contentEditable = "false";
@@ -627,8 +661,9 @@ function createSemanticCardExtension(
         footer.className = "editor-semantic-card__footer";
         footer.contentEditable = "false";
         applyDescriptor(dom, label, descriptorFor(node));
+        applyVisualVariant(node, dom, artwork);
         applyVisibleAttributes(node, eyebrow, title, footer);
-        dom.append(label, eyebrow, title, contentDOM, footer);
+        dom.append(artwork, label, eyebrow, title, contentDOM, footer);
 
         return {
           contentDOM,
@@ -638,6 +673,7 @@ function createSemanticCardExtension(
               return false;
             }
             applyDescriptor(dom, label, descriptorFor(updatedNode));
+            applyVisualVariant(updatedNode, dom, artwork);
             applyVisibleAttributes(updatedNode, eyebrow, title, footer);
             return true;
           },
