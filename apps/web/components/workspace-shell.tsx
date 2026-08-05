@@ -17,6 +17,7 @@ import {
   Radio,
   Search,
   Settings,
+  Sparkles,
   Upload,
   UserRound,
   type LucideIcon,
@@ -47,6 +48,7 @@ const navigationItems: readonly NavigationItem[] = [
   { href: "/workspace/articles", icon: FileText, label: "文章" },
   { href: "/workspace/themes", icon: Paintbrush, label: "主题" },
   { href: "/workspace/components", icon: Blocks, label: "组件" },
+  { href: "/workspace/visual-assets", icon: Sparkles, label: "视觉素材" },
   { href: "/workspace/accounts", icon: Radio, label: "公众号" },
   { href: "/workspace/resources", icon: ImageUp, label: "素材库" },
   { href: "/workspace/jobs", icon: ListChecks, label: "任务中心" },
@@ -150,17 +152,19 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
             ? { description: "视觉方向与主题预览", title: "主题" }
             : pathname === "/workspace/components"
               ? { description: "微信安全基础区块", title: "组件" }
-              : pathname.startsWith("/workspace/accounts")
-                ? { description: "内容归属与默认发布空间", title: "公众号" }
-                : pathname === "/workspace/resources"
-                  ? { description: "私有上传、引用保护与回收站", title: "素材库" }
-                  : pathname === "/workspace/jobs"
-                    ? { description: "后台导入进度与失败重试", title: "任务中心" }
-                    : pathname === "/workspace/help"
-                      ? { description: "工作流说明与常见问题", title: "帮助" }
-                      : pathname === "/workspace/settings"
-                        ? { description: "本机偏好与功能边界", title: "设置" }
-                        : { description: "快速开始与最近工作", title: "工作台" };
+              : pathname === "/workspace/visual-assets"
+                ? { description: "静态与动态原创 SVG", title: "视觉素材" }
+                : pathname.startsWith("/workspace/accounts")
+                  ? { description: "内容归属与默认发布空间", title: "公众号" }
+                  : pathname === "/workspace/resources"
+                    ? { description: "私有上传、引用保护与回收站", title: "素材库" }
+                    : pathname === "/workspace/jobs"
+                      ? { description: "后台导入进度与失败重试", title: "任务中心" }
+                      : pathname === "/workspace/help"
+                        ? { description: "工作流说明与常见问题", title: "帮助" }
+                        : pathname === "/workspace/settings"
+                          ? { description: "本机偏好与功能边界", title: "设置" }
+                          : { description: "快速开始与最近工作", title: "工作台" };
 
   return (
     <div className="min-h-screen bg-canvas">

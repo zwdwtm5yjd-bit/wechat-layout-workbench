@@ -1,3 +1,4 @@
+import { builtInVisualAssetPublicUrl } from "@wechat-layout/component-registry";
 import { validateDocument } from "@wechat-layout/document-schema";
 
 import { createCompatibilityIssue } from "./compatibility-rules.js";
@@ -19,7 +20,9 @@ function stringValue(value: unknown): string | undefined {
 
 function resourceUrl(resources: WechatResourceMap, resourceId: string): string | undefined {
   const reference = resources[resourceId];
-  return typeof reference === "string" ? reference : reference?.url;
+  return typeof reference === "string"
+    ? reference
+    : (reference?.url ?? builtInVisualAssetPublicUrl(resourceId));
 }
 
 function scanInlineLinks(

@@ -4,6 +4,10 @@ import type {
   ExactComponentReference,
 } from "@wechat-layout/component-registry";
 import {
+  builtInVisualAssetPublicPath,
+  findOfficialVisualAsset,
+} from "@wechat-layout/component-registry";
+import {
   validateTextLockEvolution,
   type DocNode,
   type TextLockViolation,
@@ -471,6 +475,48 @@ const ImageBlock = Node.create({
       ["span", { class: "editor-atom-label" }, label],
     ];
   },
+
+  addNodeView() {
+    return ({ node }) => {
+      const dom = document.createElement("figure");
+      dom.className = "editor-atom editor-image-block";
+      dom.dataset.nodeType = "imageBlock";
+      const image = document.createElement("img");
+      image.className = "editor-visual-asset-image";
+      image.draggable = false;
+      const label = document.createElement("span");
+      label.className = "editor-atom-label";
+
+      const applyNode = (currentNode: typeof node) => {
+        const resourceId = String(currentNode.attrs.resourceId ?? "");
+        const path = builtInVisualAssetPublicPath(resourceId);
+        dom.dataset.resourceId = resourceId;
+        label.textContent =
+          typeof currentNode.attrs.alt === "string" ? currentNode.attrs.alt : "图片素材";
+        if (path === undefined) {
+          image.hidden = true;
+          label.hidden = false;
+          image.removeAttribute("src");
+          return;
+        }
+        image.src = path;
+        image.alt = label.textContent;
+        image.hidden = false;
+        label.hidden = true;
+      };
+
+      applyNode(node);
+      dom.append(image, label);
+      return {
+        dom,
+        update(updatedNode) {
+          if (updatedNode.type.name !== "imageBlock") return false;
+          applyNode(updatedNode);
+          return true;
+        },
+      };
+    };
+  },
 });
 
 const Divider = Node.create({
@@ -779,6 +825,48 @@ const SvgInteraction = Node.create({
       }),
       ["span", { class: "editor-atom-label" }, "SVG 互动组件"],
     ];
+  },
+
+  addNodeView() {
+    return ({ node }) => {
+      const dom = document.createElement("figure");
+      dom.className = "editor-atom editor-svg-interaction";
+      dom.dataset.nodeType = "svgInteraction";
+      const image = document.createElement("img");
+      image.className = "editor-visual-asset-image";
+      image.draggable = false;
+      const label = document.createElement("figcaption");
+      label.className = "editor-visual-asset-caption";
+      const status = document.createElement("span");
+      status.className = "editor-visual-asset-status";
+      status.textContent = "动态预览 · 微信静态降级";
+
+      const applyNode = (currentNode: typeof node) => {
+        const resourceId = String(currentNode.attrs.resourceIds?.[0] ?? "");
+        const asset = findOfficialVisualAsset(resourceId);
+        const path = builtInVisualAssetPublicPath(resourceId);
+        dom.dataset.resourceId = resourceId;
+        label.textContent = asset?.name ?? "SVG 互动组件";
+        if (path === undefined) {
+          image.hidden = true;
+          return;
+        }
+        image.src = path;
+        image.alt = asset?.name ?? "动态视觉素材";
+        image.hidden = false;
+      };
+
+      applyNode(node);
+      dom.append(image, label, status);
+      return {
+        dom,
+        update(updatedNode) {
+          if (updatedNode.type.name !== "svgInteraction") return false;
+          applyNode(updatedNode);
+          return true;
+        },
+      };
+    };
   },
 });
 

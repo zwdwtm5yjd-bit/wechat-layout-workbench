@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" role="img" aria-label="原创动态视觉素材 005">
+  <style>.motion{animation:wave 4.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}@keyframes wave{0%,100%{transform:none;opacity:1}50%{transform:translateX(240px)}}@media(prefers-reduced-motion:reduce){.motion{animation:none}}</style>
+  <defs>
+    <linearGradient id="g20" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8fb8a3"/><stop offset="1" stop-color="#365c54"/></linearGradient>
+    <linearGradient id="fade20" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#8fb8a3" stop-opacity="0"/><stop offset=".5" stop-color="#8fb8a3" stop-opacity=".65"/><stop offset="1" stop-color="#8fb8a3" stop-opacity="0"/></linearGradient>
+    <pattern id="dots20" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2" fill="#365c54" opacity=".16"/></pattern>
+    <filter id="soft20"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <rect width="1200" height="480" fill="#f7f2e8"/>
+  <rect width="1200" height="480" fill="url(#dots20)"/>
+  <g class="motion"><path d="M-120 305q120-100 240 0t240 0 240 0 240 0 240 0 240 0v175H-120Z" fill="#8fb8a3" opacity=".35"/><path d="M-120 360q120-95 240 0t240 0 240 0 240 0 240 0 240 0" fill="none" stroke="#365c54" stroke-width="12" opacity=".5"/></g>
+</svg>

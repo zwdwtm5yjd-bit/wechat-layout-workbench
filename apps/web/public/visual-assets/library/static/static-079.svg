@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" role="img" aria-label="原创视觉素材 079">
+  <defs>
+    <linearGradient id="g7" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#242424"/><stop offset="1" stop-color="#ef7049"/></linearGradient>
+    <linearGradient id="fade7" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#242424" stop-opacity="0"/><stop offset=".5" stop-color="#242424" stop-opacity=".65"/><stop offset="1" stop-color="#242424" stop-opacity="0"/></linearGradient>
+    <pattern id="dots7" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2" fill="#ef7049" opacity=".16"/></pattern>
+    <filter id="soft7"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <rect width="1200" height="480" fill="#faf9f6"/>
+  <rect x="48" y="45" width="520" height="24" fill="#ef7049"/><rect x="635" y="45" width="310" height="8" fill="#b9b9b9"/><rect x="975" y="45" width="177" height="8" fill="#ef7049" opacity=".28"/><circle cx="1035" cy="330" r="105" fill="#b9b9b9" opacity=".17"/><path d="M0 410h1200" stroke="#ef7049" stroke-width="2"/><path d="M560 0v480" stroke="#ef7049" stroke-width="1" opacity=".12"/>
+  <g transform="rotate(-4 345 240)"><rect x="170" y="105" width="350" height="270" rx="16" fill="#ffffff" stroke="#ef7049" stroke-width="5"/><rect x="195" y="130" width="300" height="200" rx="8" fill="#242424" opacity=".27"/></g><g transform="rotate(4 855 240)"><rect x="680" y="105" width="350" height="270" rx="16" fill="#ffffff" stroke="#ef7049" stroke-width="5"/><rect x="705" y="130" width="300" height="200" rx="8" fill="#b9b9b9" opacity=".25"/></g>
+</svg>

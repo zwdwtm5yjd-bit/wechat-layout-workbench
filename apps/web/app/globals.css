@@ -391,6 +391,38 @@ a {
   font-size: 12px;
 }
 
+.editor-visual-asset-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+}
+
+.editor-image-block:has(.editor-visual-asset-image:not([hidden])),
+.editor-svg-interaction:has(.editor-visual-asset-image:not([hidden])) {
+  display: block;
+  min-height: 0;
+  overflow: hidden;
+  border-style: solid;
+  border-color: rgb(24 24 27 / 10%);
+  background: #fff;
+}
+
+.editor-visual-asset-caption {
+  padding: 8px 12px 2px;
+  color: var(--ui-text-primary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.editor-visual-asset-status {
+  display: block;
+  padding: 2px 12px 9px;
+  color: var(--ui-text-secondary);
+  font-size: 9px;
+}
+
 .editor-block-handle {
   position: absolute;
   z-index: 4;

@@ -13,6 +13,7 @@ import {
   getEditorTextLength,
   insertBlockAfterSelection,
   insertRegisteredComponentAfterSelection,
+  insertVisualAssetAfterSelection,
   listTopLevelBlocks,
   moveBlock,
   moveBlockToIndex,
@@ -26,7 +27,12 @@ import {
   type EditorSelectionSnapshot,
   type InsertableBlockType,
 } from "@wechat-layout/editor-core";
-import { createOfficialComponentRegistry } from "@wechat-layout/component-registry";
+import {
+  OFFICIAL_VISUAL_ASSETS,
+  VISUAL_ASSET_FUNCTION_LABELS,
+  createOfficialComponentRegistry,
+  type VisualAssetMotion,
+} from "@wechat-layout/component-registry";
 import {
   collectDocumentEntries,
   createTextChangeReport,
@@ -64,6 +70,7 @@ import {
   Redo2,
   RotateCcw,
   Search,
+  Sparkles,
   Strikethrough,
   Trash2,
   Underline,
@@ -393,11 +400,16 @@ export function ArticleEditor({
   const [lockNotice, setLockNotice] = useState<string | null>(null);
   const [lockMutationPending, setLockMutationPending] = useState(false);
   const [unlockCandidate, setUnlockCandidate] = useState<string | null>(null);
-  const [leftPanel, setLeftPanel] = useState<"components" | "structure" | "themes">("structure");
+  const [leftPanel, setLeftPanel] = useState<"assets" | "components" | "structure" | "themes">(
+    "structure",
+  );
   const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
   const [themeQuery, setThemeQuery] = useState("");
   const [componentQuery, setComponentQuery] = useState("");
   const [componentCategory, setComponentCategory] = useState<string>("全部");
+  const [assetMotion, setAssetMotion] = useState<VisualAssetMotion>("static");
+  const [assetQuery, setAssetQuery] = useState("");
+  const [assetFunction, setAssetFunction] = useState("all");
   const visualTheme = themes.find(
     (theme) => theme.manifest.themeId === (previewThemeId ?? currentThemeId),
   );
@@ -424,6 +436,18 @@ export function ArticleEditor({
       );
     });
   }, [componentCategory, componentQuery]);
+  const visibleEditorAssets = useMemo(() => {
+    const normalized = assetQuery.trim().toLocaleLowerCase("zh-CN");
+    return OFFICIAL_VISUAL_ASSETS.filter((asset) => {
+      const searchText =
+        `${asset.name} ${asset.description} ${asset.tags.join(" ")}`.toLocaleLowerCase("zh-CN");
+      return (
+        asset.motion === assetMotion &&
+        (assetFunction === "all" || asset.function === assetFunction) &&
+        (normalized === "" || searchText.includes(normalized))
+      );
+    });
+  }, [assetFunction, assetMotion, assetQuery]);
   const canvasShellRef = useRef<HTMLDivElement>(null);
   const extensions = useMemo(
     () =>
@@ -699,12 +723,13 @@ export function ArticleEditor({
       )}
       <div className="grid min-h-[680px] xl:grid-cols-[250px_minmax(0,1fr)_280px]">
         <aside className="border-b border-line bg-panel-muted xl:border-r xl:border-b-0">
-          <div className="grid grid-cols-3 gap-1 border-b border-line p-2">
+          <div className="grid grid-cols-4 gap-1 border-b border-line p-2">
             {(
               [
                 ["structure", ListTree, "结构"],
                 ["themes", Palette, "主题"],
                 ["components", Blocks, "组件"],
+                ["assets", Sparkles, "素材"],
               ] as const
             ).map(([value, Icon, label]) => (
               <button
@@ -881,7 +906,7 @@ export function ArticleEditor({
                 );
               })}
             </div>
-          ) : (
+          ) : leftPanel === "components" ? (
             <div className="space-y-2 p-3">
               <p className="px-1 text-[10px] leading-5 text-muted">
                 点击后按正式 Manifest 插入；组件版本会随文章保存并用于微信安全渲染。
@@ -964,6 +989,102 @@ export function ArticleEditor({
                   </span>
                 </button>
               ))}
+            </div>
+          ) : (
+            <div className="space-y-2 p-3">
+              <div className="rounded-control border border-violet-200 bg-violet-50 p-2.5">
+                <p className="text-[9px] leading-4 text-violet-800">
+                  静态素材直接用于微信；动态素材在编辑器内播放，复制时自动换成静态备用图。
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-1 rounded-md bg-panel p-1">
+                {(["static", "dynamic"] as const).map((motion) => (
+                  <button
+                    className={`h-7 rounded text-[9px] font-medium ${
+                      assetMotion === motion
+                        ? "bg-accent-soft text-accent-strong"
+                        : "text-muted hover:bg-hover"
+                    }`}
+                    key={motion}
+                    onClick={() => {
+                      setAssetMotion(motion);
+                      setAssetFunction("all");
+                    }}
+                    type="button"
+                  >
+                    {motion === "static" ? "静态 · 100" : "动态 · 50"}
+                  </button>
+                ))}
+              </div>
+              <label className="relative block">
+                <span className="sr-only">搜索视觉素材</span>
+                <Search
+                  aria-hidden="true"
+                  className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint"
+                  size={12}
+                />
+                <input
+                  className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
+                  onChange={(event) => setAssetQuery(event.target.value)}
+                  placeholder="搜索水墨、节气、党政、教育…"
+                  value={assetQuery}
+                />
+              </label>
+              <select
+                aria-label="按素材用途筛选"
+                className="h-8 w-full rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
+                onChange={(event) => setAssetFunction(event.target.value)}
+                value={assetFunction}
+              >
+                <option value="all">全部用途</option>
+                {Object.entries(VISUAL_ASSET_FUNCTION_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <p className="px-1 text-[9px] text-faint">
+                当前 {visibleEditorAssets.length} 个可插入素材
+              </p>
+              <div className="max-h-[510px] space-y-2 overflow-y-auto pr-0.5">
+                {visibleEditorAssets.map((asset) => (
+                  <button
+                    className="w-full overflow-hidden rounded-control border border-line bg-panel text-left transition hover:border-line-strong hover:bg-hover disabled:opacity-45"
+                    disabled={!editable}
+                    key={asset.id}
+                    onClick={() => {
+                      if (!insertVisualAssetAfterSelection(editor, asset)) {
+                        onError("当前动态素材缺少静态备用图，暂时无法插入。");
+                      }
+                    }}
+                    type="button"
+                  >
+                    <span className="relative block aspect-[5/2] overflow-hidden bg-white">
+                      <img
+                        alt=""
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        src={asset.previewPath}
+                      />
+                      <span
+                        className={`absolute top-1.5 left-1.5 rounded-full px-1.5 py-0.5 text-[7px] font-semibold text-white ${
+                          asset.motion === "dynamic" ? "bg-violet-600/85" : "bg-zinc-900/70"
+                        }`}
+                      >
+                        {asset.motion === "dynamic" ? "动态 SVG" : "静态 SVG"}
+                      </span>
+                    </span>
+                    <span className="block px-2.5 py-2">
+                      <span className="block truncate text-[9px] font-semibold text-ink">
+                        {asset.name}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[8px] text-faint">
+                        {VISUAL_ASSET_FUNCTION_LABELS[asset.function]} · {asset.scenes.join(" / ")}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </aside>

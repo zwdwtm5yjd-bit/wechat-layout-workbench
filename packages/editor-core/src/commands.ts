@@ -3,6 +3,7 @@ import {
   type ComponentInsertionResult,
   type ComponentRegistry,
   type ComponentSlotValue,
+  type OfficialVisualAsset,
 } from "@wechat-layout/component-registry";
 import { closeHistory } from "@tiptap/pm/history";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
@@ -37,6 +38,11 @@ export interface InsertRegisteredComponentInput {
   readonly variantId?: string;
   readonly version?: string;
 }
+
+export type InsertVisualAssetInput = Pick<
+  OfficialVisualAsset,
+  "effect" | "fallbackResourceId" | "id" | "motion" | "name" | "resourceId"
+>;
 
 export function canUndo(editor: Editor): boolean {
   return editor.can().undo();
@@ -362,6 +368,59 @@ export function insertRegisteredComponentAfterSelection(
   editor.view.dispatch(transaction.scrollIntoView());
   editor.commands.focus();
   return result;
+}
+
+export function insertVisualAssetAfterSelection(
+  editor: Editor,
+  asset: InsertVisualAssetInput,
+): boolean {
+  if (asset.motion === "dynamic" && asset.fallbackResourceId === undefined) {
+    return false;
+  }
+  const block: JSONContent =
+    asset.motion === "static"
+      ? {
+          type: "imageBlock",
+          attrs: {
+            alt: asset.name,
+            blockId: createBlockId(),
+            compatibilityLevel: "safe",
+            locked: false,
+            objectFit: "contain",
+            resourceId: asset.resourceId,
+            widthMode: "full",
+          },
+        }
+      : {
+          type: "svgInteraction",
+          attrs: {
+            blockId: createBlockId(),
+            compatibilityLevel: "static",
+            configuration: { effect: asset.effect ?? "float", motion: "editor-preview" },
+            fallbackResourceId: asset.fallbackResourceId,
+            interactionId: `interaction_${createBlockId().slice(6)}`,
+            interactionType: asset.effect ?? "float",
+            locked: false,
+            resourceIds: [asset.resourceId],
+            templateId: asset.id,
+            templateVersion: "1.0.0",
+          },
+        };
+  const entries = topLevelBlockEntries(editor);
+  const selection = getEditorSelection(editor);
+  const selectedEntry =
+    selection === null ? entries.at(-1) : entries.find((entry) => entry.index === selection.index);
+  const insertionPos =
+    selectedEntry === undefined ? 0 : selectedEntry.pos + selectedEntry.node.nodeSize;
+  const node = editor.schema.nodeFromJSON(block);
+  const transaction = editor.state.tr
+    .insert(insertionPos, node)
+    .setMeta("transactionOrigin", EDITOR_TRANSACTION_ORIGIN.insert);
+  closeHistory(transaction);
+  transaction.setSelection(nodeSelectionAt(transaction, insertionPos));
+  editor.view.dispatch(transaction.scrollIntoView());
+  editor.commands.focus();
+  return true;
 }
 
 export function duplicateBlock(editor: Editor, blockId?: string): boolean {
