@@ -30,7 +30,9 @@ import {
 import {
   OFFICIAL_VISUAL_ASSETS,
   VISUAL_ASSET_FUNCTION_LABELS,
+  VISUAL_ASSET_STYLE_LABELS,
   createOfficialComponentRegistry,
+  type VisualAssetStyle,
   type VisualAssetMotion,
 } from "@wechat-layout/component-registry";
 import {
@@ -96,7 +98,19 @@ import {
 
 import { themePreviewKey, type OfficialTheme } from "../lib/themes/client";
 import { summarizeThemeCategories } from "../lib/themes/taxonomy";
-import { COMPONENT_CATALOG_GROUPS, V0_COMPONENT_PREVIEWS } from "../lib/v0-catalog";
+import {
+  EDITOR_COMPONENT_SCENES,
+  EDITOR_COMPONENT_SECTIONS,
+  EDITOR_COMPONENT_SECTION_DETAILS,
+  V0_COMPONENT_PREVIEWS,
+  componentMatchesEditorScene,
+  editorComponentSection,
+  isPopularEditorComponent,
+  type ComponentCatalogGroup,
+  type ComponentPreview,
+  type EditorComponentScene,
+  type EditorComponentSection,
+} from "../lib/v0-catalog";
 import {
   createResourceAccessUrl,
   listResources,
@@ -108,6 +122,107 @@ const officialComponentRegistry = createOfficialComponentRegistry();
 
 function resourceLabel(resource: Resource): string {
   return resource.displayName ?? resource.originalFilename ?? "未命名素材";
+}
+
+const EDITOR_ASSET_FUNCTIONS = [
+  { id: "all", label: "全部" },
+  { id: "background", label: "背景" },
+  { id: "hero", label: "主视觉" },
+  { id: "heading", label: "标题" },
+  { id: "divider", label: "分隔" },
+  { id: "frame", label: "边框" },
+  { id: "corner", label: "边角" },
+  { id: "badge", label: "标签" },
+  { id: "ribbon", label: "横幅" },
+  { id: "gallery", label: "图集" },
+  { id: "sticker", label: "贴纸" },
+] as const;
+
+function EditorComponentThumbnail({ component }: { readonly component: ComponentPreview }) {
+  const { layoutKey, sample } = component.asset.preview;
+  if (layoutKey === "visual" && sample.assetPath !== undefined) {
+    return (
+      <span className="relative block h-20 overflow-hidden bg-[#fbf8f1]" aria-hidden="true">
+        <img alt="" className="h-full w-full object-cover" loading="lazy" src={sample.assetPath} />
+        <span className="absolute right-1.5 bottom-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[7px] font-semibold text-white uppercase">
+          {sample.assetKind}
+        </span>
+      </span>
+    );
+  }
+
+  if (layoutKey === "heading") {
+    return (
+      <span className="flex h-20 items-center bg-[#fbfaf8] px-3" aria-hidden="true">
+        <span className="w-full border-l-[3px] border-indigo-500 py-1 pl-2 text-[10px] font-semibold leading-4 text-zinc-800">
+          {sample.title ?? "清晰的小节标题"}
+        </span>
+      </span>
+    );
+  }
+
+  if (layoutKey === "quote" || layoutKey === "notice") {
+    return (
+      <span className="flex h-20 items-center bg-[#fbfaf8] p-2.5" aria-hidden="true">
+        <span
+          className={`line-clamp-3 w-full rounded px-2.5 py-2 text-[8px] leading-3.5 ${
+            layoutKey === "quote"
+              ? "border-l-[3px] border-amber-400 bg-amber-50 text-amber-950"
+              : "border border-indigo-100 bg-indigo-50 text-indigo-950"
+          }`}
+        >
+          {sample.body ?? sample.title ?? "这里放置需要强调的重点信息"}
+        </span>
+      </span>
+    );
+  }
+
+  if (layoutKey === "data") {
+    return (
+      <span
+        className="flex h-20 items-center justify-center bg-gradient-to-br from-indigo-50 to-white"
+        aria-hidden="true"
+      >
+        <span className="text-center">
+          <span className="block text-lg font-bold tracking-tight text-indigo-600">
+            {sample.value ?? "96"}
+            <span className="text-[8px]">{sample.unit}</span>
+          </span>
+          <span className="mt-0.5 block text-[7px] text-zinc-500">
+            {sample.title ?? "核心数据"}
+          </span>
+        </span>
+      </span>
+    );
+  }
+
+  if (layoutKey === "image") {
+    return (
+      <span className="flex h-20 items-center justify-center bg-[#f4f1eb] p-2.5" aria-hidden="true">
+        <span className="h-full w-20 rounded border-[3px] border-white bg-gradient-to-br from-sky-200 via-emerald-100 to-amber-200 shadow-sm" />
+      </span>
+    );
+  }
+
+  if (layoutKey === "divider") {
+    return (
+      <span className="flex h-20 items-center gap-2 bg-[#fbfaf8] px-4" aria-hidden="true">
+        <span className="h-px flex-1 bg-zinc-300" />
+        <span className="text-[9px] text-indigo-500">◆</span>
+        <span className="h-px flex-1 bg-zinc-300" />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="flex h-20 flex-col items-center justify-center bg-[#fbfaf8] text-zinc-500"
+      aria-hidden="true"
+    >
+      <Blocks size={16} />
+      <span className="mt-1 text-[8px]">完整组件</span>
+    </span>
+  );
 }
 
 interface ArticleEditorProps {
@@ -420,11 +535,15 @@ export function ArticleEditor({
   const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
   const [themeQuery, setThemeQuery] = useState("");
   const [componentQuery, setComponentQuery] = useState("");
-  const [componentCategory, setComponentCategory] = useState<string>("全部");
+  const [componentSection, setComponentSection] = useState<EditorComponentSection>("popular");
+  const [componentDetail, setComponentDetail] = useState<ComponentCatalogGroup | "all">("all");
+  const [componentScene, setComponentScene] = useState<EditorComponentScene>("all");
   const [assetMotion, setAssetMotion] = useState<VisualAssetMotion>("static");
   const [assetSource, setAssetSource] = useState<"official" | "personal">("official");
   const [assetQuery, setAssetQuery] = useState("");
   const [assetFunction, setAssetFunction] = useState("all");
+  const [assetStyle, setAssetStyle] = useState<VisualAssetStyle | "all">("all");
+  const [personalFolder, setPersonalFolder] = useState("all");
   const queryClient = useQueryClient();
   const privateResourcesQuery = useQuery({
     queryKey: ["editor-private-resources"],
@@ -485,11 +604,32 @@ export function ArticleEditor({
           "zh-CN",
         );
       return (
-        (componentCategory === "全部" || component.category === componentCategory) &&
+        (componentSection === "popular"
+          ? isPopularEditorComponent(component)
+          : editorComponentSection(component) === componentSection) &&
+        (componentDetail === "all" || component.category === componentDetail) &&
+        componentMatchesEditorScene(component, componentScene) &&
         (normalized === "" || searchText.includes(normalized))
       );
     });
-  }, [componentCategory, componentQuery]);
+  }, [componentDetail, componentQuery, componentScene, componentSection]);
+  const componentSectionCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        EDITOR_COMPONENT_SECTIONS.map((section) => [
+          section.id,
+          V0_COMPONENT_PREVIEWS.filter((component) =>
+            section.id === "popular"
+              ? isPopularEditorComponent(component)
+              : editorComponentSection(component) === section.id,
+          ).length,
+        ]),
+      ) as Readonly<Record<EditorComponentSection, number>>,
+    [],
+  );
+  const componentDetails = EDITOR_COMPONENT_SECTION_DETAILS[componentSection] ?? [];
+  const activeComponentSectionLabel =
+    EDITOR_COMPONENT_SECTIONS.find((section) => section.id === componentSection)?.label ?? "组件";
   const visibleEditorAssets = useMemo(() => {
     const normalized = assetQuery.trim().toLocaleLowerCase("zh-CN");
     return OFFICIAL_VISUAL_ASSETS.filter((asset) => {
@@ -498,20 +638,34 @@ export function ArticleEditor({
       return (
         asset.motion === assetMotion &&
         (assetFunction === "all" || asset.function === assetFunction) &&
+        (assetStyle === "all" || asset.style === assetStyle) &&
         (normalized === "" || searchText.includes(normalized))
       );
     });
-  }, [assetFunction, assetMotion, assetQuery]);
+  }, [assetFunction, assetMotion, assetQuery, assetStyle]);
+  const personalFolders = useMemo(
+    () =>
+      [...new Set(privateResources.map((resource) => resource.folder).filter(Boolean))].sort(
+        (left, right) => left!.localeCompare(right!, "zh-CN"),
+      ) as readonly string[],
+    [privateResources],
+  );
   const visiblePrivateResources = useMemo(() => {
     const normalized = assetQuery.trim().toLocaleLowerCase("zh-CN");
-    return privateResources.filter((resource) =>
-      normalized === ""
-        ? true
-        : `${resource.displayName ?? ""} ${resource.originalFilename ?? ""} ${resource.folder ?? ""} ${resource.tags.join(" ")}`
-            .toLocaleLowerCase("zh-CN")
-            .includes(normalized),
-    );
-  }, [assetQuery, privateResources]);
+    return privateResources.filter((resource) => {
+      const matchesFolder =
+        personalFolder === "all" ||
+        (personalFolder === "ungrouped"
+          ? resource.folder === null || resource.folder === undefined || resource.folder === ""
+          : resource.folder === personalFolder);
+      const matchesQuery =
+        normalized === "" ||
+        `${resource.displayName ?? ""} ${resource.originalFilename ?? ""} ${resource.folder ?? ""} ${resource.tags.join(" ")}`
+          .toLocaleLowerCase("zh-CN")
+          .includes(normalized);
+      return matchesFolder && matchesQuery;
+    });
+  }, [assetQuery, personalFolder, privateResources]);
   const canvasShellRef = useRef<HTMLDivElement>(null);
   const extensions = useMemo(
     () =>
@@ -801,7 +955,7 @@ export function ArticleEditor({
           </button>
         </div>
       )}
-      <div className="grid min-h-[680px] xl:grid-cols-[250px_minmax(0,1fr)_280px]">
+      <div className="grid min-h-[680px] xl:grid-cols-[320px_minmax(0,1fr)_300px]">
         <aside className="border-b border-line bg-panel-muted xl:border-r xl:border-b-0">
           <div className="grid grid-cols-4 gap-1 border-b border-line p-2">
             {(
@@ -987,10 +1141,72 @@ export function ArticleEditor({
               })}
             </div>
           ) : leftPanel === "components" ? (
-            <div className="space-y-2 p-3">
-              <p className="px-1 text-[10px] leading-5 text-muted">
-                点击后按正式 Manifest 插入；组件版本会随文章保存并用于微信安全渲染。
-              </p>
+            <div className="space-y-3 p-3">
+              <div className="px-1">
+                <p className="text-[11px] font-semibold text-ink">插入排版组件</p>
+                <p className="mt-1 text-[9px] leading-4 text-muted">
+                  先选类型，再按场景缩小范围；点击预览即可插入当前段落之后。
+                </p>
+              </div>
+              <nav aria-label="组件类型" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+                {EDITOR_COMPONENT_SECTIONS.map((section) => (
+                  <button
+                    aria-pressed={componentSection === section.id}
+                    className={`shrink-0 rounded-md px-2.5 py-2 text-[10px] font-medium transition ${
+                      componentSection === section.id
+                        ? "bg-accent text-white shadow-subtle"
+                        : "bg-panel text-muted hover:bg-hover hover:text-ink"
+                    }`}
+                    key={section.id}
+                    onClick={() => {
+                      setComponentSection(section.id);
+                      setComponentDetail("all");
+                    }}
+                    type="button"
+                  >
+                    {section.label}
+                    <span
+                      className={`ml-1 text-[8px] ${componentSection === section.id ? "text-white/70" : "text-faint"}`}
+                    >
+                      {componentSectionCounts[section.id]}
+                    </span>
+                  </button>
+                ))}
+              </nav>
+              {componentDetails.length === 0 ? null : (
+                <div
+                  className="flex flex-wrap gap-1"
+                  aria-label={`${activeComponentSectionLabel}子分类`}
+                >
+                  <button
+                    aria-pressed={componentDetail === "all"}
+                    className={`rounded-md px-2 py-1 text-[9px] ${
+                      componentDetail === "all"
+                        ? "bg-accent-soft font-medium text-accent-strong"
+                        : "text-muted hover:bg-hover"
+                    }`}
+                    onClick={() => setComponentDetail("all")}
+                    type="button"
+                  >
+                    全部
+                  </button>
+                  {componentDetails.map((detail) => (
+                    <button
+                      aria-pressed={componentDetail === detail}
+                      className={`rounded-md px-2 py-1 text-[9px] ${
+                        componentDetail === detail
+                          ? "bg-accent-soft font-medium text-accent-strong"
+                          : "text-muted hover:bg-hover"
+                      }`}
+                      key={detail}
+                      onClick={() => setComponentDetail(detail)}
+                      type="button"
+                    >
+                      {detail === "提示" ? "提示卡" : detail}
+                    </button>
+                  ))}
+                </div>
+              )}
               <label className="relative block">
                 <span className="sr-only">搜索组件</span>
                 <Search
@@ -1001,74 +1217,81 @@ export function ArticleEditor({
                 <input
                   className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
                   onChange={(event) => setComponentQuery(event.target.value)}
-                  placeholder="搜索山水、SVG、图集或场景"
+                  placeholder={`在“${activeComponentSectionLabel}”中搜索`}
                   value={componentQuery}
                 />
               </label>
-              <div className="flex gap-1 overflow-x-auto pb-1">
-                {["全部", ...COMPONENT_CATALOG_GROUPS].map((item) => (
+              <div className="flex items-center gap-2">
+                <select
+                  aria-label="按使用场景筛选组件"
+                  className="h-8 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
+                  onChange={(event) =>
+                    setComponentScene(event.target.value as EditorComponentScene)
+                  }
+                  value={componentScene}
+                >
+                  {EDITOR_COMPONENT_SCENES.map((scene) => (
+                    <option key={scene.id} value={scene.id}>
+                      {scene.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="shrink-0 text-[9px] tabular-nums text-faint">
+                  {visibleEditorComponents.length} 个结果
+                </span>
+              </div>
+              {visibleEditorComponents.length === 0 ? (
+                <div className="rounded-control border border-dashed border-line p-5 text-center">
+                  <Blocks aria-hidden="true" className="mx-auto text-faint" size={18} />
+                  <p className="mt-2 text-[10px] font-medium text-ink">这个分类没有匹配项</p>
                   <button
-                    className={`shrink-0 rounded-md px-2 py-1 text-[9px] ${componentCategory === item ? "bg-accent-soft font-medium text-accent-strong" : "text-muted hover:bg-hover"}`}
-                    key={item}
-                    onClick={() => setComponentCategory(item)}
+                    className="mt-2 text-[9px] font-medium text-accent"
+                    onClick={() => {
+                      setComponentQuery("");
+                      setComponentScene("all");
+                      setComponentDetail("all");
+                    }}
                     type="button"
                   >
-                    {item}
+                    清除筛选
                   </button>
-                ))}
-              </div>
-              <p className="px-1 text-[9px] text-faint">
-                当前 {visibleEditorComponents.length} 个可插入组件
-              </p>
-              {visibleEditorComponents.map((component) => (
-                <button
-                  className="flex w-full items-center gap-3 rounded-control border border-line bg-panel p-3 text-left transition hover:border-line-strong hover:bg-hover disabled:opacity-45"
-                  disabled={!editable}
-                  key={component.id}
-                  onClick={() => {
-                    const result = insertRegisteredComponentAfterSelection(
-                      editor,
-                      officialComponentRegistry,
-                      {
-                        componentId: component.id,
-                        slots: component.asset.defaultSlots,
-                        version: component.version,
-                      },
-                    );
-                    if (!result.success) {
-                      onError(result.issues.map((issue) => issue.message).join("；"));
-                    }
-                  }}
-                  type="button"
-                >
-                  {component.layoutKey === "visual" &&
-                  component.asset.preview.sample.assetPath !== undefined ? (
-                    <span
-                      aria-hidden="true"
-                      className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md border border-line bg-white bg-cover bg-center"
-                      style={{
-                        backgroundImage: `url(${component.asset.preview.sample.assetPath})`,
+                </div>
+              ) : (
+                <div className="grid max-h-[510px] grid-cols-2 gap-2 overflow-y-auto pr-0.5">
+                  {visibleEditorComponents.map((component) => (
+                    <button
+                      className="min-w-0 overflow-hidden rounded-control border border-line bg-panel text-left transition hover:-translate-y-0.5 hover:border-accent/45 hover:shadow-subtle active:translate-y-0 disabled:opacity-45"
+                      disabled={!editable}
+                      key={component.id}
+                      onClick={() => {
+                        const result = insertRegisteredComponentAfterSelection(
+                          editor,
+                          officialComponentRegistry,
+                          {
+                            componentId: component.id,
+                            slots: component.asset.defaultSlots,
+                            version: component.version,
+                          },
+                        );
+                        if (!result.success) {
+                          onError(result.issues.map((issue) => issue.message).join("；"));
+                        }
                       }}
+                      type="button"
                     >
-                      <span className="absolute right-1 bottom-1 rounded bg-black/60 px-1 py-0.5 text-[7px] font-bold tracking-wide text-white uppercase">
-                        {component.asset.preview.sample.assetKind}
+                      <EditorComponentThumbnail component={component} />
+                      <span className="block border-t border-line px-2 py-2">
+                        <span className="block truncate text-[9px] font-semibold text-ink">
+                          {component.name}
+                        </span>
+                        <span className="mt-0.5 block truncate text-[8px] text-faint">
+                          {component.category}
+                        </span>
                       </span>
-                    </span>
-                  ) : (
-                    <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent-soft text-accent">
-                      <Blocks aria-hidden="true" size={13} />
-                    </span>
-                  )}
-                  <span className="min-w-0">
-                    <span className="block truncate text-[10px] font-semibold text-ink">
-                      {component.name}
-                    </span>
-                    <span className="mt-0.5 block truncate text-[9px] text-faint">
-                      {component.category} · {component.asset.manifest.nodeType}
-                    </span>
-                  </span>
-                </button>
-              ))}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-2 p-3">
@@ -1081,10 +1304,13 @@ export function ArticleEditor({
                         : "text-muted hover:bg-hover"
                     }`}
                     key={source}
-                    onClick={() => setAssetSource(source)}
+                    onClick={() => {
+                      setAssetSource(source);
+                      setAssetQuery("");
+                    }}
                     type="button"
                   >
-                    {source === "official" ? "推荐素材" : `我的素材 · ${privateResources.length}`}
+                    {source === "official" ? "官方素材" : `我的素材 · ${privateResources.length}`}
                   </button>
                 ))}
               </div>
@@ -1108,11 +1334,6 @@ export function ArticleEditor({
               </label>
               {assetSource === "official" ? (
                 <>
-                  <div className="rounded-control border border-violet-200 bg-violet-50 p-2.5">
-                    <p className="text-[9px] leading-4 text-violet-800">
-                      推荐素材按用途选择；静态可直接用于微信，动态复制时自动使用静态备用图。
-                    </p>
-                  </div>
                   <div className="grid grid-cols-2 gap-1 rounded-md bg-panel p-1">
                     {(["static", "dynamic"] as const).map((motion) => (
                       <button
@@ -1125,72 +1346,155 @@ export function ArticleEditor({
                         onClick={() => {
                           setAssetMotion(motion);
                           setAssetFunction("all");
+                          setAssetStyle("all");
                         }}
                         type="button"
                       >
-                        {motion === "static" ? "静态 · 100" : "动态 · 50"}
+                        {motion === "static" ? "静态素材 · 100" : "动态素材 · 50"}
                       </button>
                     ))}
                   </div>
-                  <select
-                    aria-label="按素材用途筛选"
-                    className="h-8 w-full rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
-                    onChange={(event) => setAssetFunction(event.target.value)}
-                    value={assetFunction}
-                  >
-                    <option value="all">全部用途</option>
-                    {Object.entries(VISUAL_ASSET_FUNCTION_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="px-1 text-[9px] text-faint">
-                    当前 {visibleEditorAssets.length} 个可插入素材
-                  </p>
-                  <div className="max-h-[510px] space-y-2 overflow-y-auto pr-0.5">
-                    {visibleEditorAssets.map((asset) => (
+                  <div>
+                    <p className="mb-1.5 px-1 text-[9px] font-medium text-faint">素材类型</p>
+                    <div className="grid grid-cols-4 gap-1">
+                      {EDITOR_ASSET_FUNCTIONS.map((item) => (
+                        <button
+                          aria-pressed={assetFunction === item.id}
+                          className={`h-7 rounded-md text-[9px] transition ${
+                            assetFunction === item.id
+                              ? "bg-accent-soft font-medium text-accent-strong"
+                              : "bg-panel text-muted hover:bg-hover hover:text-ink"
+                          }`}
+                          key={item.id}
+                          onClick={() => setAssetFunction(item.id)}
+                          type="button"
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      aria-label="按视觉风格筛选素材"
+                      className="h-8 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
+                      onChange={(event) =>
+                        setAssetStyle(event.target.value as VisualAssetStyle | "all")
+                      }
+                      value={assetStyle}
+                    >
+                      <option value="all">全部风格</option>
+                      {Object.entries(VISUAL_ASSET_STYLE_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="shrink-0 text-[9px] tabular-nums text-faint">
+                      {visibleEditorAssets.length} 个结果
+                    </span>
+                  </div>
+                  {visibleEditorAssets.length === 0 ? (
+                    <div className="rounded-control border border-dashed border-line p-5 text-center">
+                      <Sparkles aria-hidden="true" className="mx-auto text-faint" size={18} />
+                      <p className="mt-2 text-[10px] font-medium text-ink">这个分类没有匹配素材</p>
                       <button
-                        className="w-full overflow-hidden rounded-control border border-line bg-panel text-left transition hover:border-line-strong hover:bg-hover disabled:opacity-45"
-                        disabled={!editable}
-                        key={asset.id}
+                        className="mt-2 text-[9px] font-medium text-accent"
                         onClick={() => {
-                          if (!insertVisualAssetAfterSelection(editor, asset)) {
-                            onError("当前动态素材缺少静态备用图，暂时无法插入。");
-                          }
+                          setAssetQuery("");
+                          setAssetFunction("all");
+                          setAssetStyle("all");
                         }}
                         type="button"
                       >
-                        <span className="relative block aspect-[5/2] overflow-hidden bg-white">
-                          <img
-                            alt=""
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                            src={asset.previewPath}
-                          />
-                          <span
-                            className={`absolute top-1.5 left-1.5 rounded-full px-1.5 py-0.5 text-[7px] font-semibold text-white ${
-                              asset.motion === "dynamic" ? "bg-violet-600/85" : "bg-zinc-900/70"
-                            }`}
-                          >
-                            {asset.motion === "dynamic" ? "动态 SVG" : "静态 SVG"}
-                          </span>
-                        </span>
-                        <span className="block px-2.5 py-2">
-                          <span className="block truncate text-[9px] font-semibold text-ink">
-                            {asset.name}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[8px] text-faint">
-                            {VISUAL_ASSET_FUNCTION_LABELS[asset.function]} ·{" "}
-                            {asset.scenes.join(" / ")}
-                          </span>
-                        </span>
+                        清除筛选
                       </button>
-                    ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="grid max-h-[510px] grid-cols-2 gap-2 overflow-y-auto pr-0.5">
+                      {visibleEditorAssets.map((asset) => (
+                        <button
+                          className="min-w-0 overflow-hidden rounded-control border border-line bg-panel text-left transition hover:-translate-y-0.5 hover:border-accent/45 hover:shadow-subtle active:translate-y-0 disabled:opacity-45"
+                          disabled={!editable}
+                          key={asset.id}
+                          onClick={() => {
+                            if (!insertVisualAssetAfterSelection(editor, asset)) {
+                              onError("当前动态素材缺少静态备用图，暂时无法插入。");
+                            }
+                          }}
+                          type="button"
+                        >
+                          <span className="relative block aspect-[4/3] overflow-hidden bg-[#fbfaf8] p-1.5">
+                            <img
+                              alt=""
+                              className="h-full w-full object-contain"
+                              loading="lazy"
+                              src={asset.previewPath}
+                            />
+                            <span
+                              className={`absolute top-1.5 left-1.5 rounded-full px-1.5 py-0.5 text-[7px] font-semibold text-white ${
+                                asset.motion === "dynamic" ? "bg-violet-600/85" : "bg-zinc-900/70"
+                              }`}
+                            >
+                              {asset.motion === "dynamic" ? "动态" : "静态"}
+                            </span>
+                          </span>
+                          <span className="block border-t border-line px-2 py-2">
+                            <span className="block truncate text-[9px] font-semibold text-ink">
+                              {asset.name}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[8px] text-faint">
+                              {VISUAL_ASSET_FUNCTION_LABELS[asset.function]}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
+                  <div className="flex gap-1 overflow-x-auto pb-0.5" aria-label="我的素材文件夹">
+                    <button
+                      aria-pressed={personalFolder === "all"}
+                      className={`shrink-0 rounded-md px-2 py-1 text-[9px] ${
+                        personalFolder === "all"
+                          ? "bg-accent-soft font-medium text-accent-strong"
+                          : "text-muted hover:bg-hover"
+                      }`}
+                      onClick={() => setPersonalFolder("all")}
+                      type="button"
+                    >
+                      全部
+                    </button>
+                    <button
+                      aria-pressed={personalFolder === "ungrouped"}
+                      className={`shrink-0 rounded-md px-2 py-1 text-[9px] ${
+                        personalFolder === "ungrouped"
+                          ? "bg-accent-soft font-medium text-accent-strong"
+                          : "text-muted hover:bg-hover"
+                      }`}
+                      onClick={() => setPersonalFolder("ungrouped")}
+                      type="button"
+                    >
+                      未分组
+                    </button>
+                    {personalFolders.map((folder) => (
+                      <button
+                        aria-pressed={personalFolder === folder}
+                        className={`shrink-0 rounded-md px-2 py-1 text-[9px] ${
+                          personalFolder === folder
+                            ? "bg-accent-soft font-medium text-accent-strong"
+                            : "text-muted hover:bg-hover"
+                        }`}
+                        key={folder}
+                        onClick={() => setPersonalFolder(folder)}
+                        type="button"
+                      >
+                        {folder}
+                      </button>
+                    ))}
+                  </div>
                   <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-accent/35 bg-accent-soft text-[10px] font-semibold text-accent hover:border-accent disabled:opacity-45">
                     {uploadPrivateResource.isPending ? (
                       <LoaderCircle aria-hidden="true" className="animate-spin" size={12} />
