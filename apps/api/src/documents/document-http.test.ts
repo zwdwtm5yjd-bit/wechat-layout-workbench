@@ -19,6 +19,10 @@ import { ApiException } from "../common/http/api.exception.js";
 import { configureApplication } from "../configure-application.js";
 import { DOCUMENT_REPOSITORY } from "./document.constants.js";
 import { DocumentController } from "./document.controller.js";
+import {
+  collectDocumentResourceReferences,
+  type DocumentResourceReference,
+} from "./document-resource-references.js";
 import { DocumentService } from "./document.service.js";
 import type {
   ArticleDocumentRecord,
@@ -127,6 +131,7 @@ class InMemoryDocumentRepository implements ArticleDocumentRepository {
   };
 
   lastStatistics: DocumentStatistics | null = null;
+  invalidReferences: readonly DocumentResourceReference[] = [];
 
   findCurrent(ownerId: string, requestedArticleId: string) {
     return Promise.resolve(
@@ -152,6 +157,12 @@ class InMemoryDocumentRepository implements ArticleDocumentRepository {
         currentVersion: this.record.documentVersion,
         lastTransactionId: this.record.lastTransactionId,
         lastSavedAt: this.record.lastSavedAt,
+      });
+    }
+    if (this.invalidReferences.length > 0) {
+      return Promise.resolve({
+        kind: "invalid_resources",
+        invalidReferences: this.invalidReferences,
       });
     }
 
@@ -405,6 +416,49 @@ describe("document HTTP flow", () => {
       .set("x-test-user", "other")
       .expect(404);
     expect(hidden.body.error.code).toBe("ARTICLE_NOT_FOUND");
+  });
+
+  it("rejects unavailable or foreign resources without saving the document", async () => {
+    const document = structuredClone(repository.record.document);
+    const image = document.content.content.find((node) => node.type === "imageBlock");
+    if (image?.type !== "imageBlock") {
+      throw new Error("Document fixture image is missing");
+    }
+    image.attrs.resourceId = createUuidV7();
+    const invalidReference = collectDocumentResourceReferences(document).find(
+      ({ resourceId }) => resourceId === image.attrs.resourceId,
+    );
+    if (invalidReference === undefined) {
+      throw new Error("Updated image reference was not collected");
+    }
+    repository.invalidReferences = [invalidReference];
+    const before = structuredClone(repository.record);
+
+    const rejected = await supertest(application.getHttpServer())
+      .put(`/api/v1/articles/${articleId}/document`)
+      .set("x-csrf-token", "test-csrf-token")
+      .send({
+        baseVersion: repository.record.documentVersion,
+        schemaVersion: "1.0.0",
+        document,
+        lastTransactionId: createUuidV7(),
+        transactionOrigin: "editor.image",
+      })
+      .expect(400);
+    repository.invalidReferences = [];
+
+    expect(rejected.body.error).toMatchObject({
+      code: "VALIDATION_FAILED",
+      details: {
+        fields: [
+          {
+            path: `document${invalidReference.path}`,
+            message: "资源不存在、不可用或不属于当前用户",
+          },
+        ],
+      },
+    });
+    expect(repository.record).toEqual(before);
   });
 
   it("rejects locked text changes and accepts an explicit unlock before editing", async () => {

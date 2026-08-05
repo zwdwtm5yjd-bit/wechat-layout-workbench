@@ -1,0 +1,30 @@
+{
+  "name": "@wechat-layout/webpage-import",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --root . --passWithNoTests"
+  },
+  "dependencies": {
+    "@mozilla/readability": "0.6.0",
+    "jsdom": "29.1.1"
+  },
+  "devDependencies": {
+    "@types/jsdom": "28.0.3"
+  }
+}

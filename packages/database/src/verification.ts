@@ -4,6 +4,7 @@ const expectedTables = [
   "audit.audit_logs",
   "auth.user_sessions",
   "auth.users",
+  "brand.official_accounts",
   "content.article_documents",
   "content.article_resources",
   "content.article_snapshots",
@@ -51,6 +52,8 @@ const expectedIndexes = [
   "idx_resources_sha256",
   "idx_resources_parent",
   "idx_resources_status_purge",
+  "idx_official_accounts_owner_default",
+  "idx_official_accounts_owner_status",
   "idx_render_outputs_article_generated",
   "idx_render_outputs_expiry",
   "idx_render_outputs_snapshot",
@@ -65,8 +68,12 @@ const expectedIndexes = [
   "idx_users_status",
   "idx_users_last_login_at",
   "uq_article_documents_article",
+  "uq_article_resources_live_binding",
+  "uq_article_resources_snapshot_binding",
   "uq_article_snapshots_number",
   "uq_jobs_idempotency_key",
+  "uq_official_accounts_default_owner",
+  "uq_official_accounts_owner_slug",
   "uq_resources_owner_content",
   "uq_resources_storage_object",
   "uq_source_blocks_source_id",
@@ -92,6 +99,7 @@ const expectedForeignKeyDeleteActions = new Map<string, "CASCADE" | "RESTRICT">(
   ["copy_records_copied_by_users_id_fk", "RESTRICT"],
   ["copy_records_render_output_id_render_outputs_id_fk", "RESTRICT"],
   ["copy_records_snapshot_id_article_snapshots_id_fk", "RESTRICT"],
+  ["official_accounts_owner_user_id_users_id_fk", "RESTRICT"],
   ["audit_logs_actor_user_id_users_id_fk", "RESTRICT"],
   ["audit_logs_article_id_articles_id_fk", "RESTRICT"],
   ["job_events_job_id_jobs_id_fk", "CASCADE"],
@@ -145,7 +153,7 @@ export async function verifyDatabaseSchema(
     select table_schema || '.' || table_name as name
     from information_schema.tables
     where table_type = 'BASE TABLE'
-      and table_schema in ('auth', 'content', 'operations', 'audit')
+      and table_schema in ('auth', 'brand', 'content', 'operations', 'audit')
   `;
   const tableNames = new Set(tables.map((row) => row.name));
   const missingTables = difference(expectedTables, tableNames);
@@ -153,7 +161,7 @@ export async function verifyDatabaseSchema(
   const indexes = await connection.sql<NamedRow[]>`
     select indexname as name
     from pg_indexes
-    where schemaname in ('auth', 'content', 'operations', 'audit')
+    where schemaname in ('auth', 'brand', 'content', 'operations', 'audit')
   `;
   const indexNames = new Set(indexes.map((row) => row.name));
   const missingIndexes = difference(expectedIndexes, indexNames);
@@ -163,7 +171,7 @@ export async function verifyDatabaseSchema(
       constraint_name as name,
       delete_rule as "deleteAction"
     from information_schema.referential_constraints
-    where constraint_schema in ('auth', 'content', 'operations', 'audit')
+    where constraint_schema in ('auth', 'brand', 'content', 'operations', 'audit')
   `;
   const actualForeignKeys = new Map(
     foreignKeys.map((row) => [row.name, row.deleteAction] as const),
@@ -182,7 +190,7 @@ export async function verifyDatabaseSchema(
       column_default as "defaultValue"
     from information_schema.columns
     where column_name = 'id'
-      and table_schema in ('auth', 'content', 'operations', 'audit')
+      and table_schema in ('auth', 'brand', 'content', 'operations', 'audit')
   `;
   const invalidIdentifierColumns = identifierColumns
     .filter((column) => column.dataType !== "uuid" || column.defaultValue !== null)
@@ -211,7 +219,7 @@ export async function verifyDatabaseSchema(
     invalidIdentifierColumns.length > 0
       ? `主键不是无默认值 UUID：${invalidIdentifierColumns.join(", ")}`
       : undefined,
-    migrationCount < 1 ? "没有已应用的数据库迁移" : undefined,
+    migrationCount < 7 ? `数据库迁移数量不足：${migrationCount}/7` : undefined,
     snapshotImmutabilityTriggerCount !== 1
       ? `快照不可变触发器数量错误：${snapshotImmutabilityTriggerCount}/1`
       : undefined,

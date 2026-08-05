@@ -3,12 +3,26 @@
 import type { DocumentV1 } from "@wechat-layout/document-schema";
 import { documentV1Fixture } from "@wechat-layout/document-schema/fixtures";
 import { OFFICIAL_COMPONENT_ASSETS } from "@wechat-layout/component-registry";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  cleanup,
+  fireEvent,
+  render as testingRender,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OfficialTheme } from "../lib/themes/client";
 import { ArticleEditor } from "./article-editor";
+
+function render(ui: ReactElement) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return testingRender(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+}
 
 const modernCivicTheme = {
   manifest: {
@@ -154,6 +168,65 @@ describe("ArticleEditor", () => {
         emitted.content.content.find((block) => block.attrs.blockId === original.attrs.blockId),
       ).toEqual(original);
     });
+  });
+
+  it("organizes components by Xiumi-style type, subtype, and scene filters", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ArticleEditor
+        document={structuredClone(documentV1Fixture)}
+        editable
+        lockActionsEnabled
+        onChange={vi.fn()}
+        onError={vi.fn()}
+        onLockChange={vi.fn().mockResolvedValue(true)}
+        sourceBlocks={[]}
+        textLocked={false}
+      />,
+    );
+
+    await screen.findByRole("textbox", { name: "文章编辑画布" });
+    await user.click(screen.getByRole("tab", { name: "组件" }));
+
+    const typeNavigation = screen.getByRole("navigation", { name: "组件类型" });
+    expect(within(typeNavigation).getByRole("button", { name: /标题\s*12/u })).not.toBeNull();
+    expect(within(typeNavigation).getByRole("button", { name: /卡片\s*17/u })).not.toBeNull();
+    expect(within(typeNavigation).getByRole("button", { name: /图片\s*7/u })).not.toBeNull();
+    expect(within(typeNavigation).getByRole("button", { name: /布局\s*7/u })).not.toBeNull();
+    expect(within(typeNavigation).getByRole("button", { name: /SVG\s*3/u })).not.toBeNull();
+
+    await user.click(within(typeNavigation).getByRole("button", { name: /卡片\s*17/u }));
+    expect(screen.getByLabelText("卡片子分类")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "提示卡" })).not.toBeNull();
+    expect(screen.getByRole("combobox", { name: "按使用场景筛选组件" })).not.toBeNull();
+  });
+
+  it("shows static and dynamic materials with visible type and style filters", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ArticleEditor
+        document={structuredClone(documentV1Fixture)}
+        editable
+        lockActionsEnabled
+        onChange={vi.fn()}
+        onError={vi.fn()}
+        onLockChange={vi.fn().mockResolvedValue(true)}
+        sourceBlocks={[]}
+        textLocked={false}
+      />,
+    );
+
+    await screen.findByRole("textbox", { name: "文章编辑画布" });
+    await user.click(screen.getByRole("tab", { name: "素材" }));
+
+    expect(screen.getByRole("button", { name: "静态素材 · 100" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "动态素材 · 50" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "主视觉" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "边框" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "图集" })).not.toBeNull();
+    expect(screen.getByRole("combobox", { name: "按视觉风格筛选素材" })).not.toBeNull();
   });
 
   it("supports the duplicate-block shortcut and restores the emitted JSON after remount", async () => {

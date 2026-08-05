@@ -1,0 +1,255 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [{ "expr": "up{job=\"api\"}", "refId": "A" }],
+      "title": "API 可用",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [{ "expr": "wechat_layout_worker_up", "refId": "A" }],
+      "title": "Worker 心跳",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(wechat_layout_http_requests_total{status_code=~\"5..\"}[5m])) / clamp_min(sum(rate(wechat_layout_http_requests_total[5m])), 0.01)",
+          "refId": "A"
+        }
+      ],
+      "title": "API 5xx 比例",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        { "expr": "sum(wechat_layout_jobs{status=~\"queued|retry_pending\"})", "refId": "A" }
+      ],
+      "title": "排队任务",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [{ "expr": "wechat_layout_process_resident_memory_bytes", "refId": "A" }],
+      "title": "API 内存",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "min(node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\"})",
+          "refId": "A"
+        }
+      ],
+      "title": "最低磁盘余量",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum by (route, status_code) (rate(wechat_layout_http_requests_total[5m]))",
+          "legendFormat": "{{route}} {{status_code}}",
+          "refId": "A"
+        }
+      ],
+      "title": "API 请求速率",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum by (queue_name, status) (wechat_layout_jobs)",
+          "legendFormat": "{{queue_name}} {{status}}",
+          "refId": "A"
+        }
+      ],
+      "title": "队列状态",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "expr": "1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes",
+          "legendFormat": "内存",
+          "refId": "B"
+        }
+      ],
+      "title": "主机 CPU / 内存",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [{ "expr": "{service_name=\"api\"} | json | level=\"error\"", "refId": "A" }],
+      "title": "API 错误日志",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "decimals": 0 }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 20 },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(wechat_layout_http_requests_total{method=\"PUT\",route=\"/api/v1/articles/:id/document\",status_code=~\"4..|5..\"}[$__range])) or vector(0)",
+          "refId": "A"
+        }
+      ],
+      "title": "保存失败（当前时间范围）",
+      "type": "stat"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["wechat-layout", "operations"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "browser",
+  "title": "公众号智能视觉排版 · 运行总览",
+  "uid": "wechat-layout-operations",
+  "version": 1
+}

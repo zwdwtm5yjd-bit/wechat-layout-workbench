@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 240" role="img" aria-labelledby="title">
+  <title id="title">杂志胶片框</title>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#223c35"/><stop offset="1" stop-color="#4d695d"/></linearGradient></defs>
+  <rect width="1200" height="240" rx="26" fill="url(#g)"/>
+  <g fill="#f7f1e7" opacity=".9">
+    <rect x="36" y="22" width="72" height="25" rx="5"/><rect x="137" y="22" width="72" height="25" rx="5"/><rect x="238" y="22" width="72" height="25" rx="5"/><rect x="339" y="22" width="72" height="25" rx="5"/><rect x="440" y="22" width="72" height="25" rx="5"/><rect x="541" y="22" width="72" height="25" rx="5"/><rect x="642" y="22" width="72" height="25" rx="5"/><rect x="743" y="22" width="72" height="25" rx="5"/><rect x="844" y="22" width="72" height="25" rx="5"/><rect x="945" y="22" width="72" height="25" rx="5"/><rect x="1046" y="22" width="72" height="25" rx="5"/>
+    <rect x="36" y="193" width="72" height="25" rx="5"/><rect x="137" y="193" width="72" height="25" rx="5"/><rect x="238" y="193" width="72" height="25" rx="5"/><rect x="339" y="193" width="72" height="25" rx="5"/><rect x="440" y="193" width="72" height="25" rx="5"/><rect x="541" y="193" width="72" height="25" rx="5"/><rect x="642" y="193" width="72" height="25" rx="5"/><rect x="743" y="193" width="72" height="25" rx="5"/><rect x="844" y="193" width="72" height="25" rx="5"/><rect x="945" y="193" width="72" height="25" rx="5"/><rect x="1046" y="193" width="72" height="25" rx="5"/>
+  </g>
+  <path d="M82 119h1036" stroke="#f5e7c5" stroke-width="2" opacity=".58"/>
+  <circle cx="82" cy="119" r="8" fill="#d3a84a"/>
+</svg>

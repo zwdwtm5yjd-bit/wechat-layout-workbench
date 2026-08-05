@@ -151,6 +151,19 @@ export class CopyService {
         },
       );
     }
+    if (persisted.kind === "invalid_resources") {
+      throw apiError(
+        HttpStatus.CONFLICT,
+        "ARTICLE_RESOURCES_UNAVAILABLE",
+        "文章包含不存在、不可用或不属于当前用户的资源，请重新选择图片",
+        {
+          fields: persisted.invalidReferences.map((reference) => ({
+            path: `document${reference.path}`,
+            message: "资源不存在、不可用或不属于当前用户",
+          })),
+        },
+      );
+    }
     return outputDto(persisted.output);
   }
 

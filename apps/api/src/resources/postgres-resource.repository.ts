@@ -10,13 +10,15 @@ import {
   sourceDocuments,
   users,
 } from "@wechat-layout/database";
-import { and, eq, getTableColumns, isNull } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, isNotNull, isNull } from "drizzle-orm";
 
 import { DATABASE_CONNECTION } from "../database/database.module.js";
 import { RESOURCE_TRASH_RETENTION_DAYS } from "./resource.constants.js";
 import type {
   CreateValidatedResourceInput,
   ResourceMetadata,
+  ResourceListInput,
+  ResourceListResult,
   ResourceRecord,
   ResourceReference,
   ResourceRepository,
@@ -168,6 +170,33 @@ export class PostgresResourceRepository implements ResourceRepository {
     return row === undefined ? null : recordFromRow(row);
   }
 
+  async listOwned(ownerUserId: string, input: ResourceListInput): Promise<ResourceListResult> {
+    const status = input.status ?? "active";
+    const where = and(
+      eq(resources.ownerUserId, ownerUserId),
+      eq(resources.status, status),
+      status === "trash" ? isNotNull(resources.deletedAt) : isNull(resources.deletedAt),
+      input.resourceType === undefined ? undefined : eq(resources.resourceType, input.resourceType),
+    );
+    const offset = (input.page - 1) * input.pageSize;
+    const [rows, totalRows] = await Promise.all([
+      this.connection.db
+        .select()
+        .from(resources)
+        .where(where)
+        .orderBy(desc(resources.createdAt))
+        .limit(input.pageSize)
+        .offset(offset),
+      this.connection.db.select({ total: count() }).from(resources).where(where),
+    ]);
+    return {
+      items: rows.map(recordFromRow),
+      page: input.page,
+      pageSize: input.pageSize,
+      total: Number(totalRows[0]?.total ?? 0),
+    };
+  }
+
   async createValidated(input: CreateValidatedResourceInput): Promise<ResourceRecord> {
     const now = new Date();
     const resourceId = createUuidV7();
@@ -179,7 +208,7 @@ export class PostgresResourceRepository implements ResourceRepository {
             id: resourceId,
             ownerUserId: input.ownerUserId,
             accountId: input.accountId,
-            resourceType: "image",
+            resourceType: input.resourceType,
             sourceType: "upload",
             originalFilename: input.filename,
             storageProvider: input.storageProvider,
@@ -214,6 +243,7 @@ export class PostgresResourceRepository implements ResourceRepository {
           beforeSummary: null,
           afterSummary: {
             mimeType: input.mimeType,
+            resourceType: input.resourceType,
             fileSize: input.fileSize,
             width: input.width,
             height: input.height,
@@ -236,6 +266,52 @@ export class PostgresResourceRepository implements ResourceRepository {
       }
       throw error;
     }
+  }
+
+  async updateMetadata(
+    ownerUserId: string,
+    resourceId: string,
+    metadata: ResourceMetadata,
+    context: CreateValidatedResourceInput["context"],
+  ): Promise<ResourceRecord | null> {
+    return this.connection.db.transaction(async (transaction) => {
+      const [current] = await transaction
+        .select({ ...getTableColumns(resources) })
+        .from(resources)
+        .where(
+          and(
+            eq(resources.id, resourceId),
+            eq(resources.ownerUserId, ownerUserId),
+            isNull(resources.deletedAt),
+          ),
+        )
+        .limit(1)
+        .for("update");
+      if (current === undefined) return null;
+      const now = new Date();
+      const [updated] = await transaction
+        .update(resources)
+        .set({ metadataJson: metadata as unknown as Record<string, unknown>, updatedAt: now })
+        .where(eq(resources.id, resourceId))
+        .returning();
+      if (updated === undefined) throw new Error("资源信息更新失败");
+      await transaction.insert(auditLogs).values({
+        id: createUuidV7(),
+        actorUserId: context.actorUserId,
+        actorType: "user",
+        action: "resource.metadata.update",
+        targetType: "resource",
+        targetId: resourceId,
+        accountId: current.accountId,
+        requestId: context.requestId,
+        traceId: context.traceId,
+        beforeSummary: current.metadataJson,
+        afterSummary: metadata as unknown as Record<string, unknown>,
+        metadataJson: {},
+        createdAt: now,
+      });
+      return recordFromRow(updated);
+    });
   }
 
   async listReferences(

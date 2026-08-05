@@ -909,6 +909,23 @@ export function buildImportedDocument(input: BuildImportedDocumentInput): Docume
           },
         ],
       });
+    } else if (
+      block.role === "image_reference" &&
+      typeof block.relationMetadata.resourceId === "string"
+    ) {
+      content.push({
+        type: "imageBlock",
+        attrs: {
+          ...attrs,
+          resourceId: block.relationMetadata.resourceId,
+          ...(block.relationMetadata.alt === undefined
+            ? {}
+            : { alt: block.relationMetadata.alt.slice(0, 500) }),
+          widthMode: "full",
+          widthPercent: 100,
+          objectFit: "contain",
+        },
+      });
     } else {
       content.push({
         type: "paragraph",

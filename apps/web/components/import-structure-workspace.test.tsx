@@ -134,6 +134,7 @@ afterEach(() => {
 
 describe("ImportStructureWorkspace", () => {
   it("submits the full role set, base version, title, and transaction ID", async () => {
+    const user = userEvent.setup();
     vi.mocked(getImportStructure).mockResolvedValue(structure());
     vi.mocked(confirmImportStructure).mockResolvedValue(confirmed());
     render(<ImportStructureWorkspace articleId={articleId} />, { wrapper: Providers });
@@ -142,16 +143,13 @@ describe("ImportStructureWorkspace", () => {
     expect(screen.getByText("已清理不兼容样式 × 2")).toBeTruthy();
 
     const titleInput = screen.getByRole("textbox", { name: "文章标题" });
-    await userEvent.clear(titleInput);
-    await userEvent.type(titleInput, "确认后的标题");
-    await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: "内容块 2 的角色" }),
-      "quote",
-    );
-    await userEvent.click(screen.getByRole("checkbox", { name: "选择内容块 3" }));
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "批量角色" }), "excluded");
-    await userEvent.click(screen.getByRole("button", { name: "应用到 1 项" }));
-    await userEvent.click(screen.getByRole("button", { name: "确认并进入排版" }));
+    await user.clear(titleInput);
+    await user.type(titleInput, "确认后的标题");
+    await user.selectOptions(screen.getByRole("combobox", { name: "内容块 2 的角色" }), "quote");
+    await user.click(screen.getByRole("checkbox", { name: "选择内容块 3" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "批量角色" }), "excluded");
+    await user.click(screen.getByRole("button", { name: "应用到 1 项" }));
+    await user.click(screen.getByRole("button", { name: "确认并进入排版" }));
 
     await waitFor(() => {
       expect(confirmImportStructure).toHaveBeenCalledWith({
@@ -166,7 +164,7 @@ describe("ImportStructureWorkspace", () => {
         ],
       });
     });
-    expect(push).toHaveBeenCalledWith(`/workspace/articles/${articleId}`);
+    expect(push).toHaveBeenCalledWith(`/workspace/articles/${articleId}?guide=1`);
   });
 
   it("renders an already confirmed import as read-only and keeps the editor entry", async () => {

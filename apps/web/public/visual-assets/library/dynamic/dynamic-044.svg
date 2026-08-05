@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" role="img" aria-label="原创动态视觉素材 044">
+  <style>.motion{animation:orbit 4.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}@keyframes orbit{0%,100%{transform:none;opacity:1}50%{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.motion{animation:none}}</style>
+  <defs>
+    <linearGradient id="g24" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ed8a34"/><stop offset="1" stop-color="#9c3326"/></linearGradient>
+    <linearGradient id="fade24" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#ed8a34" stop-opacity="0"/><stop offset=".5" stop-color="#ed8a34" stop-opacity=".65"/><stop offset="1" stop-color="#ed8a34" stop-opacity="0"/></linearGradient>
+    <pattern id="dots24" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2" fill="#9c3326" opacity=".16"/></pattern>
+    <filter id="soft24"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <rect width="1200" height="480" fill="#fff7e6"/>
+  <rect width="1200" height="480" fill="url(#dots24)"/>
+  <g transform="translate(600 240)"><ellipse rx="330" ry="140" fill="none" stroke="#ed8a34" stroke-width="5" opacity=".45"/><ellipse rx="210" ry="95" fill="none" stroke="#9c3326" stroke-width="3" opacity=".35"/><g class="motion"><circle cx="330" r="22" fill="#e8bd55"/><circle cx="-210" r="14" fill="#9c3326"/></g><circle r="72" fill="#ed8a34" opacity=".65"/></g>
+</svg>

@@ -20,12 +20,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           run_install: false
           version: 10.33.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           cache: pnpm
           node-version: 24.13.0
@@ -41,39 +41,58 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           run_install: false
           version: 10.33.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           cache: pnpm
           node-version: 24.13.0
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:integration
 
+  production-artifacts:
+    name: Production images and Compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+          version: 10.33.0
+      - uses: actions/setup-node@v7
+        with:
+          cache: pnpm
+          node-version: 24.13.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:backup-integration
+      - run: pnpm docker:prod:build-test
+
   browser:
     name: Docker and Playwright
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           run_install: false
           version: 10.33.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           cache: pnpm
           node-version: 24.13.0
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium webkit
       - run: pnpm docker:dev
+      - run: pnpm db:test:migrations
       - run: pnpm test:e2e
       - run: pnpm docker:smoke
       - if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           if-no-files-found: ignore
           name: playwright-report

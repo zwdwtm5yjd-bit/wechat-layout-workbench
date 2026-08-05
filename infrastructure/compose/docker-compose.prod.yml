@@ -1,0 +1,608 @@
+name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}
+
+x-node-build-args: &node-build-args
+  NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:?NEXT_PUBLIC_APP_NAME is required}
+  NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?NEXT_PUBLIC_APP_URL is required}
+  NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?NEXT_PUBLIC_API_BASE_URL is required}
+  NEXT_PUBLIC_FEATURE_WECHAT_SYNC_ENABLED: ${NEXT_PUBLIC_FEATURE_WECHAT_SYNC_ENABLED:-false}
+  NEXT_PUBLIC_FEATURE_REMOTE_COMPONENTS_ENABLED: ${NEXT_PUBLIC_FEATURE_REMOTE_COMPONENTS_ENABLED:-false}
+
+x-server-environment: &server-environment
+  APP_ENV: production
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:?PUBLIC_WEB_URL is required}
+  DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+  REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+  S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+  S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?S3_PUBLIC_ENDPOINT is required}
+  S3_ADDRESSING_STYLE: ${S3_ADDRESSING_STYLE:?S3_ADDRESSING_STYLE is required}
+  S3_PUBLIC_ADDRESSING_STYLE: ${S3_PUBLIC_ADDRESSING_STYLE:?S3_PUBLIC_ADDRESSING_STYLE is required}
+  S3_METADATA_HEADER_PREFIX: ${S3_METADATA_HEADER_PREFIX:?S3_METADATA_HEADER_PREFIX is required}
+  S3_REGION: ${S3_REGION:?S3_REGION is required}
+  S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+  SMTP_HOST: ${SMTP_HOST:?SMTP_HOST is required}
+  SMTP_PORT: ${SMTP_PORT:?SMTP_PORT is required}
+  SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
+  CSRF_SECRET: ${CSRF_SECRET:?CSRF_SECRET is required}
+  FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:?FIELD_ENCRYPTION_KEY is required}
+  ASSET_SIGNING_KEY: ${ASSET_SIGNING_KEY:?ASSET_SIGNING_KEY is required}
+  BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY is required}
+  METRICS_BEARER_TOKEN: ${METRICS_BEARER_TOKEN:?METRICS_BEARER_TOKEN is required}
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:?OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is required}
+  LOKI_PUSH_URL: ${LOKI_PUSH_URL:?LOKI_PUSH_URL is required}
+  FEATURE_WECHAT_SYNC_ENABLED: ${FEATURE_WECHAT_SYNC_ENABLED:-false}
+  FEATURE_REMOTE_COMPONENTS_ENABLED: ${FEATURE_REMOTE_COMPONENTS_ENABLED:-false}
+  MAX_JSON_BODY_BYTES: ${MAX_JSON_BODY_BYTES:-2097152}
+  MAX_DOCX_FILE_BYTES: ${MAX_DOCX_FILE_BYTES:-52428800}
+  MAX_IMAGE_FILE_BYTES: ${MAX_IMAGE_FILE_BYTES:-20971520}
+  MAX_BRAND_PACKAGE_BYTES: ${MAX_BRAND_PACKAGE_BYTES:-104857600}
+  WEB_PORT: 3000
+  API_PORT: 3001
+  WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+  SCHEDULER_INTERVAL_SECONDS: ${SCHEDULER_INTERVAL_SECONDS:-60}
+  WEBPAGE_BROWSER_ENDPOINT: ${WEBPAGE_BROWSER_ENDPOINT:-http://webpage-browser:3010}
+  WEBPAGE_FETCH_TIMEOUT_MS: ${WEBPAGE_FETCH_TIMEOUT_MS:-15000}
+  WEBPAGE_BROWSER_TIMEOUT_MS: ${WEBPAGE_BROWSER_TIMEOUT_MS:-30000}
+  WEBPAGE_MAX_REDIRECTS: ${WEBPAGE_MAX_REDIRECTS:-5}
+  MAX_WEBPAGE_HTML_BYTES: ${MAX_WEBPAGE_HTML_BYTES:-5242880}
+
+x-json-logging: &json-logging
+  driver: json-file
+  options:
+    max-file: "5"
+    max-size: 10m
+
+x-node-service: &node-service
+  init: true
+  restart: unless-stopped
+  user: node
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  pids_limit: 256
+  stop_grace_period: 30s
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  logging: *json-logging
+
+x-observability-service: &observability-service
+  restart: unless-stopped
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  pids_limit: 128
+  tmpfs:
+    - /tmp:size=32m,mode=1777
+  logging: *json-logging
+
+services:
+  nginx:
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/nginx:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/nginx.prod.Dockerfile
+    init: true
+    restart: unless-stopped
+    read_only: true
+    user: "101:101"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    cpus: "0.50"
+    mem_limit: 256m
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN is required}
+      NGINX_ENVSUBST_FILTER: "^(APP_DOMAIN)$"
+    volumes:
+      - type: bind
+        source: ${TLS_CERTIFICATE_PATH:?TLS_CERTIFICATE_PATH is required}
+        target: /etc/nginx/tls/fullchain.pem
+        read_only: true
+      - type: bind
+        source: ${TLS_PRIVATE_KEY_PATH:?TLS_PRIVATE_KEY_PATH is required}
+        target: /etc/nginx/tls/privkey.pem
+        read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=32m,mode=0755,uid=101,gid=101
+      - /etc/nginx/conf.d:size=4m,mode=0755,uid=101,gid=101
+    ports:
+      - name: http
+        target: 8080
+        published: "80"
+        protocol: tcp
+      - name: https
+        target: 8443
+        published: "443"
+        protocol: tcp
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-check-certificate",
+          "--quiet",
+          "--spider",
+          "https://127.0.0.1:8443/health/live",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - edge
+    logging: *json-logging
+
+  web:
+    <<: *node-service
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/web:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-app.prod.Dockerfile
+      target: web
+      args: *node-build-args
+    cpus: "1.00"
+    mem_limit: 1536m
+    environment:
+      APP_ENV: production
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /workspace/apps/web/.next/cache:size=128m,mode=0755,uid=1000,gid=1000
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/login').then(async(response)=>{const body=await response.text();if(!response.ok||!body.includes('登录你的工作台'))process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+    networks:
+      - edge
+
+  api:
+    <<: *node-service
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/api:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-app.prod.Dockerfile
+      target: api
+      args: *node-build-args
+    cpus: "2.00"
+    mem_limit: 2g
+    environment:
+      <<: *server-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health/ready').then(response=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+    networks:
+      - edge
+      - data
+      - egress
+      - observability
+
+  worker:
+    <<: *node-service
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/worker:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-app.prod.Dockerfile
+      target: worker
+      args: *node-build-args
+    cpus: "4.00"
+    mem_limit: 4g
+    pids_limit: 512
+    environment:
+      <<: *server-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      webpage-browser:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const fs=require('node:fs');const own=new Set([String(process.pid),String(process.ppid)]);const found=fs.readdirSync('/proc').filter(name=>/^\\d+$/.test(name)&&!own.has(name)).some(name=>{try{return fs.readFileSync('/proc/'+name+'/cmdline','utf8').includes('dist/main.js')}catch{return false}});process.exit(found?0:1)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
+    networks:
+      - data
+      - egress
+      - browser-control
+
+  webpage-browser:
+    <<: *node-service
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/webpage-browser:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-app.prod.Dockerfile
+      target: webpage-browser
+      args: *node-build-args
+    cpus: "2.00"
+    mem_limit: 2g
+    pids_limit: 512
+    environment:
+      APP_ENV: production
+      NODE_ENV: production
+      PORT: 3010
+      CHROMIUM_EXECUTABLE_PATH: /usr/bin/chromium
+      WEBPAGE_BROWSER_TIMEOUT_MS: ${WEBPAGE_BROWSER_TIMEOUT_MS:-30000}
+      MAX_WEBPAGE_HTML_BYTES: ${MAX_WEBPAGE_HTML_BYTES:-5242880}
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3010/health/live').then(response=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    networks:
+      - browser-control
+      - egress
+
+  scheduler:
+    <<: *node-service
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/scheduler:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-app.prod.Dockerfile
+      target: scheduler
+      args: *node-build-args
+    cpus: "0.50"
+    mem_limit: 512m
+    environment:
+      <<: *server-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const fs=require('node:fs');const own=new Set([String(process.pid),String(process.ppid)]);const found=fs.readdirSync('/proc').filter(name=>/^\\d+$/.test(name)&&!own.has(name)).some(name=>{try{return fs.readFileSync('/proc/'+name+'/cmdline','utf8').includes('dist/main.js')}catch{return false}});process.exit(found?0:1)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
+    networks:
+      - data
+      - egress
+
+  database-migrate:
+    <<: *node-service
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/database-migrate:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-app.prod.Dockerfile
+      target: database-migrate
+      args: *node-build-args
+    profiles:
+      - migration
+    restart: "no"
+    cpus: "1.00"
+    mem_limit: 1g
+    environment:
+      <<: *server-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - data
+
+  postgres:
+    image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+    restart: unless-stopped
+    shm_size: 256m
+    cpus: "2.00"
+    mem_limit: 2g
+    pids_limit: 256
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+    logging: *json-logging
+
+  redis:
+    image: redis:8.2.8-alpine@sha256:a7859ed111db3c1f5404a973a4747505d559fb5ca32d37e447afc0ef845a2103
+    restart: unless-stopped
+    cpus: "0.75"
+    mem_limit: 1g
+    pids_limit: 128
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    command:
+      - /bin/sh
+      - -ec
+      - exec redis-server --appendonly yes --appendfsync everysec --maxmemory 768mb --maxmemory-policy noeviction --requirepass "$$REDIS_PASSWORD"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+    logging: *json-logging
+
+  prometheus:
+    <<: *observability-service
+    image: prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996
+    user: "65534:65534"
+    cpus: "0.75"
+    mem_limit: 1g
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --storage.tsdb.retention.size=20GB
+    volumes:
+      - type: bind
+        source: ../monitoring/prometheus/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+        read_only: true
+      - type: bind
+        source: ../monitoring/prometheus/alerts.yml
+        target: /etc/prometheus/rules/alerts.yml
+        read_only: true
+      - prometheus-data:/prometheus
+    secrets:
+      - source: metrics_bearer_token
+        target: metrics-bearer-token
+    depends_on:
+      api:
+        condition: service_healthy
+      alertmanager:
+        condition: service_started
+      node-exporter:
+        condition: service_started
+    networks:
+      - observability
+
+  alertmanager:
+    <<: *observability-service
+    image: prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
+    user: "65534:65534"
+    cpus: "0.25"
+    mem_limit: 256m
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - type: bind
+        source: ../monitoring/alertmanager/alertmanager.yml
+        target: /etc/alertmanager/alertmanager.yml
+        read_only: true
+      - alertmanager-data:/alertmanager
+    secrets:
+      - source: alertmanager_webhook_url
+        target: alertmanager-webhook-url
+    networks:
+      - observability
+      - egress
+
+  grafana:
+    <<: *observability-service
+    image: grafana/grafana:12.1.1@sha256:a1701c2180249361737a99a01bc770db39381640e4d631825d38ff4535efa47d
+    user: "472:0"
+    cpus: "0.75"
+    mem_limit: 768m
+    environment:
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_PLUGINS_CHECK_FOR_UPDATES: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana-admin-password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: http://127.0.0.1:${GRAFANA_HOST_PORT:-3002}
+    ports:
+      - name: grafana-local
+        host_ip: 127.0.0.1
+        target: 3000
+        published: "${GRAFANA_HOST_PORT:-3002}"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: ../monitoring/grafana/provisioning
+        target: /etc/grafana/provisioning
+        read_only: true
+      - type: bind
+        source: ../monitoring/grafana/dashboards
+        target: /var/lib/grafana/dashboards
+        read_only: true
+      - grafana-data:/var/lib/grafana
+    secrets:
+      - source: grafana_admin_password
+        target: grafana-admin-password
+    depends_on:
+      loki:
+        condition: service_started
+      prometheus:
+        condition: service_started
+      tempo:
+        condition: service_started
+    networks:
+      - edge
+      - observability
+
+  loki:
+    <<: *observability-service
+    image: grafana/loki:3.5.3@sha256:3165cecce301ce5b9b6e3530284b080934a05cd5cafac3d3d82edcb887b45ecd
+    user: "10001:10001"
+    cpus: "0.75"
+    mem_limit: 1g
+    command:
+      - -config.file=/etc/loki/loki.yml
+    volumes:
+      - type: bind
+        source: ../monitoring/loki/loki.yml
+        target: /etc/loki/loki.yml
+        read_only: true
+      - loki-data:/loki
+    networks:
+      - observability
+
+  tempo:
+    <<: *observability-service
+    image: grafana/tempo:2.8.2@sha256:0ef775495967cd5d7a6b2e146b6ea695d624803c8db8349fb8ce4164f719f9b7
+    user: "10001:10001"
+    cpus: "0.50"
+    mem_limit: 768m
+    command:
+      - -config.file=/etc/tempo/tempo.yml
+    volumes:
+      - type: bind
+        source: ../monitoring/tempo/tempo.yml
+        target: /etc/tempo/tempo.yml
+        read_only: true
+      - tempo-data:/var/tempo
+    networks:
+      - observability
+
+  otel-collector:
+    <<: *observability-service
+    image: otel/opentelemetry-collector-contrib:0.133.0@sha256:98274b756324abdb2473fa0c898247a246091e861e61d1548f9be483198eecea
+    user: "10001:10001"
+    cpus: "0.50"
+    mem_limit: 512m
+    command:
+      - --config=/etc/otelcol-contrib/config.yml
+    volumes:
+      - type: bind
+        source: ../monitoring/otel-collector/config.yml
+        target: /etc/otelcol-contrib/config.yml
+        read_only: true
+    depends_on:
+      tempo:
+        condition: service_started
+    networks:
+      - observability
+
+  node-exporter:
+    <<: *observability-service
+    image: prom/node-exporter:v1.9.1@sha256:d00a542e409ee618a4edc67da14dd48c5da66726bbd5537ab2af9c1dfc442c8a
+    user: "65534:65534"
+    cpus: "0.25"
+    mem_limit: 256m
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/containers/storage/.+)($$|/)
+    volumes:
+      - type: bind
+        source: /
+        target: /host
+        read_only: true
+        bind:
+          propagation: rslave
+    networks:
+      - observability
+
+volumes:
+  postgres-data:
+    name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-postgres-data
+  redis-data:
+    name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-redis-data
+  prometheus-data:
+    name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-prometheus-data
+  alertmanager-data:
+    name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-alertmanager-data
+  grafana-data:
+    name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-grafana-data
+  loki-data:
+    name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-loki-data
+  tempo-data:
+    name: ${COMPOSE_PROJECT_NAME:-wechat-layout-production}-tempo-data
+
+secrets:
+  metrics_bearer_token:
+    environment: METRICS_BEARER_TOKEN
+  alertmanager_webhook_url:
+    environment: ALERTMANAGER_WEBHOOK_URL
+  grafana_admin_password:
+    environment: GRAFANA_ADMIN_PASSWORD
+
+networks:
+  edge:
+    driver: bridge
+  data:
+    driver: bridge
+    internal: true
+  egress:
+    driver: bridge
+  observability:
+    driver: bridge
+    internal: true
+  browser-control:
+    driver: bridge
+    internal: true

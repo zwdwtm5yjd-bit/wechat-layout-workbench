@@ -117,6 +117,22 @@ a {
   line-height: 1.92;
 }
 
+[data-preview-theme]:not([data-preview-theme="default"]) .editor-heading-1 {
+  color: var(--preview-primary);
+}
+
+[data-preview-theme]:not([data-preview-theme="default"]) .editor-heading-2 {
+  border-left: 3px solid var(--preview-accent);
+  padding: 8px 12px;
+  background: var(--preview-surface);
+  color: var(--preview-primary);
+}
+
+[data-preview-theme]:not([data-preview-theme="default"]) .editor-blockquote {
+  border-left-color: var(--preview-accent);
+  background: var(--preview-surface);
+}
+
 .wechat-article-editor p.is-editor-empty:first-child::before {
   float: left;
   height: 0;
@@ -189,6 +205,155 @@ a {
   font-size: 10px;
 }
 
+.editor-semantic-card__artwork {
+  display: none;
+}
+
+.editor-semantic-card[data-component-variant] {
+  overflow: hidden;
+}
+
+.editor-semantic-card[data-component-variant] > .editor-semantic-card__artwork:not([hidden]) {
+  display: block;
+  height: 190px;
+  margin: -22px -22px 20px;
+  background-position: center;
+  background-size: cover;
+}
+
+.editor-semantic-card[data-component-variant]
+  > .editor-semantic-card__artwork:not([hidden])
+  + .editor-semantic-card__label {
+  display: none;
+}
+
+.editor-semantic-card[data-component-variant="ink_mountain_hero"] > .editor-semantic-card__artwork {
+  height: 230px;
+  background-image: url("/visual-assets/ink-mountain-panorama.png");
+}
+
+.editor-semantic-card[data-component-variant="autumn_persimmon_intro"]
+  > .editor-semantic-card__artwork {
+  height: 220px;
+  background-image: url("/visual-assets/autumn-persimmon-branch.png");
+}
+
+.editor-semantic-card[data-component-variant="mist_mountain_heading"]
+  > .editor-semantic-card__artwork {
+  background-image: url("/visual-assets/mist-mountains.svg");
+}
+
+.editor-semantic-card[data-component-variant="cloud_scroll_heading"]
+  > .editor-semantic-card__artwork {
+  height: 100px;
+  background-image: url("/visual-assets/cloud-scroll.svg");
+  background-size: 100% auto;
+}
+
+.editor-semantic-card[data-component-variant="bamboo_note"] > .editor-semantic-card__artwork {
+  height: 170px;
+  background-image: url("/visual-assets/bamboo-corner.svg");
+  background-position: right top;
+  background-size: auto 190px;
+}
+
+.editor-semantic-card[data-component-variant="civic_red_banner"] > .editor-semantic-card__artwork,
+.editor-semantic-card[data-component-variant="civic_red_notice"] > .editor-semantic-card__artwork {
+  background-image: url("/visual-assets/red-gold-wave.svg");
+}
+
+.editor-semantic-card[data-component-variant="tech_orbit_hero"] {
+  border-color: #315b85;
+  background: #102d4c;
+}
+
+.editor-semantic-card[data-component-variant="tech_orbit_hero"] > .editor-semantic-card__artwork {
+  height: 210px;
+  background-image: url("/visual-assets/tech-orbit.svg");
+}
+
+.editor-semantic-card[data-component-variant="tech_orbit_hero"] > .editor-semantic-card__eyebrow {
+  color: #d3a84a;
+}
+
+.editor-semantic-card[data-component-variant="tech_orbit_hero"] > .editor-semantic-card__title,
+.editor-semantic-card[data-component-variant="tech_orbit_hero"] > .editor-semantic-card__content {
+  color: #fff;
+}
+
+.editor-semantic-card[data-component-variant="leaf_story_intro"] > .editor-semantic-card__artwork {
+  height: 72px;
+  background-image: url("/visual-assets/leaf-divider.svg");
+  background-size: 100% auto;
+}
+
+.editor-semantic-card[data-component-variant="festival_lantern_hero"]
+  > .editor-semantic-card__artwork {
+  height: 210px;
+  background-image: url("/visual-assets/festival-lanterns.svg");
+}
+
+.editor-semantic-card[data-component-variant="film_triptych"],
+.editor-semantic-card[data-component-variant="magazine_duo"] {
+  background: #263e37;
+  color: #fff;
+}
+
+.editor-semantic-card[data-component-variant="film_triptych"] > .editor-semantic-card__artwork,
+.editor-semantic-card[data-component-variant="magazine_duo"] > .editor-semantic-card__artwork {
+  height: 110px;
+  background-image: url("/visual-assets/photo-film-frame.svg");
+}
+
+.editor-semantic-card[data-component-variant="film_triptych"] > .editor-semantic-card__eyebrow,
+.editor-semantic-card[data-component-variant="magazine_duo"] > .editor-semantic-card__eyebrow {
+  color: #e3c47b;
+}
+
+.editor-semantic-card[data-component-variant="film_triptych"] > .editor-semantic-card__title,
+.editor-semantic-card[data-component-variant="film_triptych"] > .editor-semantic-card__content,
+.editor-semantic-card[data-component-variant="magazine_duo"] > .editor-semantic-card__title,
+.editor-semantic-card[data-component-variant="magazine_duo"] > .editor-semantic-card__content {
+  color: #fff;
+}
+
+.editor-semantic-card[data-component-variant="film_triptych"] > .editor-semantic-card__content,
+.editor-semantic-card[data-component-variant="magazine_duo"] > .editor-semantic-card__content {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.editor-semantic-card[data-component-variant="film_triptych"]
+  > .editor-semantic-card__content
+  > .editor-paragraph,
+.editor-semantic-card[data-component-variant="magazine_duo"]
+  > .editor-semantic-card__content
+  > .editor-paragraph {
+  grid-column: 1 / -1;
+}
+
+.editor-semantic-card[data-component-variant="film_triptych"]
+  > .editor-semantic-card__content
+  > .editor-image-block {
+  grid-column: span 2;
+  min-height: 120px;
+  border-color: rgb(255 255 255 / 40%);
+  background-color: rgb(255 255 255 / 10%);
+}
+
+.editor-semantic-card[data-component-variant="magazine_duo"]
+  > .editor-semantic-card__content
+  > .editor-image-block:first-of-type {
+  grid-column: span 4;
+}
+
+.editor-semantic-card[data-component-variant="magazine_duo"]
+  > .editor-semantic-card__content
+  > .editor-image-block:last-of-type {
+  grid-column: span 2;
+}
+
 .editor-semantic-card__eyebrow {
   margin-bottom: 4px;
   color: var(--ui-accent);
@@ -224,6 +389,46 @@ a {
 .editor-atom-label {
   color: var(--ui-text-secondary);
   font-size: 12px;
+}
+
+.editor-visual-asset-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+}
+
+.editor-image-caption {
+  padding: 8px 12px 10px;
+  color: var(--ui-text-tertiary);
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.editor-image-block:has(.editor-visual-asset-image:not([hidden])),
+.editor-svg-interaction:has(.editor-visual-asset-image:not([hidden])) {
+  display: block;
+  min-height: 0;
+  overflow: hidden;
+  border-style: solid;
+  border-color: rgb(24 24 27 / 10%);
+  background: #fff;
+}
+
+.editor-visual-asset-caption {
+  padding: 8px 12px 2px;
+  color: var(--ui-text-primary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.editor-visual-asset-status {
+  display: block;
+  padding: 2px 12px 9px;
+  color: var(--ui-text-secondary);
+  font-size: 9px;
 }
 
 .editor-block-handle {

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 100" role="img" aria-labelledby="title">
+  <title id="title">森系枝叶分隔</title>
+  <path d="M70 52h444m172 0h444" stroke="#9fb5a1" stroke-width="2"/>
+  <path d="M600 68c-24-20-31-44-22-66 29 13 39 35 22 66Zm-5 0c24-20 31-44 22-66-29 13-39 35-22 66Z" fill="#668b6b"/>
+  <path d="M565 56c-25-5-43-19-52-42 31-4 50 10 52 42Zm70 0c25-5 43-19 52-42-31-4-50 10-52 42Z" fill="#9ebc85"/>
+  <circle cx="600" cy="74" r="6" fill="#d99b66"/>
+</svg>

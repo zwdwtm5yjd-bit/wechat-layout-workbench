@@ -1,5 +1,7 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable, type OnModuleDestroy } from "@nestjs/common";
 
+import { ApplicationMetrics } from "../../observability/application-metrics.service.js";
+import { LokiLogPublisher } from "../../observability/loki-log-publisher.js";
 import type { RequestContext } from "./request-context.js";
 
 export interface HttpLogRecord {
@@ -12,7 +14,20 @@ export interface HttpLogRecord {
 }
 
 @Injectable()
-export class StructuredLoggerService {
+export class StructuredLoggerService implements OnModuleDestroy {
+  readonly #publisher: LokiLogPublisher;
+
+  constructor(@Inject(ApplicationMetrics) metrics: ApplicationMetrics) {
+    this.#publisher = new LokiLogPublisher(
+      {
+        endpoint: process.env.LOKI_PUSH_URL ?? null,
+        environment: process.env.APP_ENV ?? "development",
+        service: "api",
+      },
+      metrics,
+    );
+  }
+
   logHttpRequest(record: HttpLogRecord): void {
     const payload = {
       timestamp: new Date().toISOString(),
@@ -29,5 +44,10 @@ export class StructuredLoggerService {
     };
 
     process.stdout.write(`${JSON.stringify(payload)}\n`);
+    this.#publisher.enqueue(payload);
+  }
+
+  onModuleDestroy(): Promise<void> {
+    return this.#publisher.close();
   }
 }

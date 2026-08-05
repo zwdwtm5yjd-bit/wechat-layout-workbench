@@ -9,12 +9,14 @@ import {
 import { APP_GUARD, NestFactory } from "@nestjs/core";
 import { createUuidV7 } from "@wechat-layout/database";
 import supertest from "supertest";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "../app.module.js";
 import type { AuthenticatedHttpRequest } from "../auth/auth.types.js";
 import { ApiException } from "../common/http/api.exception.js";
 import { configureApplication } from "../configure-application.js";
+import { DocxImportController } from "./docx-import.controller.js";
+import { DocxImportService } from "./docx-import.service.js";
 import { IMPORT_REPOSITORY } from "./import.constants.js";
 import { ImportController } from "./import.controller.js";
 import { ImportService } from "./import.service.js";
@@ -184,12 +186,18 @@ class InMemoryImportRepository implements ImportRepository {
 }
 
 const repository = new InMemoryImportRepository();
+const docxJobId = createUuidV7();
+const docxArticleId = createUuidV7();
+const docxImports = {
+  create: vi.fn().mockResolvedValue({ jobId: docxJobId, articleId: docxArticleId }),
+};
 
 @Module({
   imports: [AppModule],
-  controllers: [ImportController],
+  controllers: [DocxImportController, ImportController],
   providers: [
     ImportService,
+    { provide: DocxImportService, useValue: docxImports },
     { provide: IMPORT_REPOSITORY, useValue: repository },
     { provide: APP_GUARD, useClass: TestAuthenticationGuard },
     { provide: APP_GUARD, useClass: TestCsrfGuard },
@@ -215,6 +223,7 @@ describe("paste import HTTP flow", () => {
       .get("/api/openapi.json")
       .expect(200);
     expect(specification.body.paths?.["/api/v1/imports/paste"]?.post).toBeDefined();
+    expect(specification.body.paths?.["/api/v1/imports/docx"]?.post).toBeDefined();
     expect(specification.body.paths?.["/api/v1/imports/{articleId}/structure"]?.get).toBeDefined();
     expect(specification.body.paths?.["/api/v1/imports/{articleId}/structure"]?.put).toBeDefined();
 
@@ -223,6 +232,24 @@ describe("paste import HTTP flow", () => {
       .send({ plainText: "未携带 CSRF" })
       .expect(403);
     expect(rejected.body.error.code).toBe("CSRF_INVALID");
+
+    const resourceId = createUuidV7();
+    const queued = await supertest(application.getHttpServer())
+      .post("/api/v1/imports/docx")
+      .set("x-csrf-token", "test-csrf-token")
+      .send({ resourceId })
+      .expect(201);
+    expect(queued.body.data).toEqual({ jobId: docxJobId, articleId: docxArticleId });
+    expect(docxImports.create).toHaveBeenCalledWith(
+      ownerUserId,
+      expect.objectContaining({
+        resourceId,
+        cleaningMode: "preserve_structure",
+        contentType: "general",
+        layoutStrength: "standard",
+      }),
+      expect.objectContaining({ actorUserId: ownerUserId }),
+    );
   });
 
   it("imports Word HTML, preserves traceable plain text and never returns hidden scripts", async () => {

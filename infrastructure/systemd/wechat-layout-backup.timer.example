@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Wechat Layout encrypted PostgreSQL backup
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=15m
+Unit=wechat-layout-backup.service
+
+[Install]
+WantedBy=timers.target

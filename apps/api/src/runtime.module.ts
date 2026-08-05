@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 
+import { AccountModule } from "./accounts/account.module.js";
 import { AppModule } from "./app.module.js";
 import { ArticleModule } from "./articles/article.module.js";
 import { AuthModule } from "./auth/auth.module.js";
@@ -8,6 +9,7 @@ import { DocumentModule } from "./documents/document.module.js";
 import { CopyModule } from "./copy/copy.module.js";
 import { ImportModule } from "./imports/import.module.js";
 import { JobModule } from "./jobs/job.module.js";
+import { ObservabilityModule } from "./observability/observability.module.js";
 import { ResourceModule } from "./resources/resource.module.js";
 import { SnapshotModule } from "./snapshots/snapshot.module.js";
 import { ThemeModule } from "./themes/theme.module.js";
@@ -15,6 +17,7 @@ import { ThemeModule } from "./themes/theme.module.js";
 @Module({
   imports: [
     AppModule,
+    AccountModule,
     DatabaseModule,
     AuthModule,
     ArticleModule,
@@ -24,6 +27,7 @@ import { ThemeModule } from "./themes/theme.module.js";
     ImportModule,
     ResourceModule,
     JobModule,
+    ObservabilityModule,
     ThemeModule,
   ],
 })

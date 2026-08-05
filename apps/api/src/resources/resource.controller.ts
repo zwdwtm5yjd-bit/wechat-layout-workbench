@@ -7,7 +7,9 @@ import {
   HttpStatus,
   Inject,
   Param,
+  Patch,
   Post,
+  Query,
   Req,
 } from "@nestjs/common";
 import {
@@ -33,9 +35,12 @@ import {
   CreateResourceAccessUrlDto,
   CreateResourceUploadDto,
   ResourceAccessUrlResponseDto,
+  ResourceListQueryDto,
+  ResourceListResultDto,
   ResourceReferencesResponseDto,
   ResourceResponseDto,
   ResourceUploadResponseDto,
+  UpdateResourceMetadataDto,
 } from "./resource.dto.js";
 import { ResourceService } from "./resource.service.js";
 
@@ -49,8 +54,15 @@ export class ResourceController {
     private readonly resources: ResourceService,
   ) {}
 
+  @Get()
+  @ApiOperation({ summary: "分页列出当前用户的私有素材" })
+  @ApiOkResponse({ type: ResourceListResultDto })
+  list(@Query() query: ResourceListQueryDto, @CurrentSession() session: AuthenticatedSession) {
+    return this.resources.list(session.user.id, query);
+  }
+
   @Post("uploads")
-  @ApiOperation({ summary: "创建私有图片直传会话，或复用当前用户的相同资源" })
+  @ApiOperation({ summary: "创建私有图片或 DOCX 直传会话，或复用相同资源" })
   @ApiHeader({ name: "X-CSRF-Token", required: true })
   @ApiBody({ type: () => CreateResourceUploadDto })
   @ApiCreatedResponse({ type: ResourceUploadResponseDto })
@@ -94,6 +106,28 @@ export class ResourceController {
   @ApiNotFoundResponse({ description: "资源不存在" })
   get(@Param("resourceId") resourceId: string, @CurrentSession() session: AuthenticatedSession) {
     return this.resources.get(session.user.id, resourceId);
+  }
+
+  @Patch(":resourceId")
+  @ApiOperation({ summary: "修改当前用户的素材名称、文件夹和标签" })
+  @ApiHeader({ name: "X-CSRF-Token", required: true })
+  @ApiParam({ format: "uuid", name: "resourceId", type: String })
+  @ApiBody({ type: () => UpdateResourceMetadataDto })
+  @ApiOkResponse({ type: ResourceResponseDto })
+  @ApiForbiddenResponse({ description: "CSRF 校验失败" })
+  @ApiNotFoundResponse({ description: "资源不存在" })
+  update(
+    @Param("resourceId") resourceId: string,
+    @Body() body: UpdateResourceMetadataDto,
+    @CurrentSession() session: AuthenticatedSession,
+    @Req() request: ContextualHttpRequest,
+  ) {
+    return this.resources.updateMetadata(
+      session.user.id,
+      resourceId,
+      body,
+      contextFromRequest(request),
+    );
   }
 
   @Post(":resourceId/access-url")

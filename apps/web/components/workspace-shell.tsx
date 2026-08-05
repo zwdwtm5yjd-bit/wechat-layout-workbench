@@ -10,6 +10,7 @@ import {
   HardDrive,
   ImageUp,
   LayoutDashboard,
+  ListChecks,
   Menu,
   Paintbrush,
   Plus,
@@ -35,7 +36,6 @@ import {
 } from "../lib/preferences";
 import { useWorkspaceUiStore } from "../stores/workspace-ui-store";
 import { ProductMark } from "./product-mark";
-import { useAppToast } from "./ui/app-toast";
 
 interface NavigationItem {
   readonly href?: string;
@@ -48,15 +48,15 @@ const navigationItems: readonly NavigationItem[] = [
   { href: "/workspace/articles", icon: FileText, label: "文章" },
   { href: "/workspace/themes", icon: Paintbrush, label: "主题" },
   { href: "/workspace/components", icon: Blocks, label: "组件" },
-  { icon: Sparkles, label: "SVG 互动" },
-  { icon: Radio, label: "公众号" },
-  { icon: ImageUp, label: "素材更新" },
+  { href: "/workspace/visual-assets", icon: Sparkles, label: "视觉素材" },
+  { href: "/workspace/accounts", icon: Radio, label: "公众号" },
+  { href: "/workspace/resources", icon: ImageUp, label: "素材库" },
+  { href: "/workspace/jobs", icon: ListChecks, label: "任务中心" },
   { href: "/workspace/settings", icon: Settings, label: "设置" },
 ];
 
 export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
-  const { pushToast } = useAppToast();
   const collapsed = useWorkspaceUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useWorkspaceUiStore((state) => state.toggleSidebar);
   const setCommandPaletteOpen = useWorkspaceUiStore((state) => state.setCommandPaletteOpen);
@@ -140,12 +140,6 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
     }
   };
 
-  const announceFoundationBoundary = (label: string) => {
-    pushToast({
-      description: "页面入口已经预留，将在对应业务任务中接入。",
-      title: `${label}暂未开放`,
-    });
-  };
   const pageHeading = pathname.endsWith("/preview")
     ? { description: "多设备与微信安全预览", title: "文章预览" }
     : pathname.startsWith("/workspace/articles/")
@@ -158,9 +152,19 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
             ? { description: "视觉方向与主题预览", title: "主题" }
             : pathname === "/workspace/components"
               ? { description: "微信安全基础区块", title: "组件" }
-              : pathname === "/workspace/settings"
-                ? { description: "本机偏好与功能边界", title: "设置" }
-                : { description: "快速开始与最近工作", title: "工作台" };
+              : pathname === "/workspace/visual-assets"
+                ? { description: "静态与动态原创 SVG", title: "视觉素材" }
+                : pathname.startsWith("/workspace/accounts")
+                  ? { description: "内容归属与默认发布空间", title: "公众号" }
+                  : pathname === "/workspace/resources"
+                    ? { description: "私有上传、引用保护与回收站", title: "素材库" }
+                    : pathname === "/workspace/jobs"
+                      ? { description: "后台导入进度与失败重试", title: "任务中心" }
+                      : pathname === "/workspace/help"
+                        ? { description: "工作流说明与常见问题", title: "帮助" }
+                        : pathname === "/workspace/settings"
+                          ? { description: "本机偏好与功能边界", title: "设置" }
+                          : { description: "快速开始与最近工作", title: "工作台" };
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -194,18 +198,7 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
                 : "text-muted hover:bg-hover hover:text-ink"
             }`;
             const navigationControl =
-              item.href === undefined ? (
-                <button
-                  className={navigationClassName}
-                  onClick={() => {
-                    announceFoundationBoundary(item.label);
-                  }}
-                  type="button"
-                >
-                  <Icon aria-hidden="true" size={18} strokeWidth={1.9} />
-                  {effectiveCollapsed ? null : <span>{item.label}</span>}
-                </button>
-              ) : (
+              item.href === undefined ? null : (
                 <Link
                   aria-current={active ? "page" : undefined}
                   className={navigationClassName}
@@ -215,6 +208,8 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
                   {effectiveCollapsed ? null : <span>{item.label}</span>}
                 </Link>
               );
+
+            if (navigationControl === null) return null;
 
             return effectiveCollapsed ? (
               <Tooltip.Root key={item.label}>
@@ -236,30 +231,24 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
           })}
         </nav>
         <div className="space-y-1 border-t border-line px-2.5 py-3">
-          <button
+          <Link
             className={`flex h-10 w-full items-center rounded-control text-muted transition hover:bg-hover hover:text-ink ${
               effectiveCollapsed ? "justify-center" : "gap-3 px-3"
             }`}
-            onClick={() => {
-              announceFoundationBoundary("存储状态");
-            }}
-            type="button"
+            href="/workspace/resources"
           >
             <HardDrive aria-hidden="true" size={17} />
-            {effectiveCollapsed ? null : <span className="text-[13px]">存储状态</span>}
-          </button>
-          <button
+            {effectiveCollapsed ? null : <span className="text-[13px]">存储与素材</span>}
+          </Link>
+          <Link
             className={`flex h-10 w-full items-center rounded-control text-muted transition hover:bg-hover hover:text-ink ${
               effectiveCollapsed ? "justify-center" : "gap-3 px-3"
             }`}
-            onClick={() => {
-              announceFoundationBoundary("帮助中心");
-            }}
-            type="button"
+            href="/workspace/help"
           >
             <CircleHelp aria-hidden="true" size={17} />
             {effectiveCollapsed ? null : <span className="text-[13px]">帮助</span>}
-          </button>
+          </Link>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <button
@@ -377,16 +366,13 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
               <span className="hidden sm:inline">新建排版</span>
               <span className="sm:hidden">新建</span>
             </Link>
-            <button
+            <Link
               aria-label="通知"
               className="grid size-9 place-items-center rounded-control border border-line text-muted transition hover:bg-hover hover:text-ink"
-              onClick={() => {
-                announceFoundationBoundary("通知中心");
-              }}
-              type="button"
+              href="/workspace/jobs"
             >
               <Bell aria-hidden="true" size={16} />
-            </button>
+            </Link>
             <button
               aria-label="打开菜单"
               className="grid size-9 place-items-center rounded-control border border-line text-muted transition hover:bg-hover hover:text-ink lg:hidden"

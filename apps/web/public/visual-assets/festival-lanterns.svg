@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 330" role="img" aria-labelledby="title">
+  <title id="title">节日灯笼与金色流线</title>
+  <defs><linearGradient id="paper" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff9ed"/><stop offset="1" stop-color="#fff0dc"/></linearGradient></defs>
+  <rect width="1200" height="330" rx="28" fill="url(#paper)"/>
+  <path d="M0 273c193-56 383-49 568 9 203 64 413 61 632-9" fill="none" stroke="#d6a74c" stroke-width="4" opacity=".62"/>
+  <g transform="translate(970 -8)"><path d="M76 0v52" stroke="#7d1e24" stroke-width="5"/><path d="M34 54h84" stroke="#d6a74c" stroke-width="7"/><path d="M29 69c0-20 94-20 94 0v100c0 36-94 36-94 0Z" fill="#b72c25"/><path d="M42 74v91m68-91v91" stroke="#efc36d" stroke-width="4" opacity=".7"/><path d="M44 196h64m-31 0v45m-12-19 12 19 12-19" stroke="#d6a74c" stroke-width="6"/></g>
+  <g transform="translate(72 26) scale(.72)"><path d="M76 0v52" stroke="#7d1e24" stroke-width="5"/><path d="M34 54h84" stroke="#d6a74c" stroke-width="7"/><path d="M29 69c0-20 94-20 94 0v100c0 36-94 36-94 0Z" fill="#cf493b"/><path d="M42 74v91m68-91v91" stroke="#f1cf84" stroke-width="4" opacity=".7"/><path d="M44 196h64m-31 0v45" stroke="#d6a74c" stroke-width="6"/></g>
+  <g fill="#d6a74c" opacity=".7"><circle cx="230" cy="84" r="5"/><circle cx="254" cy="66" r="3"/><circle cx="278" cy="91" r="4"/></g>
+</svg>

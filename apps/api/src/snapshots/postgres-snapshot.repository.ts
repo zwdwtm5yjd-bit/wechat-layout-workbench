@@ -11,6 +11,13 @@ import type { DocumentV1 } from "@wechat-layout/document-schema";
 import { and, count, desc, eq, isNull } from "drizzle-orm";
 
 import { DATABASE_CONNECTION } from "../database/database.module.js";
+import {
+  freezeSnapshotDocumentResources,
+  replaceActiveDocumentResources,
+  validateDocumentResources,
+  validateDocumentsResources,
+  type ValidatedDocumentResources,
+} from "../documents/postgres-document-resources.js";
 import { statisticsForDocument } from "../documents/document-statistics.js";
 import { buildSnapshotManifests } from "./snapshot-manifest.js";
 import type {
@@ -151,6 +158,7 @@ async function insertSnapshot(
     readonly themeVersion?: string | null;
     readonly brandVersionId?: string | null;
     readonly compatibilityScore?: number | null;
+    readonly resources: ValidatedDocumentResources;
   },
 ): Promise<ArticleSnapshotRecord> {
   const generatedManifests = buildSnapshotManifests(input.document, input.article);
@@ -191,6 +199,11 @@ async function insertSnapshot(
   if (inserted === undefined) {
     throw new Error("快照创建失败");
   }
+  await freezeSnapshotDocumentResources(transaction, {
+    articleId: input.article.id,
+    resources: input.resources,
+    snapshotId: input.id,
+  });
 
   return toSnapshotRecord({
     ...inserted,
@@ -318,12 +331,21 @@ export class PostgresSnapshotRepository implements SnapshotRepository {
         return { kind: "not_found" };
       }
 
+      const document = documentRow.document as unknown as DocumentV1;
+      const validatedResources = await validateDocumentResources(transaction, {
+        document,
+        ownerUserId: input.ownerUserId,
+      });
+      if (validatedResources.kind === "invalid_resources") {
+        return validatedResources;
+      }
+
       const snapshotId = createUuidV7();
       const now = new Date();
       const snapshot = await insertSnapshot(transaction, {
         id: snapshotId,
         article,
-        document: documentRow.document as unknown as DocumentV1,
+        document,
         documentSchemaVersion: documentRow.schemaVersion,
         snapshotNumber: await nextSnapshotNumber(transaction, input.articleId),
         reason: input.reason,
@@ -331,6 +353,7 @@ export class PostgresSnapshotRepository implements SnapshotRepository {
         createdBy: input.context.actorUserId,
         createdAt: now,
         textHash: documentRow.currentTextHash,
+        resources: validatedResources.value,
       });
 
       await transaction
@@ -445,6 +468,15 @@ export class PostgresSnapshotRepository implements SnapshotRepository {
           updatedAt: now.toISOString(),
         },
       };
+      const validatedDocuments = await validateDocumentsResources(transaction, {
+        documents: [currentDocument.document, restoredDocument],
+        ownerUserId: input.ownerUserId,
+      });
+      if (validatedDocuments.kind === "invalid_resources") {
+        return validatedDocuments;
+      }
+      const currentResources = validatedDocuments.values[0] ?? { references: [] };
+      const restoredResources = validatedDocuments.values[1] ?? { references: [] };
       const statistics = statisticsForDocument(restoredDocument);
       const [updatedDocument] = await transaction
         .update(articleDocuments)
@@ -473,6 +505,11 @@ export class PostgresSnapshotRepository implements SnapshotRepository {
           lastSavedAt: currentDocument.lastSavedAt,
         };
       }
+      await replaceActiveDocumentResources(transaction, {
+        articleId: input.articleId,
+        resources: restoredResources,
+        replacedAt: now,
+      });
 
       const firstSnapshotNumber = await nextSnapshotNumber(transaction, input.articleId);
       const safetySnapshot = await insertSnapshot(transaction, {
@@ -486,6 +523,7 @@ export class PostgresSnapshotRepository implements SnapshotRepository {
         createdBy: input.context.actorUserId,
         createdAt: now,
         textHash: currentDocument.currentTextHash,
+        resources: currentResources,
       });
       const restoredSnapshotId = createUuidV7();
       const restoredSnapshot = await insertSnapshot(transaction, {
@@ -505,6 +543,7 @@ export class PostgresSnapshotRepository implements SnapshotRepository {
         themeVersion: target.themeVersion,
         brandVersionId: target.brandVersionId,
         compatibilityScore: target.compatibilityScore,
+        resources: restoredResources,
       });
 
       await transaction

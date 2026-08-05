@@ -1,3 +1,5 @@
+import type { DocumentResourceReference } from "../documents/document-resource-references.js";
+
 export const ARTICLE_STATUSES = [
   "pending_import",
   "pending_recognition",
@@ -103,6 +105,14 @@ export interface DuplicateArticleInput {
   readonly context: ArticleMutationContext;
 }
 
+export type DuplicateArticleResult =
+  | { readonly kind: "created"; readonly article: ArticleDetailRecord }
+  | { readonly kind: "not_found" }
+  | {
+      readonly kind: "invalid_resources";
+      readonly invalidReferences: readonly DocumentResourceReference[];
+    };
+
 export interface ArticleMutationContext {
   readonly actorUserId: string;
   readonly requestId: string;
@@ -134,7 +144,7 @@ export interface ArticleRepository {
     ownerUserId: string,
     articleId: string,
     input: DuplicateArticleInput,
-  ): Promise<ArticleDetailRecord | null>;
+  ): Promise<DuplicateArticleResult>;
   archive(
     ownerUserId: string,
     articleId: string,

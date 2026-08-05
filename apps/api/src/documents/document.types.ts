@@ -1,5 +1,7 @@
 import type { DocumentV1 } from "@wechat-layout/document-schema";
 
+import type { DocumentResourceReference } from "./document-resource-references.js";
+
 export interface ArticleDocumentSourceBlock {
   readonly blockType: string;
   readonly orderIndex: number;
@@ -64,6 +66,10 @@ export type SaveArticleDocumentResult =
     }
   | {
       readonly kind: "not_found";
+    }
+  | {
+      readonly kind: "invalid_resources";
+      readonly invalidReferences: readonly DocumentResourceReference[];
     };
 
 export interface ArticleDocumentRepository {

@@ -4,6 +4,10 @@ import type {
   ExactComponentReference,
 } from "@wechat-layout/component-registry";
 import {
+  builtInVisualAssetPublicPath,
+  findOfficialVisualAsset,
+} from "@wechat-layout/component-registry";
+import {
   validateTextLockEvolution,
   type DocNode,
   type TextLockViolation,
@@ -33,6 +37,7 @@ export interface DocumentExtensionOptions {
     reference: ExactComponentReference,
   ) => ComponentNodeViewDescriptor;
   readonly onTextMutationBlocked?: (violations: readonly TextLockViolation[]) => void;
+  readonly resourceUrlResolver?: (resourceId: string) => string | undefined;
   readonly textLocked?: boolean;
 }
 
@@ -433,45 +438,111 @@ const ListItem = Node.create({
   },
 });
 
-const ImageBlock = Node.create({
-  name: "imageBlock",
-  group: "block",
-  atom: true,
-  selectable: true,
+function createImageBlockExtension(
+  resourceUrlResolver?: (resourceId: string) => string | undefined,
+) {
+  return Node.create({
+    name: "imageBlock",
+    group: "block",
+    atom: true,
+    selectable: true,
 
-  addAttributes() {
-    return {
-      resourceId: {
-        default: "resource_pending",
-        renderHTML: (attributes) => ({ "data-resource-id": attributes.resourceId }),
-      },
-      originalResourceId: ignoredAttribute,
-      alt: ignoredAttribute,
-      caption: ignoredAttribute,
-      widthMode: ignoredAttribute,
-      widthPercent: ignoredAttribute,
-      aspectRatio: ignoredAttribute,
-      objectFit: ignoredAttribute,
-      watermarkId: ignoredAttribute,
-    };
-  },
+    addAttributes() {
+      return {
+        resourceId: {
+          default: "resource_pending",
+          renderHTML: (attributes) => ({ "data-resource-id": attributes.resourceId }),
+        },
+        originalResourceId: ignoredAttribute,
+        alt: ignoredAttribute,
+        caption: ignoredAttribute,
+        widthMode: ignoredAttribute,
+        widthPercent: ignoredAttribute,
+        aspectRatio: ignoredAttribute,
+        objectFit: ignoredAttribute,
+        watermarkId: ignoredAttribute,
+      };
+    },
 
-  parseHTML() {
-    return [{ tag: "figure[data-node-type='imageBlock']" }];
-  },
+    parseHTML() {
+      return [{ tag: "figure[data-node-type='imageBlock']" }];
+    },
 
-  renderHTML({ node, HTMLAttributes }) {
-    const label = typeof node.attrs.alt === "string" ? node.attrs.alt : "图片素材";
-    return [
-      "figure",
-      mergeAttributes(HTMLAttributes, {
-        class: "editor-atom editor-image-block",
-        "data-node-type": "imageBlock",
-      }),
-      ["span", { class: "editor-atom-label" }, label],
-    ];
-  },
-});
+    renderHTML({ node, HTMLAttributes }) {
+      const label = typeof node.attrs.alt === "string" ? node.attrs.alt : "图片素材";
+      return [
+        "figure",
+        mergeAttributes(HTMLAttributes, {
+          class: "editor-atom editor-image-block",
+          "data-node-type": "imageBlock",
+        }),
+        ["span", { class: "editor-atom-label" }, label],
+      ];
+    },
+
+    addNodeView() {
+      return ({ node }) => {
+        const dom = document.createElement("figure");
+        dom.className = "editor-atom editor-image-block";
+        dom.dataset.nodeType = "imageBlock";
+        const image = document.createElement("img");
+        image.className = "editor-visual-asset-image";
+        image.draggable = false;
+        const label = document.createElement("span");
+        label.className = "editor-atom-label";
+        const caption = document.createElement("figcaption");
+        caption.className = "editor-image-caption";
+
+        const applyNode = (currentNode: typeof node) => {
+          const resourceId = String(currentNode.attrs.resourceId ?? "");
+          const path =
+            builtInVisualAssetPublicPath(resourceId) ?? resourceUrlResolver?.(resourceId);
+          dom.dataset.resourceId = resourceId;
+          dom.dataset.blockId = String(currentNode.attrs.blockId ?? "");
+          const widthMode = String(currentNode.attrs.widthMode ?? "full");
+          dom.style.width =
+            widthMode === "percent"
+              ? `${String(currentNode.attrs.widthPercent ?? 80)}%`
+              : widthMode === "original"
+                ? "fit-content"
+                : "100%";
+          dom.style.marginInline = widthMode === "full" ? "0" : "auto";
+          image.style.objectFit = String(currentNode.attrs.objectFit ?? "contain");
+          image.style.aspectRatio =
+            typeof currentNode.attrs.aspectRatio === "string"
+              ? currentNode.attrs.aspectRatio
+              : "auto";
+          label.textContent =
+            typeof currentNode.attrs.alt === "string" ? currentNode.attrs.alt : "图片素材";
+          caption.textContent =
+            typeof currentNode.attrs.caption === "string" ? currentNode.attrs.caption : "";
+          caption.hidden = caption.textContent.length === 0;
+          if (path === undefined) {
+            image.hidden = true;
+            label.hidden = false;
+            image.removeAttribute("src");
+            return;
+          }
+          image.src = path;
+          image.alt = label.textContent;
+          image.hidden = false;
+          label.hidden = true;
+        };
+
+        applyNode(node);
+        dom.append(image, label, caption);
+        return {
+          dom,
+          update(updatedNode) {
+            if (updatedNode.type.name !== "imageBlock") return false;
+            applyNode(updatedNode);
+            return true;
+          },
+        };
+      };
+    },
+  });
+}
 
 const Divider = Node.create({
   name: "divider",
@@ -562,6 +633,34 @@ function createSemanticCardExtension(
     apply(footer, node.attrs.footer);
   }
 
+  function applyVisualVariant(
+    node: { readonly attrs: Readonly<Record<string, unknown>> },
+    dom: HTMLElement,
+    artwork: HTMLElement,
+  ): void {
+    const variant = typeof node.attrs.variant === "string" ? node.attrs.variant : "";
+    if (variant === "") {
+      delete dom.dataset.componentVariant;
+      artwork.hidden = true;
+      return;
+    }
+    dom.dataset.componentVariant = variant;
+    artwork.hidden = ![
+      "autumn_persimmon_intro",
+      "bamboo_note",
+      "civic_red_banner",
+      "civic_red_notice",
+      "cloud_scroll_heading",
+      "festival_lantern_hero",
+      "film_triptych",
+      "ink_mountain_hero",
+      "leaf_story_intro",
+      "magazine_duo",
+      "mist_mountain_heading",
+      "tech_orbit_hero",
+    ].includes(variant);
+  }
+
   return Node.create({
     name: "semanticCard",
     group: "block",
@@ -598,6 +697,9 @@ function createSemanticCardExtension(
           "data-component-id": descriptor.componentId,
           "data-component-renderer": descriptor.rendererKey,
           "data-component-state": descriptor.state,
+          ...(typeof node.attrs.variant === "string"
+            ? { "data-component-variant": node.attrs.variant }
+            : {}),
           ...(descriptor.version === undefined
             ? {}
             : { "data-component-version": descriptor.version }),
@@ -615,6 +717,9 @@ function createSemanticCardExtension(
         const label = document.createElement("div");
         label.className = "editor-semantic-card__label";
         label.contentEditable = "false";
+        const artwork = document.createElement("div");
+        artwork.className = "editor-semantic-card__artwork";
+        artwork.contentEditable = "false";
         const eyebrow = document.createElement("div");
         eyebrow.className = "editor-semantic-card__eyebrow";
         eyebrow.contentEditable = "false";
@@ -627,8 +732,9 @@ function createSemanticCardExtension(
         footer.className = "editor-semantic-card__footer";
         footer.contentEditable = "false";
         applyDescriptor(dom, label, descriptorFor(node));
+        applyVisualVariant(node, dom, artwork);
         applyVisibleAttributes(node, eyebrow, title, footer);
-        dom.append(label, eyebrow, title, contentDOM, footer);
+        dom.append(artwork, label, eyebrow, title, contentDOM, footer);
 
         return {
           contentDOM,
@@ -638,6 +744,7 @@ function createSemanticCardExtension(
               return false;
             }
             applyDescriptor(dom, label, descriptorFor(updatedNode));
+            applyVisualVariant(updatedNode, dom, artwork);
             applyVisibleAttributes(updatedNode, eyebrow, title, footer);
             return true;
           },
@@ -743,6 +850,48 @@ const SvgInteraction = Node.create({
       }),
       ["span", { class: "editor-atom-label" }, "SVG 互动组件"],
     ];
+  },
+
+  addNodeView() {
+    return ({ node }) => {
+      const dom = document.createElement("figure");
+      dom.className = "editor-atom editor-svg-interaction";
+      dom.dataset.nodeType = "svgInteraction";
+      const image = document.createElement("img");
+      image.className = "editor-visual-asset-image";
+      image.draggable = false;
+      const label = document.createElement("figcaption");
+      label.className = "editor-visual-asset-caption";
+      const status = document.createElement("span");
+      status.className = "editor-visual-asset-status";
+      status.textContent = "动态预览 · 微信静态降级";
+
+      const applyNode = (currentNode: typeof node) => {
+        const resourceId = String(currentNode.attrs.resourceIds?.[0] ?? "");
+        const asset = findOfficialVisualAsset(resourceId);
+        const path = builtInVisualAssetPublicPath(resourceId);
+        dom.dataset.resourceId = resourceId;
+        label.textContent = asset?.name ?? "SVG 互动组件";
+        if (path === undefined) {
+          image.hidden = true;
+          return;
+        }
+        image.src = path;
+        image.alt = asset?.name ?? "动态视觉素材";
+        image.hidden = false;
+      };
+
+      applyNode(node);
+      dom.append(image, label, status);
+      return {
+        dom,
+        update(updatedNode) {
+          if (updatedNode.type.name !== "svgInteraction") return false;
+          applyNode(updatedNode);
+          return true;
+        },
+      };
+    };
   },
 });
 
@@ -869,7 +1018,7 @@ export function createDocumentExtensions(options: DocumentExtensionOptions = {})
     BulletList,
     OrderedList,
     ListItem,
-    ImageBlock,
+    createImageBlockExtension(options.resourceUrlResolver),
     Divider,
     createSemanticCardExtension(options.componentNodeViewResolver),
     BrandFooter,

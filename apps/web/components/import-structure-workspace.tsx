@@ -25,6 +25,7 @@ import {
   type ImportStructure,
 } from "../lib/imports/client";
 import { useAppToast } from "./ui/app-toast";
+import { CreationProgress } from "./creation-progress";
 
 const roles: readonly { readonly label: string; readonly value: ImportBlockRole }[] = [
   { value: "title", label: "主标题" },
@@ -140,7 +141,7 @@ export function ImportStructureWorkspace({ articleId }: { readonly articleId: st
         description: `文档 v${result.documentVersion} 与导入快照 #${result.snapshotNumber} 已保存。`,
         tone: "success",
       });
-      router.push(result.editorUrl);
+      router.push(`${result.editorUrl}?guide=1`);
     },
     onError: (error) => {
       pushToast({
@@ -212,6 +213,7 @@ export function ImportStructureWorkspace({ articleId }: { readonly articleId: st
 
   return (
     <div className="space-y-5">
+      <CreationProgress current={2} />
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[12px] font-medium text-accent">STRUCTURE REVIEW</p>

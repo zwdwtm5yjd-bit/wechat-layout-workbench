@@ -16,13 +16,16 @@
 `S1-COMPAT-001 兼容规则基础`、`S1-COPY-001 一键复制` 和
 `S1-WEB-002 V0.1 页面`、`S1-TEST-001 V0.1 测试基线` 和
 `S1-JOB-001 BullMQ 任务中心`、`S1-THEME-002 首批基础主题` 和
-`S1-COMPONENT-002 首批基础组件`：
+`S1-COMPONENT-002 首批基础组件`、`S2-IMPORT-001 Python DOCX Worker`、
+`S2-IMPORT-002 安全网页导入`、`S2-BRAND-001 公众号基础管理`、
+`S2-OPS-001 生产运行制品`、
+`S2-BACKUP-001 数据库备份恢复` 和 `S2-OPS-002 日志监控仓库制品`：
 
 - pnpm Workspace 与 Turborepo；
 - Next.js Web 空骨架；
 - NestJS API 基础框架；
 - BullMQ Node.js Worker 与 Scheduler 调度骨架；
-- Python DOCX Worker 服务占位；
+- Python DOCX Worker 与安全 OOXML 解析边界；
 - 共享包边界；
 - TypeScript、ESLint、Prettier 与 Vitest 基线；
 - public / server 分层配置入口与 Zod 启动校验；
@@ -96,7 +99,7 @@
 - 系统、主题、品牌占位、组件、文章、节点和行内七层确定性优先级解析；
 - Token 引用与循环检测、任意 CSS 拒绝、受控局部覆盖和微信安全模式强制降级；
 - 深冻结解析结果、分层追踪和有界 LRU 缓存；
-- “高级极简”和“现代政务红”两套官方不可变主题包，完整包含 Token、三级标题、正文、引用、
+- 十套官方不可变主题包，完整包含 Token、三级标题、正文、引用、
   图片、数据卡、分割线、文末、预览资产与安全模式元数据；
 - 官方主题目录、详情和精确版本 API，以及编辑器内不落库试穿；
 - 主题正式应用使用文档乐观锁、`before_theme_apply` 安全快照、审计日志和单事务持久化，原文
@@ -129,10 +132,11 @@
 - 浏览器成功/失败回写、文章 `copied / copy_failed` 状态、状态历史和审计日志；
 - 成功提示只声明“已写入系统剪贴板”，明确要求到微信公众号后台粘贴、预览和发布。
 - 工作台最近文章接入真实列表数据，并覆盖加载、失败和空状态；
-- 主题中心读取两套已安装官方主题及版本资产，编辑器可分别执行临时试穿和正式应用；
-- 组件中心提供 29 个正式基础组件，目录、编辑器插入、快照依赖与微信 Renderer 共用同一份
+- 主题中心读取十套已安装官方主题及版本资产，并支持用途、行业、节假、风格和色调筛选；编辑器
+  可按通知、活动、党建与传统节日等内容场景搜索，分别执行临时试穿和正式应用；
+- 组件中心提供 53 个正式组件（含 12 个原创 PNG / SVG 高级模块），目录、编辑器插入、快照依赖与微信 Renderer 共用同一份
   精确版本 Manifest；
-- 设置页开放浏览器本机偏好和快捷键说明，未接入的账号、公众号与通知能力明确禁用；
+- 设置页开放浏览器本机偏好和快捷键说明，未接入的账号、公众号连接与通知能力明确禁用；
 - 主导航、命令面板、文章已复制/已同步筛选和全局新建/导入快捷键完成闭环；
 - 文章预览页读取真实文章与文档，支持手机、平板、桌面宽度和 75%—100% 缩放；
 - 编辑器交付工具串联快速排版说明、设备预览、兼容抽屉和一键复制弹窗；
@@ -145,8 +149,36 @@
 - Owner 隔离的任务列表、详情、取消、重试 API，以及基于数据库事件的 SSE 实时流；
 - `Last-Event-ID` 原精度断线续传，Redis 重启后任务记录与完整事件仍可读取；
 - Testcontainers 覆盖成功、幂等、自动/手动重试、永久失败、取消和 Redis 重启持久性。
+- 私有 DOCX 直传、`POST /api/v1/imports/docx` 异步导入和 `import-docx` 任务链路；
+- 冻结的 `DOCX Intermediate v1`、稳定 Source Block 映射、标题/编号/链接识别、
+  图片顺序与去重、表格中间结构和 Word/WPS 来源识别；
+- ZIP 路径穿越、重复/加密成员、解压大小与压缩比、XML DTD/实体、宏、
+  ActiveX 和 OLE 嵌入对象拒绝；
+- Worker 保留原始 DOCX 资源和完整中间 JSON，内嵌图片入库后在单个
+  PostgreSQL 事务中生成 Document V1、Source Blocks、资源引用、状态历史和审计记录。
+- `POST /api/v1/imports/webpage`、`import-webpage` 队列和 HTTP 优先、隔离 Chromium 回退的
+  异步网页导入链路；每次 DNS 解析和重定向都重新执行 SSRF 校验并固定连接地址；
+- Readability 正文抽取、脚本/广告/隐藏节点清洗、稳定 Source Blocks、私有图片下载和
+  Webpage Intermediate v1；原始 URL、最终 URL、重定向链、抓取策略及警告进入来源元数据；
+- Chromium 服务不持有数据库、Redis 或对象存储凭据，只接入 Worker 控制网和独立出网，
+  生产容器以非 root、只读文件系统和最小权限运行。
+- Owner 隔离的公众号创建、列表、详情、更新、停用、启用、归档和唯一默认选择；
+- 公众号内容类型、账号/认证状态、文章占用统计、删除影响预检和确认式永久删除；
+- 默认切换与状态操作在事务内串行，归档或删除当前默认时自动选择启用中的接替者；
+- 三个幂等公众号种子、全量变更审计，以及有任意关联文章时禁止永久删除；
+- 公众号列表与详情页面接入真实 API，品牌资产和微信授权保持明确的未接入状态。
+- `S2-OPS-001` 生产制品基础：固定摘要的多阶段 Node / Nginx 镜像、生产 Compose、HTTPS 入口、
+  仅 80 / 443 暴露、非 root 与只读容器、内部数据网络、显式迁移及受保护的部署/回滚命令；
+- 生产配置会在启动前校验 HTTPS Origin、TLS 文件、占位值、镜像版本、Secret 强度以及
+  PostgreSQL / Redis 内部凭据一致性；CI 构建并检查全部生产镜像。
+- `S2-BACKUP-001` 数据库备份基础：PostgreSQL 流式备份、AES-256-GCM、HMAC Manifest、
+  SHA-256、独立备份 Bucket 上传、失败告警、每日 Timer 示例及只恢复到新数据库的演练报告；
+- CI 使用真实 PostgreSQL 18 验证 5 篇含图片、主题引用和快照的测试文章可加密备份并恢复。
+- `S2-OPS-002` 监控制品：受保护 Prometheus 指标、API/队列/Worker 指标、Loki 结构化日志、
+  OpenTelemetry Trace、Tempo、Grafana 预置面板、Node Exporter、Alertmanager 与基础告警；
+  Grafana 只绑定宿主回环地址，真实告警接收仍需在生产等价环境验收。
 
-本阶段尚未实现资源管理 UI、DOCX 文件导入、扩展组件包、兼容问题自动修复管理、SVG 执行、
+本阶段尚未实现资源管理 UI、DOCX/网页导入页面、扩展组件包、兼容问题自动修复管理、SVG 执行、
 微信连接或微信草稿同步。
 
 ## 环境要求
@@ -221,8 +253,19 @@ API 基础端点：
 导入端点：
 
 - 创建粘贴导入：`POST /api/v1/imports/paste`；
+- 从已上传的私有 DOCX 资源创建异步导入：`POST /api/v1/imports/docx`；
+- 从公网 HTTP(S) URL 创建异步网页导入：`POST /api/v1/imports/webpage`；
 - 读取可刷新恢复的结构：`GET /api/v1/imports/:articleId/structure`；
 - 确认完整结构并生成快照：`PUT /api/v1/imports/:articleId/structure`。
+
+公众号端点：
+
+- 列表与新建：`GET|POST /api/v1/accounts`；
+- 详情与基础信息：`GET|PATCH /api/v1/accounts/:accountId`；
+- 唯一默认、停用、启用和归档：
+  `POST /api/v1/accounts/:accountId/default|disable|enable|archive`；
+- 删除影响预检与确认式永久删除：`GET /api/v1/accounts/:accountId/delete-impact`、
+  `DELETE /api/v1/accounts/:accountId`。
 
 资源端点：
 
@@ -254,6 +297,7 @@ Web 基础页面：
 - 登录页：`http://localhost:3000/login`；
 - 工作台首页：`http://localhost:3000/workspace`；
 - 文章工作台：`http://localhost:3000/workspace/articles`；
+- 公众号管理：`http://localhost:3000/workspace/accounts`；
 - 粘贴导入：`http://localhost:3000/workspace/imports/paste`；
 - 结构确认：`http://localhost:3000/workspace/imports/:articleId/structure`；
 - 文档会话：`http://localhost:3000/workspace/articles/:articleId`。
@@ -299,7 +343,8 @@ pnpm docker:down
 乐观锁验收；同时覆盖手动快照、编辑后快照游离、恢复前安全版本、恢复后新版本、
 陈旧版本恢复回滚、复制前快照和数据库不可变触发器；粘贴导入还会验证危险内容清洗、
 Source Blocks、刷新恢复、结构确认、幂等重放、版本冲突和导入后快照；资源流程会真实验证
-私有直传、签名下载、匿名拒绝、去重、错误 MIME、伪图片、引用保护和软删除；最后通过重启
+私有直传、签名下载、匿名拒绝、去重、错误 MIME、伪图片、文档保存自动绑定/解绑、引用保护
+和软删除；最后通过重启
 PostgreSQL、Redis、MinIO 检查命名卷的数据持久性；正式复制流程会验证服务端渲染、
 兼容门禁、双格式 Payload、复制记录、快照和审计持久化；任务中心还会覆盖幂等创建、SSE
 回放、自动/手动重试、永久失败只执行一次和运行中取消；主题流程会验证目录、试穿不落库、
@@ -334,6 +379,7 @@ pnpm db:migrate
 pnpm db:check
 pnpm db:seed
 pnpm db:test:migrations
+pnpm acceptance:seed
 pnpm build
 pnpm lint
 pnpm typecheck
@@ -347,6 +393,9 @@ pnpm format:check
 `pnpm test:integration` 使用 Testcontainers 启动隔离的 PostgreSQL、Redis 和 MinIO；
 `pnpm test:e2e` 要求先运行 `pnpm docker:dev`，并使用 Chromium 与 WebKit 验证核心用户流程。
 首次执行 E2E 前可用 `pnpm exec playwright install chromium webkit` 安装测试浏览器。
+`pnpm acceptance:seed` 需显式设置 `ACCEPTANCE_SCOPE=safari` 或 `wechat`，用于通过正式 API
+准备人工验收文章；它不写复制成功记录，也不会发布内容。完整命令和记录模板见
+[微信公众号后台人工测试记录](./docs/testing/wechat-manual-test-record.md)。
 
 单独启动应用：
 
@@ -355,16 +404,20 @@ pnpm --filter @wechat-layout/web dev
 pnpm --filter @wechat-layout/api dev
 pnpm --filter @wechat-layout/worker dev
 pnpm --filter @wechat-layout/scheduler dev
+pnpm --filter @wechat-layout/webpage-browser dev
 ```
 
-Python 服务占位验证：
+Python DOCX Worker 验证：
 
 ```bash
-PYTHONPATH=services/docx-worker-python/src python3 -m docx_worker
+pnpm test:python
+PYTHONPATH=services/docx-worker-python/src python3 -m docx_worker --help
 ```
 
 API 启动后执行 `pnpm api:generate`，会读取 `/api/openapi.json` 并刷新 Web 使用的
-OpenAPI 类型。生成文件不可手工编辑。
+OpenAPI 类型。也可以用 `pnpm --filter @wechat-layout/api openapi:write /tmp/openapi.json`
+离线生成契约，再通过 `OPENAPI_SCHEMA_URL=file:///tmp/openapi.json pnpm api:generate`
+刷新类型。生成文件不可手工编辑。
 
 Web 生产构建固定使用 Next.js 的 Webpack 模式；开发环境仍使用默认开发构建器。这样可以
 规避 Next.js 16.2.12 Turbopack 在中文工作区路径下的 UTF-8 标识符崩溃。
@@ -377,8 +430,9 @@ apps/
   api/                       NestJS API
   worker/                    BullMQ 异步任务 Worker
   scheduler/                 调度进程占位
+  webpage-browser/           无业务凭据的隔离 Chromium 网页渲染服务
 services/
-  docx-worker-python/        Python DOCX Worker 占位
+  docx-worker-python/        Python DOCX Worker、中间契约与安全 OOXML 解析器
 packages/
   api-contracts/
   component-registry/
@@ -393,6 +447,7 @@ packages/
   test-fixtures/
   wechat-connector/
   wechat-renderer/
+  webpage-import/             SSRF 安全抓取、Readability 与 DOM 清洗
 infrastructure/
   compose/
   docker/
@@ -412,12 +467,28 @@ docs/                        00—16 号开发文件与开发记录
 - 数据库密码、Session 密钥、对象存储密钥和微信凭据不得写入代码、文档、前端或日志；
 - `S3_ENDPOINT` 用于服务端内网访问，`S3_PUBLIC_ENDPOINT` 用于生成浏览器可访问的签名
   URL；生产环境两者都必须使用 HTTPS；
+- `S3_ADDRESSING_STYLE` 与 `S3_PUBLIC_ADDRESSING_STYLE` 分别声明两个 Endpoint 的寻址
+  方式：MinIO 使用 `path`，区域级 COS 域名使用 `virtual-hosted`，已绑定单个
+  Bucket 的自定义域名使用 `bucket-endpoint`；
+- COS 使用 `S3_METADATA_HEADER_PREFIX=x-cos-meta-`，S3 / MinIO 使用
+  `x-amz-meta-`；读取器同时识别两种响应头；
+- 微信含图验收时，运行中的 API 与 `acceptance:seed` 必须使用同一个公网 HTTPS
+  `S3_PUBLIC_ENDPOINT`。Docker Compose 支持用宿主环境变量覆盖本地默认值；变更后必须重建或
+  重启 API，不能只给 seed 进程临时设置；
 - 服务端 Secret 在字符串化、JSON 序列化和 Node.js 检查输出中默认显示为 `[REDACTED]`。
 
 ## 下一步
 
-`S1-TEST-001`、`S1-JOB-001`、`S1-THEME-002` 与 `S1-COMPONENT-002` 已完成并通过本地
-全链路终验。V0.1 上线前还需关闭真实 Safari、微信公众号后台和远端 CI 验收门禁。详细
-状态见
+`S1-TEST-001` 的自动化与验收数据准备、`S1-JOB-001`、`S1-THEME-002` 和
+`S1-COMPONENT-002` 已实现。V0.1 标签前还需关闭真实 Safari / Edge 与微信公众号后台人工
+门禁。`S2-OPS-001` 生产运行制品和 `S2-BACKUP-001` 数据库备份恢复制品均已通过自动化验收；
+公网部署仍需真实 CVM、域名与 TLS、COS、Secret 注入、每日 Timer、季度恢复演练和监控实效验收。
+详细状态见
 [V0.1 发布检查清单](./docs/testing/V0.1-release-checklist.md)。
+生产部署入口与未关闭门槛见
+[S2-OPS-001 生产运行制品](./docs/deployment/S2-OPS-001-production-runtime.md)。
+数据库备份格式、每日调度与恢复演练见
+[S2-BACKUP-001 数据库备份与恢复基础](./docs/deployment/S2-BACKUP-001-database-recovery.md)。
+日志、指标、Trace、Grafana 与告警见
+[S2-OPS-002 日志、指标与告警](./docs/deployment/S2-OPS-002-observability.md)。
 完整设计依据见 [docs](./docs/)。

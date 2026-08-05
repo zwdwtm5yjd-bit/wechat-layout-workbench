@@ -50,6 +50,7 @@ export interface ImportBlock {
     readonly sourceUrl?: string | null;
     readonly alt?: string;
     readonly tableCells?: readonly string[];
+    readonly resourceId?: string;
   }>;
 }
 

@@ -14,6 +14,7 @@ const validEnvironment = {
   FIELD_ENCRYPTION_KEY: "field-secret-0000000000000000000000000000000000003",
   ASSET_SIGNING_KEY: "asset-secret-0000000000000000000000000000000000004",
   BACKUP_ENCRYPTION_KEY: "backup-secret-000000000000000000000000000000000005",
+  METRICS_BEARER_TOKEN: "metrics-token-000000000000000000000000000000000006",
 } satisfies Record<string, string>;
 
 describe("parseServerEnvironment", () => {
@@ -33,6 +34,16 @@ describe("parseServerEnvironment", () => {
       brandPackageBytes: 100 * 1024 * 1024,
     });
     expect(configuration.objectStorage.publicEndpoint).toBe("http://localhost:9000");
+    expect(configuration.objectStorage.addressingStyle).toBe("path");
+    expect(configuration.objectStorage.publicAddressingStyle).toBe("path");
+    expect(configuration.objectStorage.metadataHeaderPrefix).toBe("x-amz-meta-");
+    expect(configuration.webpageImport).toEqual({
+      browserEndpoint: "http://localhost:3010",
+      browserTimeoutMs: 30_000,
+      fetchTimeoutMs: 15_000,
+      maximumHtmlBytes: 5 * 1024 * 1024,
+      maximumRedirects: 5,
+    });
   });
 
   it("reports missing critical keys without echoing another secret", () => {
@@ -89,10 +100,29 @@ describe("parseServerEnvironment", () => {
       parseServerEnvironment({
         ...validEnvironment,
         APP_ENV: "production",
-        PUBLIC_WEB_URL: "http://example.com",
+        PUBLIC_WEB_URL: "https://app.example.com",
         S3_ENDPOINT: "https://storage.example.com",
+        S3_PUBLIC_ENDPOINT: "https://assets.example.com",
         S3_BUCKET: "wechat-layout-production",
         SMTP_HOST: "smtp.example.com",
+        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://otel-collector:4318/v1/traces",
+        LOKI_PUSH_URL: "http://loki:3100/loki/api/v1/push",
+      }),
+    ).toThrow(/S3_ADDRESSING_STYLE.*S3_PUBLIC_ADDRESSING_STYLE/);
+
+    expect(() =>
+      parseServerEnvironment({
+        ...validEnvironment,
+        APP_ENV: "production",
+        PUBLIC_WEB_URL: "http://example.com",
+        S3_ADDRESSING_STYLE: "virtual-hosted",
+        S3_ENDPOINT: "https://storage.example.com",
+        S3_BUCKET: "wechat-layout-production",
+        S3_METADATA_HEADER_PREFIX: "x-cos-meta-",
+        S3_PUBLIC_ADDRESSING_STYLE: "virtual-hosted",
+        SMTP_HOST: "smtp.example.com",
+        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://otel-collector:4318/v1/traces",
+        LOKI_PUSH_URL: "http://loki:3100/loki/api/v1/push",
       }),
     ).toThrow(/PUBLIC_WEB_URL.*HTTPS/);
 
@@ -101,12 +131,82 @@ describe("parseServerEnvironment", () => {
         ...validEnvironment,
         APP_ENV: "production",
         PUBLIC_WEB_URL: "https://app.example.com",
+        S3_ADDRESSING_STYLE: "virtual-hosted",
         S3_ENDPOINT: "https://storage.internal.example.com",
         S3_PUBLIC_ENDPOINT: "http://storage.example.com",
+        S3_METADATA_HEADER_PREFIX: "x-cos-meta-",
+        S3_PUBLIC_ADDRESSING_STYLE: "virtual-hosted",
         S3_BUCKET: "wechat-layout-production",
         SMTP_HOST: "smtp.example.com",
       }),
     ).toThrow(/S3_PUBLIC_ENDPOINT.*HTTPS/);
+
+    const configuration = parseServerEnvironment({
+      ...validEnvironment,
+      APP_ENV: "production",
+      PUBLIC_WEB_URL: "https://app.example.com",
+      S3_ADDRESSING_STYLE: "virtual-hosted",
+      S3_BUCKET: "wechat-layout-production",
+      S3_ENDPOINT: "https://cos.ap-shanghai.myqcloud.com",
+      S3_METADATA_HEADER_PREFIX: "x-cos-meta-",
+      S3_PUBLIC_ADDRESSING_STYLE: "bucket-endpoint",
+      S3_PUBLIC_ENDPOINT: "https://assets.example.com",
+      SMTP_HOST: "smtp.example.com",
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://otel-collector:4318/v1/traces",
+      LOKI_PUSH_URL: "http://loki:3100/loki/api/v1/push",
+    });
+    expect(configuration.objectStorage).toMatchObject({
+      addressingStyle: "virtual-hosted",
+      metadataHeaderPrefix: "x-cos-meta-",
+      publicAddressingStyle: "bucket-endpoint",
+    });
+    expect(configuration.observability).toEqual({
+      lokiPushUrl: "http://loki:3100/loki/api/v1/push",
+      otlpTracesEndpoint: "http://otel-collector:4318/v1/traces",
+    });
+    expect(configuration.webpageImport.browserEndpoint).toBe("http://webpage-browser:3010");
+  });
+
+  it("rejects a production browser renderer outside the isolated service", () => {
+    expect(() =>
+      parseServerEnvironment({
+        ...validEnvironment,
+        APP_ENV: "production",
+        PUBLIC_WEB_URL: "https://app.example.com",
+        S3_ADDRESSING_STYLE: "virtual-hosted",
+        S3_BUCKET: "wechat-layout-production",
+        S3_ENDPOINT: "https://cos-internal.example.com",
+        S3_METADATA_HEADER_PREFIX: "x-cos-meta-",
+        S3_PUBLIC_ADDRESSING_STYLE: "bucket-endpoint",
+        S3_PUBLIC_ENDPOINT: "https://assets.example.com",
+        SMTP_HOST: "smtp.example.com",
+        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://otel-collector:4318/v1/traces",
+        LOKI_PUSH_URL: "http://loki:3100/loki/api/v1/push",
+        WEBPAGE_BROWSER_ENDPOINT: "https://browser.example.com",
+      }),
+    ).toThrow(/WEBPAGE_BROWSER_ENDPOINT.*webpage-browser:3010/);
+  });
+
+  it("rejects observability endpoints outside their exact internal services", () => {
+    expect(() =>
+      parseServerEnvironment({
+        ...validEnvironment,
+        APP_ENV: "production",
+        LOKI_PUSH_URL: "http://loki:9999/loki/api/v1/push",
+        LOG_LEVEL: "info",
+        NODE_ENV: "production",
+        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:
+          "http://otel-collector:4318/v1/traces?token=not-allowed",
+        PUBLIC_WEB_URL: "https://app.example.com",
+        S3_ADDRESSING_STYLE: "virtual-hosted",
+        S3_BUCKET: "wechat-layout-production",
+        S3_ENDPOINT: "https://cos-internal.example.com",
+        S3_METADATA_HEADER_PREFIX: "x-cos-meta-",
+        S3_PUBLIC_ADDRESSING_STYLE: "bucket-endpoint",
+        S3_PUBLIC_ENDPOINT: "https://assets.example.com",
+        SMTP_HOST: "smtp.example.com",
+      }),
+    ).toThrow(/OTEL_EXPORTER_OTLP_TRACES_ENDPOINT.*otel-collector:4318.*LOKI_PUSH_URL.*loki:3100/);
   });
 
   it("rejects application and Node environment mixing", () => {

@@ -10,6 +10,8 @@ import { SecretValue } from "./secret.js";
 
 const portSchema = z.coerce.number().int().min(1).max(65_535);
 const positiveIntegerSchema = z.coerce.number().int().positive();
+const objectStorageAddressingStyleSchema = z.enum(["path", "virtual-hosted", "bucket-endpoint"]);
+const objectStorageMetadataHeaderPrefixSchema = z.enum(["x-amz-meta-", "x-cos-meta-"]);
 const placeholderTokens = ["change_me", "replace_me"];
 
 const booleanStringSchema = z.preprocess((value) => {
@@ -48,6 +50,11 @@ export const serverEnvironmentSchema = z
     API_PORT: portSchema,
     WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(32),
     SCHEDULER_INTERVAL_SECONDS: z.coerce.number().int().min(10),
+    WEBPAGE_BROWSER_ENDPOINT: z.url(),
+    WEBPAGE_FETCH_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000),
+    WEBPAGE_BROWSER_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000),
+    WEBPAGE_MAX_REDIRECTS: z.coerce.number().int().min(0).max(10),
+    MAX_WEBPAGE_HTML_BYTES: positiveIntegerSchema,
     DATABASE_URL: secretSchema(1).refine((value) => /^postgres(?:ql)?:\/\//.test(value), {
       message: "必须是 PostgreSQL 连接地址",
     }),
@@ -56,6 +63,9 @@ export const serverEnvironmentSchema = z
     }),
     S3_ENDPOINT: z.url(),
     S3_PUBLIC_ENDPOINT: z.url(),
+    S3_ADDRESSING_STYLE: objectStorageAddressingStyleSchema,
+    S3_PUBLIC_ADDRESSING_STYLE: objectStorageAddressingStyleSchema,
+    S3_METADATA_HEADER_PREFIX: objectStorageMetadataHeaderPrefixSchema,
     S3_REGION: z.string().trim().min(1),
     S3_BUCKET: z
       .string()
@@ -70,6 +80,9 @@ export const serverEnvironmentSchema = z
     FIELD_ENCRYPTION_KEY: secretSchema(32),
     ASSET_SIGNING_KEY: secretSchema(32),
     BACKUP_ENCRYPTION_KEY: secretSchema(32),
+    METRICS_BEARER_TOKEN: secretSchema(32),
+    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: z.url().optional(),
+    LOKI_PUSH_URL: z.url().optional(),
     FEATURE_WECHAT_SYNC_ENABLED: booleanStringSchema,
     FEATURE_REMOTE_COMPONENTS_ENABLED: booleanStringSchema,
     MAX_JSON_BODY_BYTES: positiveIntegerSchema,
@@ -84,6 +97,7 @@ export const serverEnvironmentSchema = z
       ["FIELD_ENCRYPTION_KEY", value.FIELD_ENCRYPTION_KEY],
       ["ASSET_SIGNING_KEY", value.ASSET_SIGNING_KEY],
       ["BACKUP_ENCRYPTION_KEY", value.BACKUP_ENCRYPTION_KEY],
+      ["METRICS_BEARER_TOKEN", value.METRICS_BEARER_TOKEN],
     ] as const;
 
     if (new Set(secrets.map(([, secret]) => secret)).size !== secrets.length) {
@@ -116,12 +130,58 @@ export const serverEnvironmentSchema = z
         }
       }
 
+      const browserEndpoint = new URL(value.WEBPAGE_BROWSER_ENDPOINT);
+      if (
+        browserEndpoint.protocol !== "http:" ||
+        browserEndpoint.hostname !== "webpage-browser" ||
+        browserEndpoint.port !== "3010" ||
+        browserEndpoint.pathname !== "/" ||
+        browserEndpoint.username !== "" ||
+        browserEndpoint.password !== "" ||
+        browserEndpoint.search !== "" ||
+        browserEndpoint.hash !== ""
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "必须使用内部 http://webpage-browser:3010",
+          path: ["WEBPAGE_BROWSER_ENDPOINT"],
+        });
+      }
+
       if (value.LOG_LEVEL === "trace" || value.LOG_LEVEL === "debug") {
         context.addIssue({
           code: "custom",
           message: "生产环境不能启用详细调试日志",
           path: ["LOG_LEVEL"],
         });
+      }
+
+      for (const [key, expectedHost, expectedPort, expectedPath] of [
+        ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "otel-collector", "4318", "/v1/traces"],
+        ["LOKI_PUSH_URL", "loki", "3100", "/loki/api/v1/push"],
+      ] as const) {
+        const endpoint = value[key];
+        if (endpoint === undefined) {
+          context.addIssue({ code: "custom", message: "生产环境必须配置", path: [key] });
+          continue;
+        }
+        const url = new URL(endpoint);
+        if (
+          url.protocol !== "http:" ||
+          url.hostname !== expectedHost ||
+          url.port !== expectedPort ||
+          url.username !== "" ||
+          url.password !== "" ||
+          url.search !== "" ||
+          url.hash !== "" ||
+          url.pathname !== expectedPath
+        ) {
+          context.addIssue({
+            code: "custom",
+            message: `必须使用内部 http://${expectedHost}:${expectedPort}${expectedPath}`,
+            path: [key],
+          });
+        }
       }
     }
   });
@@ -142,6 +202,9 @@ export interface ServerConfiguration {
   readonly objectStorage: Readonly<{
     endpoint: string;
     publicEndpoint: string;
+    addressingStyle: "path" | "virtual-hosted" | "bucket-endpoint";
+    publicAddressingStyle: "path" | "virtual-hosted" | "bucket-endpoint";
+    metadataHeaderPrefix: "x-amz-meta-" | "x-cos-meta-";
     region: string;
     bucket: string;
     accessKeyId: SecretValue;
@@ -154,6 +217,18 @@ export interface ServerConfiguration {
     fieldEncryptionKey: SecretValue;
     assetSigningKey: SecretValue;
     backupEncryptionKey: SecretValue;
+    metricsBearerToken: SecretValue;
+  }>;
+  readonly observability: Readonly<{
+    otlpTracesEndpoint: string | null;
+    lokiPushUrl: string | null;
+  }>;
+  readonly webpageImport: Readonly<{
+    browserEndpoint: string;
+    fetchTimeoutMs: number;
+    browserTimeoutMs: number;
+    maximumRedirects: number;
+    maximumHtmlBytes: number;
   }>;
   readonly features: Readonly<{
     wechatSync: boolean;
@@ -192,11 +267,28 @@ export function parseServerEnvironment(input: EnvironmentInput): ServerConfigura
     API_PORT: input.API_PORT ?? "3001",
     WORKER_CONCURRENCY: input.WORKER_CONCURRENCY ?? "2",
     SCHEDULER_INTERVAL_SECONDS: input.SCHEDULER_INTERVAL_SECONDS ?? "60",
+    WEBPAGE_BROWSER_ENDPOINT:
+      input.WEBPAGE_BROWSER_ENDPOINT ??
+      (isProduction ? "http://webpage-browser:3010" : "http://localhost:3010"),
+    WEBPAGE_FETCH_TIMEOUT_MS: input.WEBPAGE_FETCH_TIMEOUT_MS ?? "15000",
+    WEBPAGE_BROWSER_TIMEOUT_MS: input.WEBPAGE_BROWSER_TIMEOUT_MS ?? "30000",
+    WEBPAGE_MAX_REDIRECTS: input.WEBPAGE_MAX_REDIRECTS ?? "5",
+    MAX_WEBPAGE_HTML_BYTES: input.MAX_WEBPAGE_HTML_BYTES ?? String(5 * 1024 * 1024),
+    METRICS_BEARER_TOKEN:
+      input.METRICS_BEARER_TOKEN ??
+      (isProduction ? undefined : "development-metrics-token-0000000000000000000000001"),
     S3_ENDPOINT: input.S3_ENDPOINT ?? (isProduction ? undefined : "http://localhost:9000"),
     S3_PUBLIC_ENDPOINT:
       input.S3_PUBLIC_ENDPOINT ??
       input.S3_ENDPOINT ??
       (isProduction ? undefined : "http://localhost:9000"),
+    S3_ADDRESSING_STYLE: input.S3_ADDRESSING_STYLE ?? (isProduction ? undefined : "path"),
+    S3_PUBLIC_ADDRESSING_STYLE:
+      input.S3_PUBLIC_ADDRESSING_STYLE ??
+      input.S3_ADDRESSING_STYLE ??
+      (isProduction ? undefined : "path"),
+    S3_METADATA_HEADER_PREFIX:
+      input.S3_METADATA_HEADER_PREFIX ?? (isProduction ? undefined : "x-amz-meta-"),
     S3_REGION: input.S3_REGION ?? "us-east-1",
     S3_BUCKET: input.S3_BUCKET ?? (isProduction ? undefined : `wechat-layout-${environment}`),
     SMTP_HOST: input.SMTP_HOST ?? (isProduction ? undefined : "localhost"),
@@ -231,6 +323,9 @@ export function parseServerEnvironment(input: EnvironmentInput): ServerConfigura
     objectStorage: Object.freeze({
       endpoint: value.S3_ENDPOINT,
       publicEndpoint: value.S3_PUBLIC_ENDPOINT,
+      addressingStyle: value.S3_ADDRESSING_STYLE,
+      publicAddressingStyle: value.S3_PUBLIC_ADDRESSING_STYLE,
+      metadataHeaderPrefix: value.S3_METADATA_HEADER_PREFIX,
       region: value.S3_REGION,
       bucket: value.S3_BUCKET,
       accessKeyId: new SecretValue(value.S3_ACCESS_KEY_ID),
@@ -246,6 +341,18 @@ export function parseServerEnvironment(input: EnvironmentInput): ServerConfigura
       fieldEncryptionKey: new SecretValue(value.FIELD_ENCRYPTION_KEY),
       assetSigningKey: new SecretValue(value.ASSET_SIGNING_KEY),
       backupEncryptionKey: new SecretValue(value.BACKUP_ENCRYPTION_KEY),
+      metricsBearerToken: new SecretValue(value.METRICS_BEARER_TOKEN),
+    }),
+    observability: Object.freeze({
+      otlpTracesEndpoint: value.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ?? null,
+      lokiPushUrl: value.LOKI_PUSH_URL ?? null,
+    }),
+    webpageImport: Object.freeze({
+      browserEndpoint: value.WEBPAGE_BROWSER_ENDPOINT.replace(/\/$/, ""),
+      fetchTimeoutMs: value.WEBPAGE_FETCH_TIMEOUT_MS,
+      browserTimeoutMs: value.WEBPAGE_BROWSER_TIMEOUT_MS,
+      maximumRedirects: value.WEBPAGE_MAX_REDIRECTS,
+      maximumHtmlBytes: value.MAX_WEBPAGE_HTML_BYTES,
     }),
     features: Object.freeze({
       wechatSync: value.FEATURE_WECHAT_SYNC_ENABLED,

@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type ClipboardEvent, type FormEvent } from "react";
 
 import { createPasteImport, ImportClientError, type PasteImportInput } from "../lib/imports/client";
+import { CreationProgress } from "./creation-progress";
 import { useAppToast } from "./ui/app-toast";
 
 type CleaningMode = PasteImportInput["cleaningMode"];
@@ -57,7 +58,7 @@ function errorMessage(error: unknown): string {
   return error instanceof ImportClientError ? error.message : "导入失败，请稍后重试";
 }
 
-export function PasteImportWorkspace() {
+export function PasteImportWorkspace({ embedded = false }: { readonly embedded?: boolean } = {}) {
   const router = useRouter();
   const { pushToast } = useAppToast();
   const [plainText, setPlainText] = useState("");
@@ -129,20 +130,23 @@ export function PasteImportWorkspace() {
 
   return (
     <form className="space-y-5" onSubmit={submit}>
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[12px] font-medium text-accent">PASTE IMPORT</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">粘贴导入</h1>
-          <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted">
-            粘贴来自 Word、WPS、网页或 AI 工具的正文。原始 HTML
-            不会保存，脚本、隐藏节点和危险链接会在服务端清理。
-          </p>
-        </div>
-        <div className="inline-flex items-center gap-2 self-start rounded-full bg-success-soft px-3 py-1.5 text-[11px] font-medium text-success">
-          <ShieldCheck aria-hidden="true" size={14} />
-          服务端安全清洗
-        </div>
-      </section>
+      {embedded ? null : <CreationProgress current={1} />}
+      {embedded ? null : (
+        <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[12px] font-medium text-accent">PASTE IMPORT</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">粘贴导入</h1>
+            <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted">
+              粘贴来自 Word、WPS、网页或 AI 工具的正文。原始 HTML
+              不会保存，脚本、隐藏节点和危险链接会在服务端清理。
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-2 self-start rounded-full bg-success-soft px-3 py-1.5 text-[11px] font-medium text-success">
+            <ShieldCheck aria-hidden="true" size={14} />
+            服务端安全清洗
+          </div>
+        </section>
+      )}
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="overflow-hidden rounded-card border border-line bg-panel shadow-subtle">

@@ -9,6 +9,13 @@ export const RESOURCE_IMAGE_MIME_TYPES = [
   "image/gif",
 ] as const;
 
+export const RESOURCE_DOCX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document" as const;
+export const RESOURCE_UPLOAD_MIME_TYPES = [
+  ...RESOURCE_IMAGE_MIME_TYPES,
+  RESOURCE_DOCX_MIME_TYPE,
+] as const;
+
 export const RESOURCE_ACCESS_PURPOSES = ["editor_preview"] as const;
 export const RESOURCE_ACCESS_VARIANTS = ["original", "thumbnail"] as const;
 

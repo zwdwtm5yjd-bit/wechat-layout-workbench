@@ -94,7 +94,7 @@ function longThemeDocument(): DocumentV1 {
             styleRef: "card.data.default",
             title: "0",
           },
-          content: [paragraph("theme_data_body", "两套主题共用同一份权威文档。")],
+          content: [paragraph("theme_data_body", "所有主题共用同一份权威文档。")],
         },
         {
           type: "divider",
@@ -130,7 +130,7 @@ function longThemeDocument(): DocumentV1 {
 }
 
 describe("official theme rendering", () => {
-  it("keeps a 3000-character article intact across both themes and safe mode", () => {
+  it("keeps a 3000-character article intact across all themes and safe mode", () => {
     const document = longThemeDocument();
     const outputs = OFFICIAL_THEME_PACKAGES.map((theme) => {
       const input = {

@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 import {
   applyWorkspacePreferences,
@@ -78,7 +79,7 @@ export function SettingsWorkspace() {
         <p className="text-[12px] font-medium text-accent">WORKSPACE PREFERENCES</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">设置</h1>
         <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted">
-          V0.1 先开放本机编辑偏好与快捷键说明；账号、公众号和通知配置保留清晰的未接入状态。
+          管理本机编辑偏好，并快速进入账号会话、公众号品牌空间和任务通知中心。
         </p>
       </section>
 
@@ -172,7 +173,7 @@ export function SettingsWorkspace() {
               </dl>
             </div>
           ) : (
-            <UnavailableSettings section={activeSection} />
+            <ConnectedSettings section={activeSection} />
           )}
         </div>
       </section>
@@ -218,12 +219,39 @@ function PreferenceSwitch({
   );
 }
 
-function UnavailableSettings({ section }: { readonly section: string }) {
-  const labels: Readonly<Record<string, string>> = {
-    account: "账号设置",
-    notifications: "通知设置",
-    wechat: "公众号连接",
+function ConnectedSettings({ section }: { readonly section: string }) {
+  const content: Readonly<
+    Record<
+      string,
+      {
+        readonly action: string;
+        readonly description: string;
+        readonly href: string;
+        readonly title: string;
+      }
+    >
+  > = {
+    account: {
+      title: "账号会话已接通",
+      description: "当前账号通过安全 Cookie 会话登录，支持 CSRF 防护、登录限流和一键退出。",
+      href: "/workspace/help",
+      action: "查看安全说明",
+    },
+    notifications: {
+      title: "任务通知已接通",
+      description: "DOCX 解析、网页抓取的进度和失败消息会集中显示在任务中心。",
+      href: "/workspace/jobs",
+      action: "打开任务中心",
+    },
+    wechat: {
+      title: "公众号品牌空间已接通",
+      description:
+        "可创建多个公众号空间、设置默认账号并管理状态；公众号平台 OAuth 同步仍保持关闭。",
+      href: "/workspace/accounts",
+      action: "管理公众号",
+    },
   };
+  const selected = content[section] ?? content.account!;
   return (
     <div className="grid min-h-[360px] place-items-center text-center">
       <div className="max-w-sm">
@@ -236,14 +264,18 @@ function UnavailableSettings({ section }: { readonly section: string }) {
             <Bell aria-hidden="true" size={20} />
           )}
         </span>
-        <h2 className="mt-4 text-sm font-semibold text-ink">{labels[section]}尚未接入</h2>
-        <p className="mt-2 text-[12px] leading-5 text-muted">
-          页面结构已经保留，但 V0.1 不会伪造连接、同步或云端保存状态。
-        </p>
+        <h2 className="mt-4 text-sm font-semibold text-ink">{selected.title}</h2>
+        <p className="mt-2 text-[12px] leading-5 text-muted">{selected.description}</p>
         <span className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1.5 text-[10px] text-success">
           <ShieldCheck aria-hidden="true" size={12} />
-          当前数据边界清晰
+          已启用的能力真实可用
         </span>
+        <Link
+          className="mx-auto mt-5 flex h-9 w-fit items-center rounded-control bg-accent px-4 text-[11px] font-semibold text-white"
+          href={selected.href}
+        >
+          {selected.action}
+        </Link>
       </div>
     </div>
   );

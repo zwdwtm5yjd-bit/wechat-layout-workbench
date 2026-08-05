@@ -106,6 +106,74 @@ export const userSessions = authSchema.table(
   ],
 );
 
+export const officialAccounts = brandSchema.table(
+  "official_accounts",
+  {
+    id: uuid("id").primaryKey(),
+    ownerUserId: uuid("owner_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    name: varchar("name", { length: 200 }).notNull(),
+    shortName: varchar("short_name", { length: 100 }),
+    slug: varchar("slug", { length: 120 }).notNull(),
+    description: text("description"),
+    contentTypes: jsonb("content_types")
+      .$type<readonly string[]>()
+      .notNull()
+      .default(emptyJsonArray),
+    accountType: varchar("account_type", { length: 32 }).notNull().default("unknown"),
+    verificationStatus: varchar("verification_status", { length: 32 }).notNull().default("unknown"),
+    status: varchar("status", { length: 32 }).notNull().default("draft"),
+    defaultThemeId: uuid("default_theme_id"),
+    defaultPaletteId: uuid("default_palette_id"),
+    currentBrandVersionId: uuid("current_brand_version_id"),
+    isDefault: boolean("is_default").notNull().default(false),
+    archivedAt: timestamp("archived_at", { withTimezone: true, mode: "date" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
+  },
+  (table) => [
+    uniqueIndex("uq_official_accounts_owner_slug")
+      .on(table.ownerUserId, table.slug)
+      .where(sql`${table.deletedAt} is null`),
+    uniqueIndex("uq_official_accounts_default_owner")
+      .on(table.ownerUserId)
+      .where(
+        sql`${table.isDefault} = true and ${table.deletedAt} is null and ${table.status} <> 'archived'`,
+      ),
+    index("idx_official_accounts_owner_status")
+      .on(table.ownerUserId, table.status, table.updatedAt.desc())
+      .where(sql`${table.deletedAt} is null`),
+    index("idx_official_accounts_owner_default")
+      .on(table.ownerUserId, table.isDefault)
+      .where(sql`${table.deletedAt} is null`),
+    check("ck_official_accounts_name_not_blank", sql`char_length(trim(${table.name})) > 0`),
+    check("ck_official_accounts_slug_not_blank", sql`char_length(trim(${table.slug})) > 0`),
+    check("ck_official_accounts_content_types", sql`jsonb_typeof(${table.contentTypes}) = 'array'`),
+    check(
+      "ck_official_accounts_account_type",
+      sql`${table.accountType} in ('service', 'subscription', 'unknown')`,
+    ),
+    check(
+      "ck_official_accounts_verification_status",
+      sql`${table.verificationStatus} in ('unknown', 'unverified', 'verified')`,
+    ),
+    check(
+      "ck_official_accounts_status",
+      sql`${table.status} in ('draft', 'active', 'disabled', 'archived')`,
+    ),
+    check(
+      "ck_official_accounts_archive_consistency",
+      sql`(${table.status} = 'archived') = (${table.archivedAt} is not null)`,
+    ),
+    check(
+      "ck_official_accounts_default_not_archived",
+      sql`not (${table.isDefault} and ${table.status} = 'archived')`,
+    ),
+  ],
+);
+
 export const resources = contentSchema.table(
   "resources",
   {
@@ -550,7 +618,7 @@ export const articleResources = contentSchema.table(
     resourceId: uuid("resource_id")
       .notNull()
       .references(() => resources.id, { onDelete: "restrict" }),
-    blockId: varchar("block_id", { length: 100 }),
+    blockId: varchar("block_id", { length: 128 }),
     usageType: varchar("usage_type", { length: 50 }).notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
     frozenBySnapshotId: uuid("frozen_by_snapshot_id").references(() => articleSnapshots.id, {
@@ -567,6 +635,17 @@ export const articleResources = contentSchema.table(
       .on(table.resourceId)
       .where(sql`${table.deletedAt} is null`),
     index("idx_article_resources_snapshot").on(table.frozenBySnapshotId),
+    uniqueIndex("uq_article_resources_live_binding")
+      .on(table.articleId, table.resourceId, sql`coalesce(${table.blockId}, '')`, table.usageType)
+      .where(sql`${table.frozenBySnapshotId} is null and ${table.deletedAt} is null`),
+    uniqueIndex("uq_article_resources_snapshot_binding")
+      .on(
+        table.frozenBySnapshotId,
+        table.resourceId,
+        sql`coalesce(${table.blockId}, '')`,
+        table.usageType,
+      )
+      .where(sql`${table.frozenBySnapshotId} is not null and ${table.deletedAt} is null`),
     check("ck_article_resources_sort_order", sql`${table.sortOrder} >= 0`),
   ],
 );
@@ -685,6 +764,7 @@ export const auditLogs = auditSchema.table(
 export const databaseTables = {
   users,
   userSessions,
+  officialAccounts,
   articles,
   articleDocuments,
   articleStatusHistory,

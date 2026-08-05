@@ -50,11 +50,22 @@ function serviceFixture() {
 }
 
 describe("ThemeService", () => {
-  it("lists two installed immutable official themes", () => {
+  it("lists ten installed immutable official themes", () => {
     const { service } = serviceFixture();
     const result = service.list({});
-    expect(result.pagination).toMatchObject({ total: 2, totalPages: 1 });
-    expect(result.items.map((theme) => theme.manifest.name)).toEqual(["高级极简", "现代政务红"]);
+    expect(result.pagination).toMatchObject({ total: 10, totalPages: 1 });
+    expect(result.items.map((theme) => theme.manifest.name)).toEqual([
+      "高级极简",
+      "现代政务红",
+      "科技蓝金",
+      "校园青春",
+      "夏日森系",
+      "旅行杂志",
+      "食味暖橙",
+      "人物专访",
+      "节日红金",
+      "国风雅韵",
+    ]);
     expect(result.items.every((theme) => theme.installed)).toBe(true);
   });
 

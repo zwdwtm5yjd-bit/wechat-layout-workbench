@@ -8,6 +8,9 @@ export type ImportStructureBlock = Readonly<components["schemas"]["ImportStructu
 export type ImportBlockRole = ImportStructureBlock["role"];
 export type PasteImportInput = Readonly<components["schemas"]["PasteImportDto"]>;
 export type ConfirmImportResult = Readonly<components["schemas"]["ConfirmImportResultDto"]>;
+export type ImportJob = Readonly<components["schemas"]["DocxImportJobDto"]>;
+export type DocxImportInput = Readonly<components["schemas"]["DocxImportDto"]>;
+export type WebpageImportInput = Readonly<components["schemas"]["WebpageImportDto"]>;
 
 interface ApiSuccess<T> {
   readonly success: true;
@@ -87,6 +90,24 @@ export async function createPasteImport(input: PasteImportInput): Promise<Import
       "X-CSRF-Token": csrfToken,
     },
     body: JSON.stringify(body),
+  });
+}
+
+export async function createDocxImport(input: DocxImportInput): Promise<ImportJob> {
+  const csrfToken = await getCsrfToken();
+  return request<ImportJob>("/api/v1/imports/docx", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function createWebpageImport(input: WebpageImportInput): Promise<ImportJob> {
+  const csrfToken = await getCsrfToken();
+  return request<ImportJob>("/api/v1/imports/webpage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+    body: JSON.stringify(input),
   });
 }
 

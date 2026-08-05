@@ -11,6 +11,7 @@ import { tap, type Observable } from "rxjs";
 import { describeApiException } from "./api-error-mapping.js";
 import { contextFromRequest, type ContextualHttpRequest } from "./request-context.js";
 import { StructuredLoggerService } from "./structured-logger.service.js";
+import { ApplicationMetrics } from "../../observability/application-metrics.service.js";
 
 interface StatusHttpResponse {
   readonly statusCode: number;
@@ -21,6 +22,8 @@ export class RequestLoggingInterceptor implements NestInterceptor {
   constructor(
     @Inject(StructuredLoggerService)
     private readonly logger: StructuredLoggerService,
+    @Inject(ApplicationMetrics)
+    private readonly metrics: ApplicationMetrics,
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -34,25 +37,29 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     return next.handle().pipe(
       tap({
         next: () => {
-          this.logger.logHttpRequest({
+          const record = {
             context: requestContext,
             durationMs: performance.now() - startedAt,
             method: request.method,
             path,
             statusCode: response.statusCode,
-          });
+          };
+          this.metrics.observeHttp(record);
+          this.logger.logHttpRequest(record);
         },
         error: (error: unknown) => {
           const describedError = describeApiException(error);
 
-          this.logger.logHttpRequest({
+          const record = {
             context: requestContext,
             durationMs: performance.now() - startedAt,
             errorCode: describedError.error.code,
             method: request.method,
             path,
             statusCode: describedError.statusCode,
-          });
+          };
+          this.metrics.observeHttp(record);
+          this.logger.logHttpRequest(record);
         },
       }),
     );

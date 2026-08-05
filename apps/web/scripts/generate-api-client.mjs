@@ -18,4 +18,6 @@ const source = `// 此文件由 pnpm api:generate 自动生成，请勿手工编
 
 await mkdir(dirname(outputPath), { recursive: true });
 await writeFile(outputPath, source, "utf8");
-process.stdout.write(`OpenAPI types generated from ${schemaUrl.origin}\n`);
+process.stdout.write(
+  `OpenAPI types generated from ${schemaUrl.protocol === "file:" ? schemaUrl.href : schemaUrl.origin}\n`,
+);

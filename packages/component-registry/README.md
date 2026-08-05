@@ -32,8 +32,8 @@ const insertion = registry.prepareInsertion({
 });
 ```
 
-`OFFICIAL_COMPONENT_ASSETS` 内置 29 个不可变首发资产：一级标题 4、二级标题 4、
-引用 4、提示 4、数据卡 4、图片 4、分割线 3、文末 2。每项同时提供
+`OFFICIAL_COMPONENT_ASSETS` 内置 53 个不可变正式资产：原创 PNG / SVG 高级模块 12、
+一级标题 6、二级标题 6、引用 6、提示 6、数据卡 5、图片 5、分割线 4、文末 3。每项同时提供
 `manifest`、`preview` 和通过 Slot 校验的 `defaultSlots`。
 
 远程组件包下载、签名、审核、迁移执行和组件商城属于后续任务。

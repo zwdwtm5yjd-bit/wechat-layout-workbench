@@ -189,8 +189,8 @@ function documentWith(block: TopLevelBlockNode, index: number): DocumentV1 {
 }
 
 describe("official component renderers", () => {
-  it("registers and safely renders every one of the 29 official component versions", () => {
-    expect(OFFICIAL_COMPONENT_ASSETS).toHaveLength(29);
+  it("registers and safely renders every one of the 53 official component versions", () => {
+    expect(OFFICIAL_COMPONENT_ASSETS).toHaveLength(53);
     expect(createOfficialComponentRendererRegistry().list().toSorted()).toEqual(
       [
         ...new Set(OFFICIAL_COMPONENT_ASSETS.map((asset) => asset.manifest.wechatRendererKey)),
@@ -221,11 +221,30 @@ describe("official component renderers", () => {
     });
   });
 
+  it("renders original visual assets and gallery layouts through HTTPS-safe markup", () => {
+    const visualAssets = OFFICIAL_COMPONENT_ASSETS.filter((asset) =>
+      asset.manifest.semanticRoles.includes("visual"),
+    );
+    expect(visualAssets).toHaveLength(12);
+
+    visualAssets.forEach((asset, index) => {
+      const output = renderWechatHtml({
+        document: documentWith(componentBlock(asset, 500 + index, "高级视觉模块正文"), 500 + index),
+        mode: "wechat_safe",
+      });
+      expect(output.html).toContain("https://visual.ericmm.com/visual-assets/");
+      expect(output.html).toContain("高级视觉模块正文");
+      expect(output.warnings.map((warning) => warning.code)).not.toContain(
+        "COMPONENT_RENDERER_MISSING",
+      );
+    });
+  });
+
   it("keeps every heading and long-body component readable at its actual text node", () => {
     const stressAssets = OFFICIAL_COMPONENT_ASSETS.filter((asset) =>
       ["HEAD", "QUOTE", "NOTICE", "FOOTER"].includes(asset.manifest.category),
     );
-    expect(stressAssets).toHaveLength(18);
+    expect(stressAssets).toHaveLength(27);
 
     stressAssets.forEach((asset, index) => {
       const text =

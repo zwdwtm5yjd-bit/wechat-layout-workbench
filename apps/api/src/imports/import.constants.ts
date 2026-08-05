@@ -1,4 +1,6 @@
 export const IMPORT_REPOSITORY = Symbol("IMPORT_REPOSITORY");
+export const DOCX_IMPORT_REPOSITORY = Symbol("DOCX_IMPORT_REPOSITORY");
+export const WEBPAGE_IMPORT_REPOSITORY = Symbol("WEBPAGE_IMPORT_REPOSITORY");
 
 export const IMPORT_CLEANING_MODES = [
   "preserve_structure",

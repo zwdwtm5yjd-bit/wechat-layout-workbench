@@ -8,6 +8,7 @@ import { ApiException } from "../common/http/api.exception.js";
 import type { RequestContext } from "../common/http/request-context.js";
 import { OBJECT_STORAGE } from "../storage/storage.module.js";
 import {
+  RESOURCE_DOCX_MIME_TYPE,
   RESOURCE_REPOSITORY,
   RESOURCE_RUNTIME_OPTIONS,
   RESOURCE_UPLOAD_SESSION_STORE,
@@ -18,6 +19,8 @@ import type {
   CreateResourceAccessUrlDto,
   CreateResourceUploadDto,
   ResourceDto,
+  ResourceListQueryDto,
+  UpdateResourceMetadataDto,
 } from "./resource.dto.js";
 import { ImageInspectionError, inspectImage } from "./image-inspector.js";
 import type {
@@ -28,6 +31,21 @@ import type {
   UploadSession,
   UploadSessionStore,
 } from "./resource.types.js";
+
+function isDocxSession(session: UploadSession): boolean {
+  return session.mimeType === RESOURCE_DOCX_MIME_TYPE;
+}
+
+function hasZipSignature(bytes: Uint8Array): boolean {
+  if (bytes.byteLength < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
+    return false;
+  }
+  return (
+    (bytes[2] === 0x03 && bytes[3] === 0x04) ||
+    (bytes[2] === 0x05 && bytes[3] === 0x06) ||
+    (bytes[2] === 0x07 && bytes[3] === 0x08)
+  );
+}
 
 function apiError(
   status: number,
@@ -94,6 +112,9 @@ function toDto(record: ResourceRecord): ResourceDto {
     resourceType: record.resourceType,
     sourceType: record.sourceType,
     originalFilename: record.originalFilename,
+    displayName: record.metadata.displayName ?? null,
+    folder: record.metadata.folder ?? null,
+    tags: [...(record.metadata.tags ?? [])],
     mimeType: record.mimeType,
     fileExtension: record.fileExtension,
     fileSize: record.fileSize,
@@ -133,11 +154,16 @@ export class ResourceService {
   ) {}
 
   async createUpload(ownerUserId: string, body: CreateResourceUploadDto) {
-    if (body.fileSize > this.options.maximumImageBytes) {
-      throw invalid("fileSize", `图片不能超过 ${this.options.maximumImageBytes} 字节`);
+    const isDocx = body.mimeType === RESOURCE_DOCX_MIME_TYPE;
+    const maximumBytes = isDocx ? this.options.maximumDocxBytes : this.options.maximumImageBytes;
+    if (body.fileSize > maximumBytes) {
+      throw invalid("fileSize", `${isDocx ? "DOCX" : "图片"}不能超过 ${maximumBytes} 字节`);
     }
     const sha256 = body.sha256.toLowerCase();
     const filename = safeFilename(body.filename);
+    if (isDocx && !filename.toLowerCase().endsWith(".docx")) {
+      throw invalid("filename", "DOCX 文件必须使用 .docx 扩展名");
+    }
     const existing = await this.repository.findActiveByOwnerHash(ownerUserId, sha256);
     if (existing !== null) {
       if (existing.fileSize !== body.fileSize || existing.mimeType !== body.mimeType) {
@@ -238,9 +264,15 @@ export class ResourceService {
     }
 
     try {
-      const bytes = await this.storage.getObject(session.objectKey, this.options.maximumImageBytes);
+      const maximumBytes = isDocxSession(session)
+        ? this.options.maximumDocxBytes
+        : this.options.maximumImageBytes;
+      const bytes = await this.storage.getObject(session.objectKey, maximumBytes);
       if (bytes.byteLength !== session.fileSize || hash(bytes) !== session.sha256) {
         throw apiError(HttpStatus.BAD_REQUEST, "RESOURCE_HASH_MISMATCH", "文件摘要校验失败");
+      }
+      if (session.mimeType === RESOURCE_DOCX_MIME_TYPE) {
+        return await this.completeDocxUpload(ownerUserId, session, bytes, context);
       }
       const inspected = await inspectImage(bytes, session.mimeType);
       const baseKey = `resources/${ownerUserId}/${session.sha256.slice(0, 2)}/${session.sha256}`;
@@ -261,7 +293,7 @@ export class ResourceService {
         contentType: "image/webp",
         metadata: {
           owner: ownerUserId,
-          parent_sha256: session.sha256,
+          "parent-sha256": session.sha256,
           sha256: inspected.thumbnail.sha256,
         },
       });
@@ -272,6 +304,7 @@ export class ResourceService {
         storageProvider: "s3_compatible",
         storageBucket: this.storage.bucket,
         storageKey: originalKey,
+        resourceType: "image",
         mimeType: inspected.mimeType,
         fileExtension: inspected.extension,
         fileSize: bytes.byteLength,
@@ -319,6 +352,53 @@ export class ResourceService {
       throw notFound();
     }
     return toDto(resource);
+  }
+
+  async list(ownerUserId: string, query: ResourceListQueryDto) {
+    const result = await this.repository.listOwned(ownerUserId, query);
+    return {
+      ...result,
+      items: result.items.map(toDto),
+    };
+  }
+
+  async updateMetadata(
+    ownerUserId: string,
+    resourceId: string,
+    body: UpdateResourceMetadataDto,
+    context: RequestContext,
+  ): Promise<ResourceDto> {
+    validateUuid(resourceId, "resourceId");
+    const current = await this.repository.findOwnedById(ownerUserId, resourceId);
+    if (current === null) throw notFound();
+    const displayName = body.displayName?.trim();
+    const folder = body.folder?.trim();
+    const tags =
+      body.tags === undefined
+        ? current.metadata.tags
+        : [...new Set(body.tags.map((tag) => tag.trim()).filter((tag) => tag.length > 0))];
+    const metadata = { ...current.metadata } as {
+      displayName?: string;
+      folder?: string;
+      pages?: number;
+      tags?: readonly string[];
+      thumbnail?: ResourceThumbnailMetadata;
+    };
+    if (body.displayName !== undefined) {
+      if (displayName === "" || displayName === undefined) delete metadata.displayName;
+      else metadata.displayName = displayName;
+    }
+    if (body.folder !== undefined) {
+      if (folder === "" || folder === undefined) delete metadata.folder;
+      else metadata.folder = folder;
+    }
+    if (tags !== undefined) metadata.tags = tags;
+    const updated = await this.repository.updateMetadata(ownerUserId, resourceId, metadata, {
+      actorUserId: ownerUserId,
+      ...context,
+    });
+    if (updated === null) throw notFound();
+    return toDto(updated);
   }
 
   async createAccessUrl(ownerUserId: string, resourceId: string, body: CreateResourceAccessUrlDto) {
@@ -390,6 +470,54 @@ export class ResourceService {
       this.storage.deleteObject(session.objectKey),
       this.uploadSessions.delete(session.id),
     ]);
+  }
+
+  private async completeDocxUpload(
+    ownerUserId: string,
+    session: UploadSession,
+    bytes: Uint8Array,
+    context: RequestContext,
+  ): Promise<ResourceDto> {
+    if (!hasZipSignature(bytes)) {
+      await this.discardSession(session);
+      throw apiError(
+        HttpStatus.BAD_REQUEST,
+        "DOCX_INVALID_PACKAGE",
+        "DOCX 不是有效的 ZIP/OOXML 文件",
+      );
+    }
+    const originalKey = `resources/${ownerUserId}/${session.sha256.slice(0, 2)}/${session.sha256}/original.docx`;
+    await this.storage.putObject({
+      key: originalKey,
+      bytes,
+      contentType: RESOURCE_DOCX_MIME_TYPE,
+      metadata: {
+        owner: ownerUserId,
+        sha256: session.sha256,
+      },
+    });
+    const resource = await this.repository.createValidated({
+      ownerUserId,
+      accountId: session.accountId,
+      filename: session.filename,
+      storageProvider: "s3_compatible",
+      storageBucket: this.storage.bucket,
+      storageKey: originalKey,
+      resourceType: "document",
+      mimeType: RESOURCE_DOCX_MIME_TYPE,
+      fileExtension: "docx",
+      fileSize: bytes.byteLength,
+      width: null,
+      height: null,
+      sha256: session.sha256,
+      metadata: {},
+      context: {
+        actorUserId: ownerUserId,
+        ...context,
+      },
+    });
+    await this.discardSession(session);
+    return toDto(resource);
   }
 
   private storageUnavailable(error: unknown): ApiException {

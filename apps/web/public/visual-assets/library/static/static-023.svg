@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" role="img" aria-label="原创视觉素材 023">
+  <defs>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d8322f"/><stop offset="1" stop-color="#8f171a"/></linearGradient>
+    <linearGradient id="fade2" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#d8322f" stop-opacity="0"/><stop offset=".5" stop-color="#d8322f" stop-opacity=".65"/><stop offset="1" stop-color="#d8322f" stop-opacity="0"/></linearGradient>
+    <pattern id="dots2" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2" fill="#8f171a" opacity=".16"/></pattern>
+    <filter id="soft2"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <rect width="1200" height="480" fill="#fff5ed"/>
+  <path d="M0 0h440L260 210H0Z" fill="#8f171a" opacity=".95"/><path d="M1200 480H760l185-205h255Z" fill="#d8322f" opacity=".92"/><path d="M0 430C260 330 340 360 570 440" fill="none" stroke="#e5b75b" stroke-width="12" opacity=".55"/><g fill="#e5b75b"><path d="m995 72 8 24h25l-20 15 8 24-21-15-20 15 8-24-20-15h25Z"/><circle cx="1055" cy="190" r="8"/><circle cx="1090" cy="160" r="5"/></g>
+  <rect x="330" y="180" width="540" height="120" rx="60" fill="#ffffff" opacity=".82"/><path d="M270 240h-150m810 0h150" stroke="#d8322f" stroke-width="5" stroke-linecap="round"/><circle cx="290" cy="240" r="8" fill="#e5b75b"/><circle cx="910" cy="240" r="8" fill="#e5b75b"/>
+</svg>

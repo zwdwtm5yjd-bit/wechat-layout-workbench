@@ -1,7 +1,10 @@
 "use client";
 
+import type { DocumentV1 } from "@wechat-layout/document-schema";
 import type { RenderOutput } from "../lib/copy/client";
 import type { DocumentSaveSnapshot } from "../lib/documents/autosave";
+import { analyzeDocumentLayout, createLayoutPlans, type LayoutPlan } from "../lib/layout-planner";
+import type { OfficialTheme } from "../lib/themes/client";
 import {
   CheckCircle2,
   ClipboardCopy,
@@ -9,7 +12,10 @@ import {
   FileCheck2,
   Info,
   LayoutTemplate,
+  LoaderCircle,
+  ImagePlus,
   ShieldAlert,
+  Sparkles,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -20,8 +26,12 @@ import { WechatCopyPanel } from "./wechat-copy-panel";
 
 interface EditorDeliveryActionsProps {
   readonly articleId: string;
+  readonly applyingPlanId?: string | null;
+  readonly document: DocumentV1;
   readonly documentVersion: number;
+  readonly onApplyLayout: (plan: LayoutPlan) => Promise<void>;
   readonly saveStatus: DocumentSaveSnapshot["status"];
+  readonly themes: readonly OfficialTheme[];
 }
 
 function isEditingTarget(target: EventTarget | null): boolean {
@@ -36,14 +46,26 @@ function isEditingTarget(target: EventTarget | null): boolean {
 
 export function EditorDeliveryActions({
   articleId,
+  applyingPlanId = null,
+  document,
   documentVersion,
+  onApplyLayout,
   saveStatus,
+  themes,
 }: EditorDeliveryActionsProps) {
   const router = useRouter();
   const [compatibilityOpen, setCompatibilityOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [layoutOpen, setLayoutOpen] = useState(false);
   const [renderOutput, setRenderOutput] = useState<RenderOutput | null>(null);
+  const analysis = useMemo(() => analyzeDocumentLayout(document), [document]);
+  const layoutPlans = useMemo(() => createLayoutPlans(document, themes), [document, themes]);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("guide") === "1") {
+      setLayoutOpen(true);
+    }
+  }, []);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -149,12 +171,14 @@ export function EditorDeliveryActions({
       <Dialog.Root onOpenChange={setLayoutOpen} open={layoutOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50 bg-zinc-950/25 backdrop-blur-[2px]" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(480px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-card border border-line bg-panel p-6 shadow-raised">
+          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 max-h-[92vh] w-[min(980px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-card border border-line bg-panel p-6 shadow-raised">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <Dialog.Title className="text-base font-semibold text-ink">快速排版</Dialog.Title>
+                <Dialog.Title className="text-base font-semibold text-ink">
+                  选择一套成稿方案
+                </Dialog.Title>
                 <Dialog.Description className="mt-1 text-[11px] text-muted">
-                  V0.1 先提供不改原文的视觉试穿入口。
+                  已分析文章结构。应用方案会先保存安全快照，再统一主题、标题、段距、引用和章节装饰。
                 </Dialog.Description>
               </div>
               <Dialog.Close
@@ -164,15 +188,84 @@ export function EditorDeliveryActions({
                 <X aria-hidden="true" size={15} />
               </Dialog.Close>
             </div>
-            <div className="mt-5 rounded-control border border-accent/15 bg-accent-soft p-4">
-              <p className="text-[12px] font-semibold text-ink">从左侧“主题”开始</p>
-              <p className="mt-1 text-[11px] leading-5 text-muted">
-                可选择“高级极简”或“现代政务红”试穿画布。试穿只改变当前视觉，不写入主题资产状态。
-              </p>
+            <div className="mt-5 grid gap-3 rounded-control border border-line bg-panel-muted p-4 sm:grid-cols-4">
+              {[
+                ["正文", `${analysis.characterCount.toLocaleString("zh-CN")} 字`],
+                ["章节", `${analysis.headingCount} 个标题`],
+                ["现有图片", `${analysis.imageCount} 张`],
+                ["建议补图", `${analysis.missingImageCount} 张`],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <p className="text-[9px] text-faint">{label}</p>
+                  <p className="mt-1 text-[12px] font-semibold text-ink">{value}</p>
+                </div>
+              ))}
             </div>
-            <Dialog.Close className="mt-5 h-10 w-full rounded-control bg-accent text-[12px] font-semibold text-white">
-              知道了
-            </Dialog.Close>
+            <div className="mt-5 grid gap-3 lg:grid-cols-3">
+              {layoutPlans.map((plan) => {
+                const applying = applyingPlanId === plan.id;
+                return (
+                  <article
+                    className={`relative overflow-hidden rounded-card border bg-panel p-4 ${
+                      plan.recommended ? "border-accent ring-2 ring-accent/10" : "border-line"
+                    }`}
+                    key={plan.id}
+                  >
+                    {plan.recommended ? (
+                      <span className="absolute top-3 right-3 rounded-full bg-accent-soft px-2 py-1 text-[9px] font-semibold text-accent">
+                        内容匹配推荐
+                      </span>
+                    ) : null}
+                    <div className="flex gap-1.5">
+                      {plan.accentColors.slice(0, 3).map((color) => (
+                        <span
+                          className="h-2 w-8 rounded-full"
+                          key={color}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                    <p className="mt-4 text-[14px] font-semibold text-ink">{plan.name}</p>
+                    <p className="mt-1 text-[10px] font-medium text-accent">
+                      {plan.themeName} · {plan.tone}
+                    </p>
+                    <p className="mt-3 min-h-16 text-[11px] leading-5 text-muted">
+                      {plan.description}
+                    </p>
+                    <ul className="mt-3 space-y-1.5 text-[10px] text-muted">
+                      {plan.highlights.map((highlight) => (
+                        <li className="flex items-center gap-1.5" key={highlight}>
+                          <Sparkles aria-hidden="true" className="text-accent" size={10} />
+                          {highlight}
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      className="mt-5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-control bg-accent text-[11px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
+                      disabled={
+                        saveStatus !== "saved" || applyingPlanId !== null || plan.theme === null
+                      }
+                      onClick={() => {
+                        void onApplyLayout(plan)
+                          .then(() => setLayoutOpen(false))
+                          .catch(() => undefined);
+                      }}
+                      type="button"
+                    >
+                      {applying ? (
+                        <LoaderCircle aria-hidden="true" className="animate-spin" size={13} />
+                      ) : (
+                        <ImagePlus aria-hidden="true" size={13} />
+                      )}
+                      {applying ? "正在生成成稿…" : "应用整套方案"}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+            <p className="mt-4 text-center text-[10px] text-faint">
+              应用后仍可自由拖动区块、换主题、上传自己的图片并逐项修改。
+            </p>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

@@ -119,7 +119,7 @@ describe("editor core", () => {
     });
   });
 
-  it("inserts all 29 official components as their native nodes with exact versions", () => {
+  it("inserts all 53 official components as their native nodes with exact versions", () => {
     const editor = createEditor();
     OFFICIAL_COMPONENT_ASSETS.forEach((asset) => {
       const validation = validateComponentManifest(asset.manifest);
@@ -145,7 +145,7 @@ describe("editor core", () => {
       editor.getJSON(),
       new Date(documentV1Fixture.meta.updatedAt),
     );
-    expect(OFFICIAL_COMPONENT_ASSETS).toHaveLength(29);
+    expect(OFFICIAL_COMPONENT_ASSETS).toHaveLength(53);
     OFFICIAL_COMPONENT_ASSETS.forEach((asset) => {
       const block = restored.content.content.find(
         (candidate) => candidate.attrs.componentId === asset.manifest.componentId,

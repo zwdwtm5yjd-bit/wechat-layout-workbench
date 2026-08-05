@@ -1,0 +1,19 @@
+{
+  "name": "@wechat-layout/webpage-browser",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "pnpm --filter @wechat-layout/webpage-import build",
+    "dev": "tsx src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --root . --passWithNoTests"
+  },
+  "dependencies": {
+    "@wechat-layout/webpage-import": "workspace:*",
+    "playwright-core": "1.61.1"
+  }
+}

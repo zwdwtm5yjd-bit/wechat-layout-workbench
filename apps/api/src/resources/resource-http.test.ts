@@ -35,6 +35,8 @@ import { ResourceService } from "./resource.service.js";
 import type {
   CreateValidatedResourceInput,
   ResourceRecord,
+  ResourceListInput,
+  ResourceListResult,
   ResourceReference,
   ResourceRepository,
   TrashResourceResult,
@@ -241,6 +243,25 @@ class InMemoryResourceRepository implements ResourceRepository {
     );
   }
 
+  listOwned(ownerId: string, input: ResourceListInput): Promise<ResourceListResult> {
+    const status = input.status ?? "active";
+    const matching = [...this.resources.values()]
+      .filter(
+        (resource) =>
+          resource.ownerUserId === ownerId &&
+          resource.status === status &&
+          (input.resourceType === undefined || resource.resourceType === input.resourceType),
+      )
+      .sort((left, right) => right.createdAt.valueOf() - left.createdAt.valueOf());
+    const offset = (input.page - 1) * input.pageSize;
+    return Promise.resolve({
+      items: matching.slice(offset, offset + input.pageSize),
+      page: input.page,
+      pageSize: input.pageSize,
+      total: matching.length,
+    });
+  }
+
   async createValidated(input: CreateValidatedResourceInput): Promise<ResourceRecord> {
     const existing = await this.findActiveByOwnerHash(input.ownerUserId, input.sha256);
     if (existing !== null) {
@@ -251,7 +272,7 @@ class InMemoryResourceRepository implements ResourceRepository {
       id: createUuidV7(),
       ownerUserId: input.ownerUserId,
       accountId: input.accountId,
-      resourceType: "image",
+      resourceType: input.resourceType,
       sourceType: "upload",
       originalFilename: input.filename,
       storageProvider: input.storageProvider,
@@ -273,6 +294,18 @@ class InMemoryResourceRepository implements ResourceRepository {
     };
     this.resources.set(resource.id, resource);
     return resource;
+  }
+
+  async updateMetadata(
+    ownerId: string,
+    resourceId: string,
+    metadata: ResourceRecord["metadata"],
+  ): Promise<ResourceRecord | null> {
+    const resource = await this.findOwnedById(ownerId, resourceId);
+    if (resource === null) return null;
+    const updated = { ...resource, metadata, updatedAt: new Date() };
+    this.resources.set(resourceId, updated);
+    return updated;
   }
 
   async listReferences(
@@ -327,7 +360,7 @@ class InMemoryResourceRepository implements ResourceRepository {
     },
     {
       provide: RESOURCE_RUNTIME_OPTIONS,
-      useValue: { maximumImageBytes: 2 * 1024 * 1024 },
+      useValue: { maximumDocxBytes: 50 * 1024 * 1024, maximumImageBytes: 2 * 1024 * 1024 },
     },
     {
       provide: APP_GUARD,
@@ -420,6 +453,7 @@ describe("resource HTTP flow", () => {
         "x-amz-meta-sha256": sha256,
       },
     });
+
     const uploadId = upload.body.data.uploadId as string;
     const session = sessions.sessions.get(uploadId);
     expect(session).toBeDefined();
@@ -451,6 +485,18 @@ describe("resource HTTP flow", () => {
     });
     expect(sessions.sessions.has(uploadId)).toBe(false);
     expect(storage.objects.has(session.objectKey)).toBe(false);
+    const storedResource = repository.resources.get(resourceId);
+    expect(storedResource).toBeDefined();
+    const thumbnailKey = storedResource?.metadata.thumbnail?.storageKey ?? "";
+    expect(storage.objects.get(thumbnailKey)?.metadata).toMatchObject({
+      "parent-sha256": sha256,
+    });
+
+    const listed = await supertest(application.getHttpServer())
+      .get("/api/v1/resources?page=1&pageSize=24")
+      .expect(200);
+    expect(listed.body.data).toMatchObject({ page: 1, pageSize: 24, total: 1 });
+    expect(listed.body.data.items[0]).toMatchObject({ sha256, status: "active" });
 
     await supertest(application.getHttpServer())
       .get(`/api/v1/resources/${resourceId}`)
@@ -466,6 +512,21 @@ describe("resource HTTP flow", () => {
       })
       .expect(200);
     expect(access.body.data.url).toContain("thumbnail.webp?signed=true");
+
+    const updatedMetadata = await supertest(application.getHttpServer())
+      .patch(`/api/v1/resources/${resourceId}`)
+      .set("x-csrf-token", csrfToken)
+      .send({
+        displayName: "活动封面",
+        folder: "品牌图片",
+        tags: ["横图", "活动", "横图"],
+      })
+      .expect(200);
+    expect(updatedMetadata.body.data).toMatchObject({
+      displayName: "活动封面",
+      folder: "品牌图片",
+      tags: ["横图", "活动"],
+    });
 
     const deduplicated = await supertest(application.getHttpServer())
       .post("/api/v1/resources/uploads")
@@ -582,5 +643,58 @@ describe("resource HTTP flow", () => {
         .expect(400);
       expect(rejected.body.error.code).toBe("RESOURCE_IMAGE_INVALID");
     }
+  });
+
+  it("retains DOCX uploads as private document resources", async () => {
+    const docxMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    const docx = Uint8Array.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00]);
+    const sha256 = bytesHash(docx);
+    const upload = await supertest(application.getHttpServer())
+      .post("/api/v1/resources/uploads")
+      .set("x-csrf-token", csrfToken)
+      .send({
+        filename: "采访稿.docx",
+        mimeType: docxMime,
+        fileSize: docx.byteLength,
+        sha256,
+      })
+      .expect(201);
+    const uploadId = upload.body.data.uploadId as string;
+    const session = sessions.sessions.get(uploadId);
+    expect(session).toBeDefined();
+    if (session === undefined) return;
+
+    const etag = storage.stageUpload(session, docx);
+    const completed = await supertest(application.getHttpServer())
+      .post(`/api/v1/resources/uploads/${uploadId}/complete`)
+      .set("x-csrf-token", csrfToken)
+      .send({ etag })
+      .expect(200);
+    expect(completed.body.data).toMatchObject({
+      resourceType: "document",
+      originalFilename: "采访稿.docx",
+      mimeType: docxMime,
+      fileExtension: "docx",
+      width: null,
+      height: null,
+      thumbnail: null,
+      sha256,
+      status: "active",
+      isPrivate: true,
+    });
+    const resource = repository.resources.get(completed.body.data.id as string);
+    expect(resource?.storageKey).toMatch(/\/original\.docx$/);
+    expect(storage.objects.get(resource?.storageKey ?? "")?.bytes).toEqual(docx);
+
+    await supertest(application.getHttpServer())
+      .post("/api/v1/resources/uploads")
+      .set("x-csrf-token", csrfToken)
+      .send({
+        filename: "wrong.zip",
+        mimeType: docxMime,
+        fileSize: docx.byteLength,
+        sha256: "f".repeat(64),
+      })
+      .expect(400);
   });
 });

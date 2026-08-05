@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wechat-layout.local/contracts/docx-intermediate-v1.schema.json",
+  "title": "DOCX Intermediate v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "parserVersion",
+    "detectedSource",
+    "documentSourceType",
+    "title",
+    "original",
+    "originalText",
+    "originalTextHash",
+    "sourceBlocks",
+    "resources",
+    "tables",
+    "warnings",
+    "statistics",
+    "documentJson"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "parserVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "detectedSource": { "enum": ["word", "wps"] },
+    "documentSourceType": { "const": "docx" },
+    "title": { "type": "string", "maxLength": 255 },
+    "original": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filename", "fileSize", "sha256", "retained"],
+      "properties": {
+        "filename": { "type": "string" },
+        "fileSize": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "retained": { "type": "boolean" },
+        "retainedPath": { "type": "string" }
+      }
+    },
+    "originalText": { "type": "string" },
+    "originalTextHash": { "$ref": "#/$defs/sha256" },
+    "sourceBlocks": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/sourceBlock" }
+    },
+    "resources": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/resource" }
+    },
+    "tables": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/table" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/warning" }
+    },
+    "statistics": { "$ref": "#/$defs/statistics" },
+    "documentJson": { "$ref": "#/$defs/documentJson" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "sourceBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceBlockId",
+        "sourceType",
+        "role",
+        "text",
+        "textHash",
+        "orderIndex",
+        "styleMetadata",
+        "relationMetadata"
+      ],
+      "properties": {
+        "sourceBlockId": { "type": "string", "pattern": "^src_[0-9]{6}_[a-f0-9]{12}$" },
+        "sourceType": {
+          "enum": [
+            "title",
+            "subtitle",
+            "heading_1",
+            "heading_2",
+            "heading_3",
+            "paragraph",
+            "quote",
+            "bullet_item",
+            "ordered_item",
+            "image",
+            "table"
+          ]
+        },
+        "role": {
+          "enum": [
+            "title",
+            "subtitle",
+            "heading_1",
+            "heading_2",
+            "heading_3",
+            "paragraph",
+            "quote",
+            "bullet_item",
+            "ordered_item",
+            "image_reference",
+            "excluded"
+          ]
+        },
+        "text": { "type": "string" },
+        "textHash": { "$ref": "#/$defs/sha256" },
+        "orderIndex": { "type": "integer", "minimum": 0 },
+        "styleMetadata": { "type": "object" },
+        "relationMetadata": { "type": "object" }
+      }
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resourceKey",
+        "archivePath",
+        "originalFilename",
+        "mimeType",
+        "byteLength",
+        "sha256",
+        "firstOrderIndex",
+        "occurrenceCount"
+      ],
+      "properties": {
+        "resourceKey": { "type": "string", "pattern": "^image_[0-9]{4}$" },
+        "archivePath": { "type": "string" },
+        "originalFilename": { "type": "string" },
+        "mimeType": { "type": "string", "pattern": "^image/" },
+        "fileExtension": { "type": ["string", "null"] },
+        "byteLength": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "firstOrderIndex": { "type": "integer", "minimum": 0 },
+        "occurrenceCount": { "type": "integer", "minimum": 1 },
+        "extractedPath": { "type": "string" }
+      }
+    },
+    "table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tableId", "sourceBlockId", "rows", "rowCount", "columnCount", "hasMergedCells"],
+      "properties": {
+        "tableId": { "type": "string", "pattern": "^table_[0-9]{4}$" },
+        "sourceBlockId": { "type": "string" },
+        "rows": {
+          "type": "array",
+          "items": { "type": "array", "items": { "type": "string" } }
+        },
+        "rowCount": { "type": "integer", "minimum": 0 },
+        "columnCount": { "type": "integer", "minimum": 0 },
+        "hasMergedCells": { "type": "boolean" }
+      }
+    },
+    "warning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message", "count"],
+      "properties": {
+        "code": { "type": "string" },
+        "severity": { "enum": ["info", "warning"] },
+        "message": { "type": "string" },
+        "count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wordCount",
+        "characterCount",
+        "blockCount",
+        "headingCount",
+        "imageCount",
+        "tableCount",
+        "removedStyleCount",
+        "removedSecurityNodeCount",
+        "removedHiddenNodeCount",
+        "removedUnsafeLinkCount"
+      ],
+      "properties": {
+        "wordCount": { "type": "integer", "minimum": 0 },
+        "characterCount": { "type": "integer", "minimum": 0 },
+        "blockCount": { "type": "integer", "minimum": 1 },
+        "headingCount": { "type": "integer", "minimum": 0 },
+        "imageCount": { "type": "integer", "minimum": 0 },
+        "tableCount": { "type": "integer", "minimum": 0 },
+        "removedStyleCount": { "type": "integer", "minimum": 0 },
+        "removedSecurityNodeCount": { "type": "integer", "minimum": 0 },
+        "removedHiddenNodeCount": { "type": "integer", "minimum": 0 },
+        "removedUnsafeLinkCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "documentJson": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "source", "content"],
+      "properties": {
+        "schemaVersion": { "const": "1.0.0" },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "detectedSource"],
+          "properties": {
+            "type": { "const": "docx" },
+            "detectedSource": { "enum": ["word", "wps"] }
+          }
+        },
+        "content": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "sourceBlockId", "text", "attrs"],
+            "properties": {
+              "type": { "type": "string" },
+              "sourceBlockId": { "type": "string" },
+              "text": { "type": "string" },
+              "attrs": { "type": "object" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

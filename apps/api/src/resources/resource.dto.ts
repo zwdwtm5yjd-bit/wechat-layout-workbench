@@ -1,5 +1,7 @@
 import { Type } from "class-transformer";
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEnum,
   IsInt,
   IsOptional,
@@ -7,6 +9,7 @@ import {
   IsUUID,
   Length,
   Matches,
+  MaxLength,
   Max,
   Min,
 } from "class-validator";
@@ -18,12 +21,12 @@ import {
   RESOURCE_ACCESS_MIN_SECONDS,
   RESOURCE_ACCESS_PURPOSES,
   RESOURCE_ACCESS_VARIANTS,
-  RESOURCE_IMAGE_MIME_TYPES,
+  RESOURCE_UPLOAD_MIME_TYPES,
 } from "./resource.constants.js";
 import type {
   ResourceAccessPurpose,
   ResourceAccessVariant,
-  ResourceImageMimeType,
+  ResourceUploadMimeType,
 } from "./resource.types.js";
 
 export class CreateResourceUploadDto {
@@ -32,9 +35,9 @@ export class CreateResourceUploadDto {
   @Length(1, 255)
   filename!: string;
 
-  @ApiProperty({ enum: RESOURCE_IMAGE_MIME_TYPES, type: String })
-  @IsEnum(RESOURCE_IMAGE_MIME_TYPES)
-  mimeType!: ResourceImageMimeType;
+  @ApiProperty({ enum: RESOURCE_UPLOAD_MIME_TYPES, type: String })
+  @IsEnum(RESOURCE_UPLOAD_MIME_TYPES)
+  mimeType!: ResourceUploadMimeType;
 
   @ApiProperty({ maximum: 1_073_741_824, minimum: 1, type: Number })
   @Type(() => Number)
@@ -89,6 +92,56 @@ export class CreateResourceAccessUrlDto {
   expiresInSeconds = 300;
 }
 
+export class ResourceListQueryDto {
+  @ApiPropertyOptional({ enum: ["image", "document"], type: String })
+  @IsOptional()
+  @IsEnum(["image", "document"])
+  resourceType?: "image" | "document";
+
+  @ApiPropertyOptional({ default: "active", enum: ["active", "trash"], type: String })
+  @IsOptional()
+  @IsEnum(["active", "trash"])
+  status: "active" | "trash" = "active";
+
+  @ApiPropertyOptional({ default: 1, maximum: 10_000, minimum: 1, type: Number })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10_000)
+  page = 1;
+
+  @ApiPropertyOptional({ default: 24, maximum: 100, minimum: 1, type: Number })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  pageSize = 24;
+}
+
+export class UpdateResourceMetadataDto {
+  @ApiPropertyOptional({ maxLength: 120, type: String })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  displayName?: string;
+
+  @ApiPropertyOptional({ maxLength: 80, type: String })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  folder?: string;
+
+  @ApiPropertyOptional({ isArray: true, maxItems: 12, type: String })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @IsString({ each: true })
+  @MaxLength(24, { each: true })
+  tags?: string[];
+}
+
 export class ResourceThumbnailDto {
   @ApiProperty({ type: Boolean })
   available!: boolean;
@@ -122,7 +175,16 @@ export class ResourceDto {
   @ApiProperty({ nullable: true, type: String })
   originalFilename!: string | null;
 
-  @ApiProperty({ enum: RESOURCE_IMAGE_MIME_TYPES, type: String })
+  @ApiProperty({ nullable: true, type: String })
+  displayName!: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  folder!: string | null;
+
+  @ApiProperty({ isArray: true, type: String })
+  tags!: string[];
+
+  @ApiProperty({ enum: RESOURCE_UPLOAD_MIME_TYPES, type: String })
   mimeType!: string;
 
   @ApiProperty({ nullable: true, type: String })
@@ -219,6 +281,20 @@ export class ResourceReferencesDto {
 
   @ApiProperty({ isArray: true, type: () => ResourceReferenceDto })
   items!: ResourceReferenceDto[];
+}
+
+export class ResourceListResultDto {
+  @ApiProperty({ isArray: true, type: () => ResourceDto })
+  items!: ResourceDto[];
+
+  @ApiProperty({ minimum: 1, type: Number })
+  page!: number;
+
+  @ApiProperty({ minimum: 1, type: Number })
+  pageSize!: number;
+
+  @ApiProperty({ minimum: 0, type: Number })
+  total!: number;
 }
 
 export class ResourceResponseDto {

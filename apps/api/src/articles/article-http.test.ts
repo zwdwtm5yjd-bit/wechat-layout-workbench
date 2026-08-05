@@ -28,6 +28,7 @@ import type {
   ArticleStatusHistoryRecord,
   CreateArticleInput,
   DuplicateArticleInput,
+  DuplicateArticleResult,
   UpdateArticleInput,
 } from "./article.types.js";
 
@@ -193,10 +194,10 @@ class InMemoryArticleRepository implements ArticleRepository {
     ownerId: string,
     articleId: string,
     input: DuplicateArticleInput,
-  ): Promise<ArticleDetailRecord | null> {
+  ): Promise<DuplicateArticleResult> {
     const source = this.ownedActive(ownerId, articleId);
     if (source === null) {
-      return Promise.resolve(null);
+      return Promise.resolve({ kind: "not_found" });
     }
     const now = new Date();
     const duplicate: MutableArticle = {
@@ -219,7 +220,7 @@ class InMemoryArticleRepository implements ArticleRepository {
     this.articles.set(duplicate.id, duplicate);
     this.documentIds.set(duplicate.id, createUuidV7());
     this.addHistory(duplicate.id, null, "pending_layout", "复制文章", "copy", input.context);
-    return Promise.resolve(cloneArticle(duplicate));
+    return Promise.resolve({ kind: "created", article: cloneArticle(duplicate) });
   }
 
   archive(

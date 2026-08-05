@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import {
+  builtInVisualAssetPublicUrl,
   createOfficialComponentRegistry,
   type ComponentRegistry,
 } from "@wechat-layout/component-registry";
@@ -209,7 +210,7 @@ class RenderSession implements WechatNodeRenderContext {
 
   resolveResource(resourceId: string, path: string): ResolvedWechatResource | null {
     this.#resourceIds.add(resourceId);
-    const reference = this.#resources[resourceId];
+    const reference = this.#resources[resourceId] ?? builtInVisualAssetPublicUrl(resourceId);
     if (reference === undefined) {
       this.warn({
         code: "RESOURCE_MISSING",
