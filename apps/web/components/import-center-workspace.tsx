@@ -19,6 +19,7 @@ import {
   type PasteImportInput,
 } from "../lib/imports/client";
 import { ResourceClientError, uploadResource } from "../lib/resources/client";
+import { CreationProgress } from "./creation-progress";
 import { PasteImportWorkspace } from "./paste-import-workspace";
 import { useAppToast } from "./ui/app-toast";
 
@@ -230,6 +231,7 @@ export function ImportCenterWorkspace() {
 
   return (
     <div className="space-y-5">
+      <CreationProgress current={1} />
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[12px] font-medium text-accent">IMPORT CENTER</p>
