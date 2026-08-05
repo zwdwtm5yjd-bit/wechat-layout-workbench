@@ -7,10 +7,12 @@ import { useMemo, useState } from "react";
 
 import { listThemes, type OfficialTheme } from "../lib/themes/client";
 import {
+  clearThemeFilter,
   displayThemeCategory,
   summarizeThemeCategories,
+  themeMatchesFilters,
   THEME_FILTER_ROWS,
-  type ThemeFilterAxis,
+  type ThemeFilters,
 } from "../lib/themes/taxonomy";
 
 function ThemeArtwork({
@@ -63,7 +65,7 @@ function ThemeArtwork({
 export function ThemeCatalog() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<OfficialTheme | null>(null);
-  const [filters, setFilters] = useState<Partial<Record<ThemeFilterAxis, string>>>({});
+  const [filters, setFilters] = useState<ThemeFilters>({});
   const themes = useQuery({
     queryKey: ["themes"],
     queryFn: () => listThemes(),
@@ -78,9 +80,7 @@ export function ThemeCatalog() {
         `${theme.manifest.name} ${theme.manifest.categories.join(" ")} ${theme.manifest.description} ${theme.manifest.recommendedContentTypes.join(" ")}`
           .toLocaleLowerCase("zh-CN")
           .includes(normalized);
-      const matchesFilters = Object.entries(filters).every(([axis, value]) =>
-        theme.manifest.categories.includes(`${axis}:${value}`),
-      );
+      const matchesFilters = themeMatchesFilters(theme.manifest.categories, filters);
       return matchesQuery && matchesFilters;
     });
   }, [filters, query, themes.data]);
@@ -119,7 +119,7 @@ export function ThemeCatalog() {
             <div className="flex flex-wrap gap-1.5">
               <button
                 className={`rounded-md px-2.5 py-1.5 text-[11px] ${filters[row.axis] === undefined ? "bg-accent text-white" : "text-muted hover:bg-hover"}`}
-                onClick={() => setFilters((current) => ({ ...current, [row.axis]: undefined }))}
+                onClick={() => setFilters((current) => clearThemeFilter(current, row.axis))}
                 type="button"
               >
                 全部

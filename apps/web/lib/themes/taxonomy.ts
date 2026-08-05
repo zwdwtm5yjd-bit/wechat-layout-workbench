@@ -49,11 +49,24 @@ export const THEME_FILTER_ROWS = [
 ] as const;
 
 export type ThemeFilterAxis = (typeof THEME_FILTER_ROWS)[number]["axis"];
+export type ThemeFilters = Partial<Record<ThemeFilterAxis, string>>;
 
 const SUMMARY_AXES = ["用途", "行业", "风格"] as const;
 
 export function displayThemeCategory(category: string): string {
   return category.includes(":") ? (category.split(":").at(-1) ?? category) : category;
+}
+
+export function clearThemeFilter(filters: ThemeFilters, axis: ThemeFilterAxis): ThemeFilters {
+  const next = { ...filters };
+  delete next[axis];
+  return next;
+}
+
+export function themeMatchesFilters(categories: readonly string[], filters: ThemeFilters): boolean {
+  return Object.entries(filters).every(
+    ([axis, value]) => value === undefined || categories.includes(`${axis}:${value}`),
+  );
 }
 
 export function summarizeThemeCategories(

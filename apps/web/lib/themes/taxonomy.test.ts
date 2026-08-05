@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { displayThemeCategory, summarizeThemeCategories, THEME_FILTER_ROWS } from "./taxonomy";
+import {
+  clearThemeFilter,
+  displayThemeCategory,
+  summarizeThemeCategories,
+  themeMatchesFilters,
+  THEME_FILTER_ROWS,
+} from "./taxonomy";
 
 describe("theme taxonomy", () => {
   it("exposes material-derived use cases and holiday filters without duplicates", () => {
@@ -29,5 +35,14 @@ describe("theme taxonomy", () => {
     expect(displayThemeCategory("节假:母亲节")).toBe("母亲节");
     expect(summarizeThemeCategories(categories)).toBe("活动纪实 · 校园 · 卡通");
     expect(summarizeThemeCategories(categories, true)).toBe("活动纪实 · 校园 · 卡通 · 母亲节");
+  });
+
+  it("removes a cleared axis instead of matching an undefined category", () => {
+    const categories = ["用途:党建宣传", "行业:政务", "节假:国庆节"];
+    const selected = { 用途: "党建宣传", 节假: "中秋节" } as const;
+    const cleared = clearThemeFilter(selected, "节假");
+
+    expect(cleared).toEqual({ 用途: "党建宣传" });
+    expect(themeMatchesFilters(categories, cleared)).toBe(true);
   });
 });
