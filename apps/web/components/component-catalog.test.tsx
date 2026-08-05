@@ -17,14 +17,14 @@ afterEach(() => {
 });
 
 const expectedGroupCounts = {
-  一级标题: 4,
-  二级标题: 4,
-  引用: 4,
-  提示: 4,
-  数据卡: 4,
-  图片样式: 4,
-  分割线: 3,
-  文末: 2,
+  一级标题: 6,
+  二级标题: 6,
+  引用: 6,
+  提示: 6,
+  数据卡: 5,
+  图片样式: 5,
+  分割线: 4,
+  文末: 3,
 } as const;
 
 function expectedPreviewContract(asset: OfficialComponentAsset): {
@@ -91,13 +91,13 @@ function expectRequiredPreviewSample(asset: OfficialComponentAsset): void {
 }
 
 describe("ComponentCatalog", () => {
-  it("derives the complete 29-item catalog from the official registry assets", () => {
-    expect(OFFICIAL_COMPONENT_ASSETS).toHaveLength(29);
-    expect(V0_COMPONENT_PREVIEWS).toHaveLength(29);
+  it("derives the complete 41-item catalog from the official registry assets", () => {
+    expect(OFFICIAL_COMPONENT_ASSETS).toHaveLength(41);
+    expect(V0_COMPONENT_PREVIEWS).toHaveLength(41);
     expect(V0_COMPONENT_PREVIEWS.map((component) => component.id)).toEqual(
       OFFICIAL_COMPONENT_ASSETS.map((asset) => asset.manifest.componentId),
     );
-    expect(new Set(V0_COMPONENT_PREVIEWS.map((component) => component.id)).size).toBe(29);
+    expect(new Set(V0_COMPONENT_PREVIEWS.map((component) => component.id)).size).toBe(41);
 
     const actualGroupCounts = Object.fromEntries(
       Object.keys(expectedGroupCounts).map((group) => [
@@ -122,7 +122,7 @@ describe("ComponentCatalog", () => {
     const user = userEvent.setup();
     const { container } = render(<ComponentCatalog />);
 
-    expect(screen.getByText("29 个正式组件")).not.toBeNull();
+    expect(screen.getByText("41 个正式组件")).not.toBeNull();
     for (const [group, count] of Object.entries(expectedGroupCounts)) {
       await user.click(screen.getByRole("tab", { name: new RegExp(`^${group}`) }));
       expect(container.querySelectorAll("[data-component-card]")).toHaveLength(count);

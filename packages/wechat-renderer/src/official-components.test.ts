@@ -189,8 +189,8 @@ function documentWith(block: TopLevelBlockNode, index: number): DocumentV1 {
 }
 
 describe("official component renderers", () => {
-  it("registers and safely renders every one of the 29 official component versions", () => {
-    expect(OFFICIAL_COMPONENT_ASSETS).toHaveLength(29);
+  it("registers and safely renders every one of the 41 official component versions", () => {
+    expect(OFFICIAL_COMPONENT_ASSETS).toHaveLength(41);
     expect(createOfficialComponentRendererRegistry().list().toSorted()).toEqual(
       [
         ...new Set(OFFICIAL_COMPONENT_ASSETS.map((asset) => asset.manifest.wechatRendererKey)),
@@ -225,7 +225,7 @@ describe("official component renderers", () => {
     const stressAssets = OFFICIAL_COMPONENT_ASSETS.filter((asset) =>
       ["HEAD", "QUOTE", "NOTICE", "FOOTER"].includes(asset.manifest.category),
     );
-    expect(stressAssets).toHaveLength(18);
+    expect(stressAssets).toHaveLength(27);
 
     stressAssets.forEach((asset, index) => {
       const text =

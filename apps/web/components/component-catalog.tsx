@@ -142,6 +142,26 @@ function ComponentSample({ component }: { readonly component: ComponentPreview }
         </div>
       );
     }
+    if (variant === "postcard" || variant === "highlight") {
+      return (
+        <div
+          className="flex h-32 items-center p-5"
+          data-layout-key={layoutKey}
+          data-variant={variant}
+        >
+          <blockquote
+            className={
+              variant === "postcard"
+                ? "w-full rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-center text-[11px] leading-5 text-stone-700"
+                : "w-full border-y-2 border-indigo-300 px-4 py-3 text-center text-[14px] font-bold leading-6 text-zinc-800"
+            }
+          >
+            {body}
+            <footer className="mt-1 text-[9px] font-normal text-zinc-500">— {source}</footer>
+          </blockquote>
+        </div>
+      );
+    }
     return (
       <div
         className="flex h-32 items-center p-5"
@@ -166,7 +186,31 @@ function ComponentSample({ component }: { readonly component: ComponentPreview }
       : "text-[15px] font-semibold leading-6 text-zinc-800";
     const numbered = title.match(/^(.{1,8}?[、.])\s*(.+)$/u);
     let heading: ReactNode;
-    if (variant === "leftbar") {
+    if (variant === "ribbon") {
+      heading = (
+        <p className={`rounded bg-indigo-600 px-4 py-3 text-center text-white ${titleClass}`}>
+          {title}
+        </p>
+      );
+    } else if (variant === "framed") {
+      heading = (
+        <p
+          className={`rounded border border-amber-400 px-4 py-3 text-center tracking-wider ${titleClass}`}
+        >
+          {title}
+        </p>
+      );
+    } else if (variant === "pill") {
+      heading = (
+        <p
+          className={`inline-block rounded-full bg-indigo-50 px-4 py-1.5 text-indigo-700 ${titleClass}`}
+        >
+          {title}
+        </p>
+      );
+    } else if (variant === "marker") {
+      heading = <p className={`border-b-2 border-indigo-400 pb-2 ${titleClass}`}>{title}</p>;
+    } else if (variant === "leftbar") {
       heading = <p className={`border-l-[3px] border-indigo-500 pl-3 ${titleClass}`}>{title}</p>;
     } else if (variant === "underlined") {
       heading = (
@@ -280,6 +324,23 @@ function ComponentSample({ component }: { readonly component: ComponentPreview }
         </div>
       );
     }
+    if (variant === "badge_metric") {
+      return (
+        <div
+          className="flex h-32 items-center justify-center p-5"
+          data-layout-key={layoutKey}
+          data-variant={variant}
+        >
+          <div className="rounded-full border border-indigo-200 bg-indigo-50 px-7 py-3 text-center">
+            <p className="text-[9px] text-indigo-500">{title}</p>
+            <p className="mt-0.5 text-2xl font-bold text-indigo-700">
+              {value}
+              <span className="ml-1 text-[9px] font-medium text-indigo-400">{unit}</span>
+            </p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div
         className="flex h-32 items-center p-5"
@@ -307,9 +368,11 @@ function ComponentSample({ component }: { readonly component: ComponentPreview }
     const frameClass =
       variant === "rounded_caption"
         ? "rounded-lg border border-zinc-200"
-        : variant === "documentary"
-          ? "border-2 border-zinc-400"
-          : "border border-zinc-200";
+        : variant === "polaroid"
+          ? "border-[6px] border-white shadow-md"
+          : variant === "documentary"
+            ? "border-2 border-zinc-400"
+            : "border border-zinc-200";
     return (
       <div
         className="flex h-32 flex-col items-center justify-center p-4"
@@ -336,6 +399,7 @@ function ComponentSample({ component }: { readonly component: ComponentPreview }
 
   if (layoutKey === "footer") {
     const qrcode = variant === "qrcode_follow";
+    const signature = variant === "signature";
     return (
       <div
         className="flex h-32 items-center justify-center px-6 text-center"
@@ -343,7 +407,7 @@ function ComponentSample({ component }: { readonly component: ComponentPreview }
         data-variant={variant}
       >
         <div
-          className={`w-full pt-3 ${qrcode ? "rounded-md bg-zinc-50 px-4" : "border-t border-zinc-200"}`}
+          className={`w-full pt-3 ${qrcode ? "rounded-md bg-zinc-50 px-4" : signature ? "border-t border-amber-300 font-serif" : "border-t border-zinc-200"}`}
         >
           {qrcode ? (
             <div className="mx-auto grid size-9 place-items-center border border-dashed border-zinc-400 bg-white text-[7px] text-zinc-500">
@@ -361,11 +425,15 @@ function ComponentSample({ component }: { readonly component: ComponentPreview }
   const noticeClass =
     variant === "risk"
       ? "border-2 border-red-300 bg-red-50"
-      : variant === "warning"
-        ? "border-t-[3px] border-amber-400 bg-amber-50"
-        : variant === "success"
-          ? "border border-emerald-200 bg-emerald-50"
-          : "border-l-[3px] border-indigo-400 bg-indigo-50";
+      : variant === "checklist"
+        ? "rounded-md border border-dashed border-emerald-300 bg-emerald-50"
+        : variant === "story"
+          ? "rounded-md border border-amber-200 bg-amber-50"
+          : variant === "warning"
+            ? "border-t-[3px] border-amber-400 bg-amber-50"
+            : variant === "success"
+              ? "border border-emerald-200 bg-emerald-50"
+              : "border-l-[3px] border-indigo-400 bg-indigo-50";
   return (
     <div className="flex h-32 items-center p-5" data-layout-key={layoutKey} data-variant={variant}>
       <div className={`w-full px-4 py-3 text-[12px] leading-5 text-zinc-700 ${noticeClass}`}>
@@ -418,7 +486,8 @@ export function ComponentCatalog() {
           <p className="text-[12px] font-medium text-accent">OFFICIAL COMPONENTS</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">组件</h1>
           <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted">
-            浏览首批 29 个正式组件。目录、编辑器和微信输出共用同一份组件 Manifest。
+            浏览 41 个正式组件，覆盖标题、引用、提示、数据、图片、分隔与文末。
+            目录、编辑器和微信输出共用同一份组件 Manifest。
           </p>
         </div>
         <label className="relative w-full md:w-72">

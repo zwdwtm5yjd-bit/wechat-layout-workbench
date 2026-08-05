@@ -117,6 +117,22 @@ a {
   line-height: 1.92;
 }
 
+[data-preview-theme]:not([data-preview-theme="default"]) .editor-heading-1 {
+  color: var(--preview-primary);
+}
+
+[data-preview-theme]:not([data-preview-theme="default"]) .editor-heading-2 {
+  border-left: 3px solid var(--preview-accent);
+  padding: 8px 12px;
+  background: var(--preview-surface);
+  color: var(--preview-primary);
+}
+
+[data-preview-theme]:not([data-preview-theme="default"]) .editor-blockquote {
+  border-left-color: var(--preview-accent);
+  background: var(--preview-surface);
+}
+
 .wechat-article-editor p.is-editor-empty:first-child::before {
   float: left;
   height: 0;

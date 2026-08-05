@@ -63,6 +63,7 @@ import {
   Quote,
   Redo2,
   RotateCcw,
+  Search,
   Strikethrough,
   Trash2,
   Underline,
@@ -76,13 +77,14 @@ import {
   useReducer,
   useRef,
   useState,
+  type CSSProperties,
   type DragEvent,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
 
 import { themePreviewKey, type OfficialTheme } from "../lib/themes/client";
-import { V0_COMPONENT_PREVIEWS } from "../lib/v0-catalog";
+import { COMPONENT_CATALOG_GROUPS, V0_COMPONENT_PREVIEWS } from "../lib/v0-catalog";
 
 const officialComponentRegistry = createOfficialComponentRegistry();
 
@@ -392,9 +394,35 @@ export function ArticleEditor({
   const [unlockCandidate, setUnlockCandidate] = useState<string | null>(null);
   const [leftPanel, setLeftPanel] = useState<"components" | "structure" | "themes">("structure");
   const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
+  const [themeQuery, setThemeQuery] = useState("");
+  const [componentQuery, setComponentQuery] = useState("");
+  const [componentCategory, setComponentCategory] = useState<string>("全部");
   const visualTheme = themes.find(
     (theme) => theme.manifest.themeId === (previewThemeId ?? currentThemeId),
   );
+  const visibleThemes = useMemo(() => {
+    const normalized = themeQuery.trim().toLocaleLowerCase("zh-CN");
+    return normalized === ""
+      ? themes
+      : themes.filter((theme) =>
+          `${theme.manifest.name} ${theme.manifest.description} ${theme.manifest.categories.join(" ")}`
+            .toLocaleLowerCase("zh-CN")
+            .includes(normalized),
+        );
+  }, [themeQuery, themes]);
+  const visibleEditorComponents = useMemo(() => {
+    const normalized = componentQuery.trim().toLocaleLowerCase("zh-CN");
+    return V0_COMPONENT_PREVIEWS.filter((component) => {
+      const searchText =
+        `${component.name} ${component.category} ${component.description} ${(component.asset.manifest.scenarios ?? []).join(" ")}`.toLocaleLowerCase(
+          "zh-CN",
+        );
+      return (
+        (componentCategory === "全部" || component.category === componentCategory) &&
+        (normalized === "" || searchText.includes(normalized))
+      );
+    });
+  }, [componentCategory, componentQuery]);
   const canvasShellRef = useRef<HTMLDivElement>(null);
   const extensions = useMemo(
     () =>
@@ -760,12 +788,26 @@ export function ArticleEditor({
                   试穿只改变当前画布；正式应用会先创建快照，再持久化主题版本，原文保持不变。
                 </p>
               </div>
+              <label className="relative block">
+                <span className="sr-only">搜索主题</span>
+                <Search
+                  aria-hidden="true"
+                  className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint"
+                  size={12}
+                />
+                <input
+                  className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
+                  onChange={(event) => setThemeQuery(event.target.value)}
+                  placeholder="搜索商务、校园、旅行…"
+                  value={themeQuery}
+                />
+              </label>
               {themes.length === 0 ? (
                 <p className="rounded-control border border-line bg-panel p-3 text-[10px] text-muted">
                   正在读取已安装主题…
                 </p>
               ) : null}
-              {themes.map((theme) => {
+              {visibleThemes.map((theme) => {
                 const themeId = theme.manifest.themeId;
                 const previewing = previewThemeId === themeId;
                 const applied = currentThemeId === themeId;
@@ -842,7 +884,36 @@ export function ArticleEditor({
               <p className="px-1 text-[10px] leading-5 text-muted">
                 点击后按正式 Manifest 插入；组件版本会随文章保存并用于微信安全渲染。
               </p>
-              {V0_COMPONENT_PREVIEWS.map((component) => (
+              <label className="relative block">
+                <span className="sr-only">搜索组件</span>
+                <Search
+                  aria-hidden="true"
+                  className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint"
+                  size={12}
+                />
+                <input
+                  className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
+                  onChange={(event) => setComponentQuery(event.target.value)}
+                  placeholder="搜索标题、引用或场景"
+                  value={componentQuery}
+                />
+              </label>
+              <div className="flex gap-1 overflow-x-auto pb-1">
+                {["全部", ...COMPONENT_CATALOG_GROUPS].map((item) => (
+                  <button
+                    className={`shrink-0 rounded-md px-2 py-1 text-[9px] ${componentCategory === item ? "bg-accent-soft font-medium text-accent-strong" : "text-muted hover:bg-hover"}`}
+                    key={item}
+                    onClick={() => setComponentCategory(item)}
+                    type="button"
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+              <p className="px-1 text-[9px] text-faint">
+                当前 {visibleEditorComponents.length} 个可插入组件
+              </p>
+              {visibleEditorComponents.map((component) => (
                 <button
                   className="flex w-full items-center gap-3 rounded-control border border-line bg-panel p-3 text-left transition hover:border-line-strong hover:bg-hover disabled:opacity-45"
                   disabled={!editable}
@@ -883,6 +954,13 @@ export function ArticleEditor({
         <div
           className="min-w-0 bg-[#efefed]"
           data-preview-theme={visualTheme === undefined ? "default" : themePreviewKey(visualTheme)}
+          style={
+            {
+              "--preview-accent": visualTheme?.preview.accentColors[2] ?? "#4f46e5",
+              "--preview-primary": visualTheme?.preview.accentColors[0] ?? "#18181b",
+              "--preview-surface": visualTheme?.preview.accentColors[1] ?? "#f7f7f5",
+            } as CSSProperties
+          }
         >
           <EditorToolbar editable={editable} editor={editor} selection={selection} />
           <div

@@ -7,6 +7,22 @@ import { useMemo, useState } from "react";
 
 import { listThemes, type OfficialTheme } from "../lib/themes/client";
 
+const filterRows = [
+  {
+    axis: "用途",
+    options: ["公司宣传", "活动推广", "人物介绍", "产品推介", "图集", "散文随笔", "促销宣传"],
+  },
+  { axis: "行业", options: ["企业", "校园", "科技", "餐饮", "旅游", "媒体", "文化"] },
+  { axis: "风格", options: ["简洁", "商务", "杂志", "卡通", "手绘", "喜庆", "中国风"] },
+  { axis: "色调", options: ["红", "黑", "黄", "绿", "蓝", "青", "橙"] },
+] as const;
+
+type ThemeFilterAxis = (typeof filterRows)[number]["axis"];
+
+function displayCategory(category: string): string {
+  return category.includes(":") ? (category.split(":").at(-1) ?? category) : category;
+}
+
 function ThemeArtwork({
   theme,
   large = false,
@@ -57,6 +73,7 @@ function ThemeArtwork({
 export function ThemeCatalog() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<OfficialTheme | null>(null);
+  const [filters, setFilters] = useState<Partial<Record<ThemeFilterAxis, string>>>({});
   const themes = useQuery({
     queryKey: ["themes"],
     queryFn: () => listThemes(),
@@ -65,14 +82,18 @@ export function ThemeCatalog() {
   const visibleThemes = useMemo(() => {
     const items = themes.data?.items ?? [];
     const normalized = query.trim().toLocaleLowerCase("zh-CN");
-    return normalized === ""
-      ? items
-      : items.filter((theme) =>
-          `${theme.manifest.name} ${theme.manifest.categories.join(" ")} ${theme.manifest.description} ${theme.manifest.recommendedContentTypes.join(" ")}`
-            .toLocaleLowerCase("zh-CN")
-            .includes(normalized),
-        );
-  }, [query, themes.data]);
+    return items.filter((theme) => {
+      const matchesQuery =
+        normalized === "" ||
+        `${theme.manifest.name} ${theme.manifest.categories.join(" ")} ${theme.manifest.description} ${theme.manifest.recommendedContentTypes.join(" ")}`
+          .toLocaleLowerCase("zh-CN")
+          .includes(normalized);
+      const matchesFilters = Object.entries(filters).every(([axis, value]) =>
+        theme.manifest.categories.includes(`${axis}:${value}`),
+      );
+      return matchesQuery && matchesFilters;
+    });
+  }, [filters, query, themes.data]);
 
   return (
     <div className="space-y-6">
@@ -81,8 +102,8 @@ export function ThemeCatalog() {
           <p className="text-[12px] font-medium text-accent">VISUAL SYSTEM</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">主题</h1>
           <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted">
-            两套官方基础主题已安装。每套共用同一份 Token、安全模式和微信 Renderer
-            资产，可在文章编辑器中试穿并正式应用。
+            10 套官方场景主题已安装，覆盖商务、校园、旅行、餐饮、人物、节日与国风。
+            每套都可在编辑器中试穿并安全复制到微信。
           </p>
         </div>
         <label className="relative w-full md:w-72">
@@ -99,6 +120,33 @@ export function ThemeCatalog() {
             value={query}
           />
         </label>
+      </section>
+
+      <section className="space-y-2 rounded-card border border-line bg-panel p-4 shadow-subtle">
+        {filterRows.map((row) => (
+          <div className="flex items-start gap-3" key={row.axis}>
+            <span className="w-10 shrink-0 pt-1.5 text-[11px] text-faint">{row.axis}</span>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                className={`rounded-md px-2.5 py-1.5 text-[11px] ${filters[row.axis] === undefined ? "bg-accent text-white" : "text-muted hover:bg-hover"}`}
+                onClick={() => setFilters((current) => ({ ...current, [row.axis]: undefined }))}
+                type="button"
+              >
+                全部
+              </button>
+              {row.options.map((option) => (
+                <button
+                  className={`rounded-md px-2.5 py-1.5 text-[11px] transition ${filters[row.axis] === option ? "bg-accent-soft font-medium text-accent-strong" : "text-muted hover:bg-hover hover:text-ink"}`}
+                  key={option}
+                  onClick={() => setFilters((current) => ({ ...current, [row.axis]: option }))}
+                  type="button"
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
 
       <section className="rounded-card border border-accent/15 bg-accent-soft/60 p-4">
@@ -132,7 +180,7 @@ export function ThemeCatalog() {
           </div>
         </section>
       ) : (
-        <section className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
+        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {visibleThemes.map((theme) => (
             <article
               className="group rounded-card border border-line bg-panel p-4 shadow-subtle transition hover:-translate-y-0.5 hover:border-line-strong hover:shadow-raised"
@@ -143,7 +191,7 @@ export function ThemeCatalog() {
                 <div>
                   <p className="text-[14px] font-semibold text-ink">{theme.manifest.name}</p>
                   <p className="mt-1 text-[11px] text-muted">
-                    {theme.manifest.categories.join(" · ")}
+                    {theme.manifest.categories.slice(0, 3).map(displayCategory).join(" · ")}
                   </p>
                 </div>
                 <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-1 text-[10px] font-medium text-success">
@@ -199,7 +247,9 @@ export function ThemeCatalog() {
                   <dl className="mt-6 space-y-3 text-[12px]">
                     <div className="flex justify-between gap-4">
                       <dt className="text-faint">分类</dt>
-                      <dd className="text-ink">{selected.manifest.categories.join("、")}</dd>
+                      <dd className="text-ink">
+                        {selected.manifest.categories.map(displayCategory).join("、")}
+                      </dd>
                     </div>
                     <div className="flex justify-between gap-4">
                       <dt className="text-faint">适用场景</dt>

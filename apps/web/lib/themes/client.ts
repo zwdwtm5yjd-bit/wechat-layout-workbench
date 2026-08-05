@@ -141,6 +141,8 @@ export async function applyTheme(input: {
   );
 }
 
-export function themePreviewKey(theme: OfficialTheme): "editorial-minimal" | "modern-civic" {
-  return theme.manifest.categories.includes("government") ? "modern-civic" : "editorial-minimal";
+export function themePreviewKey(theme: OfficialTheme): string {
+  if (theme.manifest.familyId === "family_government_modern") return "modern-civic";
+  if (theme.manifest.familyId === "family_editorial_minimal") return "editorial-minimal";
+  return theme.manifest.familyId.replace(/^family_/u, "").replaceAll("_", "-");
 }
