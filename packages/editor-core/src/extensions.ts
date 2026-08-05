@@ -37,6 +37,7 @@ export interface DocumentExtensionOptions {
     reference: ExactComponentReference,
   ) => ComponentNodeViewDescriptor;
   readonly onTextMutationBlocked?: (violations: readonly TextLockViolation[]) => void;
+  readonly resourceUrlResolver?: (resourceId: string) => string | undefined;
   readonly textLocked?: boolean;
 }
 
@@ -437,87 +438,111 @@ const ListItem = Node.create({
   },
 });
 
-const ImageBlock = Node.create({
-  name: "imageBlock",
-  group: "block",
-  atom: true,
-  selectable: true,
+function createImageBlockExtension(
+  resourceUrlResolver?: (resourceId: string) => string | undefined,
+) {
+  return Node.create({
+    name: "imageBlock",
+    group: "block",
+    atom: true,
+    selectable: true,
 
-  addAttributes() {
-    return {
-      resourceId: {
-        default: "resource_pending",
-        renderHTML: (attributes) => ({ "data-resource-id": attributes.resourceId }),
-      },
-      originalResourceId: ignoredAttribute,
-      alt: ignoredAttribute,
-      caption: ignoredAttribute,
-      widthMode: ignoredAttribute,
-      widthPercent: ignoredAttribute,
-      aspectRatio: ignoredAttribute,
-      objectFit: ignoredAttribute,
-      watermarkId: ignoredAttribute,
-    };
-  },
-
-  parseHTML() {
-    return [{ tag: "figure[data-node-type='imageBlock']" }];
-  },
-
-  renderHTML({ node, HTMLAttributes }) {
-    const label = typeof node.attrs.alt === "string" ? node.attrs.alt : "图片素材";
-    return [
-      "figure",
-      mergeAttributes(HTMLAttributes, {
-        class: "editor-atom editor-image-block",
-        "data-node-type": "imageBlock",
-      }),
-      ["span", { class: "editor-atom-label" }, label],
-    ];
-  },
-
-  addNodeView() {
-    return ({ node }) => {
-      const dom = document.createElement("figure");
-      dom.className = "editor-atom editor-image-block";
-      dom.dataset.nodeType = "imageBlock";
-      const image = document.createElement("img");
-      image.className = "editor-visual-asset-image";
-      image.draggable = false;
-      const label = document.createElement("span");
-      label.className = "editor-atom-label";
-
-      const applyNode = (currentNode: typeof node) => {
-        const resourceId = String(currentNode.attrs.resourceId ?? "");
-        const path = builtInVisualAssetPublicPath(resourceId);
-        dom.dataset.resourceId = resourceId;
-        label.textContent =
-          typeof currentNode.attrs.alt === "string" ? currentNode.attrs.alt : "图片素材";
-        if (path === undefined) {
-          image.hidden = true;
-          label.hidden = false;
-          image.removeAttribute("src");
-          return;
-        }
-        image.src = path;
-        image.alt = label.textContent;
-        image.hidden = false;
-        label.hidden = true;
-      };
-
-      applyNode(node);
-      dom.append(image, label);
+    addAttributes() {
       return {
-        dom,
-        update(updatedNode) {
-          if (updatedNode.type.name !== "imageBlock") return false;
-          applyNode(updatedNode);
-          return true;
+        resourceId: {
+          default: "resource_pending",
+          renderHTML: (attributes) => ({ "data-resource-id": attributes.resourceId }),
         },
+        originalResourceId: ignoredAttribute,
+        alt: ignoredAttribute,
+        caption: ignoredAttribute,
+        widthMode: ignoredAttribute,
+        widthPercent: ignoredAttribute,
+        aspectRatio: ignoredAttribute,
+        objectFit: ignoredAttribute,
+        watermarkId: ignoredAttribute,
       };
-    };
-  },
-});
+    },
+
+    parseHTML() {
+      return [{ tag: "figure[data-node-type='imageBlock']" }];
+    },
+
+    renderHTML({ node, HTMLAttributes }) {
+      const label = typeof node.attrs.alt === "string" ? node.attrs.alt : "图片素材";
+      return [
+        "figure",
+        mergeAttributes(HTMLAttributes, {
+          class: "editor-atom editor-image-block",
+          "data-node-type": "imageBlock",
+        }),
+        ["span", { class: "editor-atom-label" }, label],
+      ];
+    },
+
+    addNodeView() {
+      return ({ node }) => {
+        const dom = document.createElement("figure");
+        dom.className = "editor-atom editor-image-block";
+        dom.dataset.nodeType = "imageBlock";
+        const image = document.createElement("img");
+        image.className = "editor-visual-asset-image";
+        image.draggable = false;
+        const label = document.createElement("span");
+        label.className = "editor-atom-label";
+        const caption = document.createElement("figcaption");
+        caption.className = "editor-image-caption";
+
+        const applyNode = (currentNode: typeof node) => {
+          const resourceId = String(currentNode.attrs.resourceId ?? "");
+          const path =
+            builtInVisualAssetPublicPath(resourceId) ?? resourceUrlResolver?.(resourceId);
+          dom.dataset.resourceId = resourceId;
+          dom.dataset.blockId = String(currentNode.attrs.blockId ?? "");
+          const widthMode = String(currentNode.attrs.widthMode ?? "full");
+          dom.style.width =
+            widthMode === "percent"
+              ? `${String(currentNode.attrs.widthPercent ?? 80)}%`
+              : widthMode === "original"
+                ? "fit-content"
+                : "100%";
+          dom.style.marginInline = widthMode === "full" ? "0" : "auto";
+          image.style.objectFit = String(currentNode.attrs.objectFit ?? "contain");
+          image.style.aspectRatio =
+            typeof currentNode.attrs.aspectRatio === "string"
+              ? currentNode.attrs.aspectRatio
+              : "auto";
+          label.textContent =
+            typeof currentNode.attrs.alt === "string" ? currentNode.attrs.alt : "图片素材";
+          caption.textContent =
+            typeof currentNode.attrs.caption === "string" ? currentNode.attrs.caption : "";
+          caption.hidden = caption.textContent.length === 0;
+          if (path === undefined) {
+            image.hidden = true;
+            label.hidden = false;
+            image.removeAttribute("src");
+            return;
+          }
+          image.src = path;
+          image.alt = label.textContent;
+          image.hidden = false;
+          label.hidden = true;
+        };
+
+        applyNode(node);
+        dom.append(image, label, caption);
+        return {
+          dom,
+          update(updatedNode) {
+            if (updatedNode.type.name !== "imageBlock") return false;
+            applyNode(updatedNode);
+            return true;
+          },
+        };
+      };
+    },
+  });
+}
 
 const Divider = Node.create({
   name: "divider",
@@ -993,7 +1018,7 @@ export function createDocumentExtensions(options: DocumentExtensionOptions = {})
     BulletList,
     OrderedList,
     ListItem,
-    ImageBlock,
+    createImageBlockExtension(options.resourceUrlResolver),
     Divider,
     createSemanticCardExtension(options.componentNodeViewResolver),
     BrandFooter,

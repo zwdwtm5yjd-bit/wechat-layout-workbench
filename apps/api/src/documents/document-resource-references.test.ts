@@ -96,6 +96,19 @@ describe("document resource references", () => {
     expect(collectDocumentResourceReferences(document)).toEqual([]);
   });
 
+  it("does not register bundled visual artwork as a private uploaded resource", () => {
+    const document = structuredClone(documentV1Fixture) as DocumentV1;
+    const fixtureImage = document.content.content.find((node) => node.type === "imageBlock");
+    if (fixtureImage?.type !== "imageBlock") {
+      throw new Error("Document fixture image is missing");
+    }
+    fixtureImage.attrs.resourceId = "builtin_visual_static_001";
+    delete fixtureImage.attrs.originalResourceId;
+    document.content.content = [fixtureImage];
+
+    expect(collectDocumentResourceReferences(document)).toEqual([]);
+  });
+
   it("preserves repeated block references without mutating the document", () => {
     const document = structuredClone(documentV1Fixture) as DocumentV1;
     const fixtureImage = document.content.content.find((node) => node.type === "imageBlock");

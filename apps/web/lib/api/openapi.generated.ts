@@ -720,7 +720,8 @@ export interface paths {
     delete: operations["ResourceController_trash"];
     options?: never;
     head?: never;
-    patch?: never;
+    /** 修改当前用户的素材名称、文件夹和标签 */
+    patch: operations["ResourceController_update"];
     trace?: never;
   };
   "/api/v1/resources/{resourceId}/access-url": {
@@ -1789,8 +1790,10 @@ export interface components {
       createdAt: string;
       /** Format: date-time */
       deletedAt: string | null;
+      displayName: string | null;
       fileExtension: string | null;
       fileSize: number;
+      folder: string | null;
       height: number | null;
       /** Format: uuid */
       id: string;
@@ -1810,6 +1813,7 @@ export interface components {
       sourceType: string;
       /** @enum {string} */
       status: "active" | "trash";
+      tags: string[];
       thumbnail: components["schemas"]["ResourceThumbnailDto"] | null;
       /** Format: date-time */
       updatedAt: string;
@@ -2190,6 +2194,11 @@ export interface components {
       status?: "pending_layout" | "layout_editing" | "pending_check" | "published";
       subtitle?: string | null;
       title?: string;
+    };
+    UpdateResourceMetadataDto: {
+      displayName?: string;
+      folder?: string;
+      tags?: string[];
     };
     WebpageImportDto: {
       /** Format: uuid */
@@ -4333,6 +4342,54 @@ export interface operations {
       };
       /** @description 资源仍被文章或其他实体引用 */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ResourceController_update: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        resourceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateResourceMetadataDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResourceResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 资源不存在 */
+      404: {
         headers: {
           [name: string]: unknown;
         };

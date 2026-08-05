@@ -1,5 +1,7 @@
 import { Type } from "class-transformer";
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEnum,
   IsInt,
   IsOptional,
@@ -7,6 +9,7 @@ import {
   IsUUID,
   Length,
   Matches,
+  MaxLength,
   Max,
   Min,
 } from "class-validator";
@@ -117,6 +120,28 @@ export class ResourceListQueryDto {
   pageSize = 24;
 }
 
+export class UpdateResourceMetadataDto {
+  @ApiPropertyOptional({ maxLength: 120, type: String })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  displayName?: string;
+
+  @ApiPropertyOptional({ maxLength: 80, type: String })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  folder?: string;
+
+  @ApiPropertyOptional({ isArray: true, maxItems: 12, type: String })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @IsString({ each: true })
+  @MaxLength(24, { each: true })
+  tags?: string[];
+}
+
 export class ResourceThumbnailDto {
   @ApiProperty({ type: Boolean })
   available!: boolean;
@@ -149,6 +174,15 @@ export class ResourceDto {
 
   @ApiProperty({ nullable: true, type: String })
   originalFilename!: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  displayName!: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  folder!: string | null;
+
+  @ApiProperty({ isArray: true, type: String })
+  tags!: string[];
 
   @ApiProperty({ enum: RESOURCE_UPLOAD_MIME_TYPES, type: String })
   mimeType!: string;

@@ -23,9 +23,11 @@ import {
   type DocumentJson,
 } from "../lib/documents/client";
 import { IndexedDbDocumentDraftStore, type LocalDocumentDraft } from "../lib/documents/draft-store";
+import { applyLayoutPlanToDocument, type LayoutPlan } from "../lib/layout-planner";
 import type { RestoreSnapshotResult } from "../lib/snapshots/client";
 import { applyTheme, listThemes, ThemeClientError, type OfficialTheme } from "../lib/themes/client";
 import { ArticleEditor } from "./article-editor";
+import { CreationProgress } from "./creation-progress";
 import { DocumentSaveStatus } from "./document-save-status";
 import { EditorDeliveryActions } from "./editor-delivery-actions";
 import { SnapshotPanel } from "./snapshot-panel";
@@ -87,6 +89,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
   const [editorError, setEditorError] = useState<string | null>(null);
   const [lastTransactionId, setLastTransactionId] = useState(initial.lastTransactionId);
   const [applyingThemeId, setApplyingThemeId] = useState<string | null>(null);
+  const [applyingPlanId, setApplyingPlanId] = useState<string | null>(null);
   const themesQuery = useQuery({
     queryKey: ["themes"],
     queryFn: () => listThemes(),
@@ -253,8 +256,59 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
     }
   };
 
+  const handleApplyLayout = async (plan: LayoutPlan): Promise<void> => {
+    if (controller === null || applyingPlanId !== null || plan.theme === null) {
+      return;
+    }
+    setEditorError(null);
+    setApplyingPlanId(plan.id);
+    setApplyingThemeId(plan.theme.manifest.themeId);
+    try {
+      await controller.flushNow();
+      const current = controller.getSnapshot();
+      if (current.status !== "saved") {
+        throw new Error(current.errorMessage ?? "请先等待当前文档保存完成");
+      }
+      const themed = await applyTheme({
+        articleId: initial.articleId,
+        baseDocumentVersion: current.documentVersion,
+        theme: plan.theme,
+      });
+      await controller.discardLocalDraft(themed.documentVersion, themed.appliedAt);
+      const latest = await getArticleDocument(initial.articleId);
+      const plannedDocument = applyLayoutPlanToDocument(normalizeDocument(latest.document), plan);
+      await controller.queue(
+        plannedDocument as unknown as DocumentJson,
+        initial.schemaVersion,
+        `layout.plan.${plan.id}`,
+      );
+      await controller.flushNow();
+      const saved = controller.getSnapshot();
+      if (saved.status !== "saved") {
+        throw new Error(saved.errorMessage ?? "成稿方案尚未保存，请稍后重试");
+      }
+      setActiveDocument(plannedDocument);
+      setLastTransactionId(themed.lastTransactionId);
+    } catch (error) {
+      setEditorError(error instanceof Error ? error.message : "成稿方案应用失败，请稍后重试");
+      throw error;
+    } finally {
+      setApplyingPlanId(null);
+      setApplyingThemeId(null);
+    }
+  };
+
   return (
     <div className="space-y-5">
+      <CreationProgress
+        current={
+          activeDocument.content.content.some(
+            (node) => node.attrs.semanticRole === "layout_plan_generated",
+          )
+            ? 4
+            : 3
+        }
+      />
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Link
@@ -321,8 +375,12 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
 
       <EditorDeliveryActions
         articleId={initial.articleId}
+        applyingPlanId={applyingPlanId}
+        document={activeDocument}
         documentVersion={snapshot.documentVersion}
+        onApplyLayout={handleApplyLayout}
         saveStatus={snapshot.status}
+        themes={themesQuery.data?.items ?? []}
       />
 
       <ArticleEditor

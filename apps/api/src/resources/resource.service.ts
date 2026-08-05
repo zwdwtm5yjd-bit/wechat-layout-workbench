@@ -20,6 +20,7 @@ import type {
   CreateResourceUploadDto,
   ResourceDto,
   ResourceListQueryDto,
+  UpdateResourceMetadataDto,
 } from "./resource.dto.js";
 import { ImageInspectionError, inspectImage } from "./image-inspector.js";
 import type {
@@ -111,6 +112,9 @@ function toDto(record: ResourceRecord): ResourceDto {
     resourceType: record.resourceType,
     sourceType: record.sourceType,
     originalFilename: record.originalFilename,
+    displayName: record.metadata.displayName ?? null,
+    folder: record.metadata.folder ?? null,
+    tags: [...(record.metadata.tags ?? [])],
     mimeType: record.mimeType,
     fileExtension: record.fileExtension,
     fileSize: record.fileSize,
@@ -356,6 +360,45 @@ export class ResourceService {
       ...result,
       items: result.items.map(toDto),
     };
+  }
+
+  async updateMetadata(
+    ownerUserId: string,
+    resourceId: string,
+    body: UpdateResourceMetadataDto,
+    context: RequestContext,
+  ): Promise<ResourceDto> {
+    validateUuid(resourceId, "resourceId");
+    const current = await this.repository.findOwnedById(ownerUserId, resourceId);
+    if (current === null) throw notFound();
+    const displayName = body.displayName?.trim();
+    const folder = body.folder?.trim();
+    const tags =
+      body.tags === undefined
+        ? current.metadata.tags
+        : [...new Set(body.tags.map((tag) => tag.trim()).filter((tag) => tag.length > 0))];
+    const metadata = { ...current.metadata } as {
+      displayName?: string;
+      folder?: string;
+      pages?: number;
+      tags?: readonly string[];
+      thumbnail?: ResourceThumbnailMetadata;
+    };
+    if (body.displayName !== undefined) {
+      if (displayName === "" || displayName === undefined) delete metadata.displayName;
+      else metadata.displayName = displayName;
+    }
+    if (body.folder !== undefined) {
+      if (folder === "" || folder === undefined) delete metadata.folder;
+      else metadata.folder = folder;
+    }
+    if (tags !== undefined) metadata.tags = tags;
+    const updated = await this.repository.updateMetadata(ownerUserId, resourceId, metadata, {
+      actorUserId: ownerUserId,
+      ...context,
+    });
+    if (updated === null) throw notFound();
+    return toDto(updated);
   }
 
   async createAccessUrl(ownerUserId: string, resourceId: string, body: CreateResourceAccessUrlDto) {

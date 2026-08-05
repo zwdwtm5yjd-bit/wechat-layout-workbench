@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type ClipboardEvent, type FormEvent } from "react";
 
 import { createPasteImport, ImportClientError, type PasteImportInput } from "../lib/imports/client";
+import { CreationProgress } from "./creation-progress";
 import { useAppToast } from "./ui/app-toast";
 
 type CleaningMode = PasteImportInput["cleaningMode"];
@@ -129,6 +130,7 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
 
   return (
     <form className="space-y-5" onSubmit={submit}>
+      {embedded ? null : <CreationProgress current={1} />}
       {embedded ? null : (
         <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>

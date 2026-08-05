@@ -63,7 +63,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (payload as unknown as ApiSuccess<T>).data;
 }
 
-async function write<T>(path: string, method: "DELETE" | "POST", body?: unknown): Promise<T> {
+async function write<T>(
+  path: string,
+  method: "DELETE" | "PATCH" | "POST",
+  body?: unknown,
+): Promise<T> {
   const csrfToken = await getCsrfToken();
   return request<T>(path, {
     method,
@@ -171,4 +175,15 @@ export function getResourceReferences(resourceId: string): Promise<ResourceRefer
 
 export function trashResource(resourceId: string): Promise<Resource> {
   return write<Resource>(`/api/v1/resources/${encodeURIComponent(resourceId)}`, "DELETE");
+}
+
+export function updateResourceMetadata(
+  resourceId: string,
+  input: {
+    readonly displayName?: string;
+    readonly folder?: string;
+    readonly tags?: readonly string[];
+  },
+): Promise<Resource> {
+  return write<Resource>(`/api/v1/resources/${encodeURIComponent(resourceId)}`, "PATCH", input);
 }

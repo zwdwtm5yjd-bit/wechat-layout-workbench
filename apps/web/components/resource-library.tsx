@@ -6,16 +6,20 @@ import {
   ExternalLink,
   FileText,
   FileUp,
+  Folder,
   ImageIcon,
   LoaderCircle,
+  Pencil,
   RefreshCw,
+  Search,
   ShieldCheck,
+  Tags,
   Trash2,
   UploadCloud,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { createDocxImport } from "../lib/imports/client";
 import {
@@ -24,6 +28,7 @@ import {
   listResources,
   ResourceClientError,
   trashResource,
+  updateResourceMetadata,
   uploadResource,
   type Resource,
 } from "../lib/resources/client";
@@ -53,6 +58,10 @@ export function ResourceLibrary() {
   const { pushToast } = useAppToast();
   const [filter, setFilter] = useState<ResourceFilter>("all");
   const [selected, setSelected] = useState<Resource | null>(null);
+  const [search, setSearch] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editFolder, setEditFolder] = useState("");
+  const [editTags, setEditTags] = useState("");
   const [preview, setPreview] = useState<{
     readonly mimeType: Resource["mimeType"];
     readonly name: string;
@@ -117,6 +126,29 @@ export function ResourceLibrary() {
     onError: (error) =>
       pushToast({ title: "无法删除素材", description: errorMessage(error), tone: "warning" }),
   });
+  const metadataMutation = useMutation({
+    mutationFn: (resource: Resource) =>
+      updateResourceMetadata(resource.id, {
+        displayName: editName.trim() || resource.originalFilename || "未命名素材",
+        folder: editFolder.trim(),
+        tags: editTags
+          .split(/[，,]/u)
+          .map((tag) => tag.trim())
+          .filter((tag) => tag.length > 0),
+      }),
+    onSuccess: (resource) => {
+      setSelected(resource);
+      void queryClient.invalidateQueries({ queryKey: ["resources"] });
+      void queryClient.invalidateQueries({ queryKey: ["editor-private-resources"] });
+      pushToast({
+        title: "素材信息已保存",
+        description: "名称、文件夹和标签会在编辑器的“我的素材”中同步显示。",
+        tone: "success",
+      });
+    },
+    onError: (error) =>
+      pushToast({ title: "素材信息未保存", description: errorMessage(error), tone: "warning" }),
+  });
   const importMutation = useMutation({
     mutationFn: (resourceId: string) =>
       createDocxImport({
@@ -138,6 +170,15 @@ export function ResourceLibrary() {
   });
 
   const items = resourcesQuery.data?.items ?? [];
+  const visibleItems = useMemo(() => {
+    const normalized = search.trim().toLocaleLowerCase("zh-CN");
+    if (normalized === "") return items;
+    return items.filter((resource) =>
+      `${resource.displayName ?? ""} ${resource.originalFilename ?? ""} ${resource.folder ?? ""} ${resource.tags.join(" ")}`
+        .toLocaleLowerCase("zh-CN")
+        .includes(normalized),
+    );
+  }, [items, search]);
   return (
     <div className="space-y-6">
       <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -205,14 +246,30 @@ export function ResourceLibrary() {
               </button>
             ))}
           </div>
-          <button
-            className="inline-flex h-8 items-center gap-1.5 self-start rounded-control border border-line px-3 text-[11px] text-muted hover:bg-hover"
-            onClick={() => void resourcesQuery.refetch()}
-            type="button"
-          >
-            <RefreshCw aria-hidden="true" size={12} />
-            刷新
-          </button>
+          <div className="flex items-center gap-2">
+            <label className="relative block">
+              <span className="sr-only">搜索素材</span>
+              <Search
+                aria-hidden="true"
+                className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint"
+                size={12}
+              />
+              <input
+                className="h-8 w-48 rounded-control border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
+                onChange={(event) => setSearch(event.currentTarget.value)}
+                placeholder="搜索名称、文件夹、标签"
+                value={search}
+              />
+            </label>
+            <button
+              className="inline-flex h-8 items-center gap-1.5 self-start rounded-control border border-line px-3 text-[11px] text-muted hover:bg-hover"
+              onClick={() => void resourcesQuery.refetch()}
+              type="button"
+            >
+              <RefreshCw aria-hidden="true" size={12} />
+              刷新
+            </button>
+          </div>
         </div>
 
         {resourcesQuery.isPending ? (
@@ -246,7 +303,7 @@ export function ResourceLibrary() {
           </div>
         ) : (
           <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {items.map((resource) => (
+            {visibleItems.map((resource) => (
               <article
                 className="rounded-card border border-line bg-panel p-4 transition hover:border-line-strong hover:shadow-subtle"
                 key={resource.id}
@@ -264,9 +321,9 @@ export function ResourceLibrary() {
                   <div className="min-w-0 flex-1">
                     <h2
                       className="truncate text-[12px] font-semibold text-ink"
-                      title={resource.originalFilename ?? resource.id}
+                      title={resource.displayName ?? resource.originalFilename ?? resource.id}
                     >
-                      {resource.originalFilename ?? "未命名素材"}
+                      {resource.displayName ?? resource.originalFilename ?? "未命名素材"}
                     </h2>
                     <p className="mt-1 text-[10px] text-faint">
                       {formatBytes(resource.fileSize)} · {formatDate(resource.createdAt)}
@@ -274,6 +331,12 @@ export function ResourceLibrary() {
                     {resource.width === null ? null : (
                       <p className="mt-1 font-mono text-[10px] text-faint">
                         {resource.width} × {resource.height}
+                      </p>
+                    )}
+                    {resource.folder === null && resource.tags.length === 0 ? null : (
+                      <p className="mt-1 truncate text-[9px] text-accent">
+                        {resource.folder ?? "未分组"}
+                        {resource.tags.length === 0 ? "" : ` · ${resource.tags.join(" / ")}`}
                       </p>
                     )}
                   </div>
@@ -309,10 +372,15 @@ export function ResourceLibrary() {
                     <button
                       aria-label="管理素材"
                       className="grid size-8 place-items-center rounded-control border border-line text-muted hover:bg-hover"
-                      onClick={() => setSelected(resource)}
+                      onClick={() => {
+                        setSelected(resource);
+                        setEditName(resource.displayName ?? resource.originalFilename ?? "");
+                        setEditFolder(resource.folder ?? "");
+                        setEditTags(resource.tags.join("，"));
+                      }}
                       type="button"
                     >
-                      <Trash2 aria-hidden="true" size={12} />
+                      <Pencil aria-hidden="true" size={12} />
                     </button>
                   ) : null}
                 </div>
@@ -333,8 +401,62 @@ export function ResourceLibrary() {
           <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(500px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-card border border-line bg-panel p-6 shadow-raised">
             <Dialog.Title className="text-base font-semibold text-ink">管理素材</Dialog.Title>
             <Dialog.Description className="mt-1 truncate text-[12px] text-muted">
-              {selected?.originalFilename}
+              {selected?.displayName ?? selected?.originalFilename}
             </Dialog.Description>
+            <div className="mt-5 space-y-3 rounded-control border border-line bg-panel p-4">
+              <label className="block">
+                <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium text-ink">
+                  <Pencil aria-hidden="true" size={11} />
+                  素材名称
+                </span>
+                <input
+                  className="h-9 w-full rounded-md border border-line bg-panel px-3 text-[11px] text-ink outline-none focus:border-accent"
+                  maxLength={120}
+                  onChange={(event) => setEditName(event.currentTarget.value)}
+                  value={editName}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium text-ink">
+                  <Folder aria-hidden="true" size={11} />
+                  文件夹
+                </span>
+                <input
+                  className="h-9 w-full rounded-md border border-line bg-panel px-3 text-[11px] text-ink outline-none focus:border-accent"
+                  maxLength={80}
+                  onChange={(event) => setEditFolder(event.currentTarget.value)}
+                  placeholder="例如：品牌照片、活动现场"
+                  value={editFolder}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium text-ink">
+                  <Tags aria-hidden="true" size={11} />
+                  标签
+                </span>
+                <input
+                  className="h-9 w-full rounded-md border border-line bg-panel px-3 text-[11px] text-ink outline-none focus:border-accent"
+                  onChange={(event) => setEditTags(event.currentTarget.value)}
+                  placeholder="用逗号分隔，例如：人物，秋季，横图"
+                  value={editTags}
+                />
+              </label>
+              <button
+                className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-control bg-accent text-[11px] font-semibold text-white disabled:opacity-45"
+                disabled={metadataMutation.isPending || selected === null || editName.trim() === ""}
+                onClick={() => {
+                  if (selected !== null) metadataMutation.mutate(selected);
+                }}
+                type="button"
+              >
+                {metadataMutation.isPending ? (
+                  <LoaderCircle aria-hidden="true" className="animate-spin" size={12} />
+                ) : (
+                  <Pencil aria-hidden="true" size={12} />
+                )}
+                保存素材信息
+              </button>
+            </div>
             <div className="mt-5 rounded-control border border-line bg-panel-muted p-4">
               <p className="text-[11px] font-medium text-ink">引用检查</p>
               {referencesQuery.isPending ? (

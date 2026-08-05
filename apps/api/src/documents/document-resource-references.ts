@@ -15,6 +15,10 @@ const pendingComponentResourceIds = new Set([
   "component_slot_qrcode_pending",
 ]);
 
+function isBundledVisualResource(resourceId: string): boolean {
+  return resourceId.startsWith("builtin_visual_");
+}
+
 export interface DocumentResourceReference {
   readonly blockId: string;
   readonly path: string;
@@ -34,7 +38,11 @@ export function collectDocumentResourceReferences(
     path: string,
     usageType: DocumentResourceUsageType,
   ) => {
-    if (resourceId === undefined || pendingComponentResourceIds.has(resourceId)) {
+    if (
+      resourceId === undefined ||
+      pendingComponentResourceIds.has(resourceId) ||
+      isBundledVisualResource(resourceId)
+    ) {
       return;
     }
     references.push({

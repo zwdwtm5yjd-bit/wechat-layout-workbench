@@ -399,6 +399,14 @@ a {
   object-fit: contain;
 }
 
+.editor-image-caption {
+  padding: 8px 12px 10px;
+  color: var(--ui-text-tertiary);
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
+}
+
 .editor-image-block:has(.editor-visual-asset-image:not([hidden])),
 .editor-svg-interaction:has(.editor-visual-asset-image:not([hidden])) {
   display: block;

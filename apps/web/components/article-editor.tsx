@@ -42,6 +42,7 @@ import {
   type SourceTextBaseline,
 } from "@wechat-layout/document-schema";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlignCenter,
   AlignJustify,
@@ -59,8 +60,10 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  ImageIcon,
   Italic,
   ListTree,
+  LoaderCircle,
   LockKeyhole,
   LockOpen,
   Minus,
@@ -74,6 +77,7 @@ import {
   Strikethrough,
   Trash2,
   Underline,
+  UploadCloud,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -93,8 +97,18 @@ import {
 import { themePreviewKey, type OfficialTheme } from "../lib/themes/client";
 import { summarizeThemeCategories } from "../lib/themes/taxonomy";
 import { COMPONENT_CATALOG_GROUPS, V0_COMPONENT_PREVIEWS } from "../lib/v0-catalog";
+import {
+  createResourceAccessUrl,
+  listResources,
+  uploadResource,
+  type Resource,
+} from "../lib/resources/client";
 
 const officialComponentRegistry = createOfficialComponentRegistry();
+
+function resourceLabel(resource: Resource): string {
+  return resource.displayName ?? resource.originalFilename ?? "未命名素材";
+}
 
 interface ArticleEditorProps {
   readonly applyingThemeId?: string | null;
@@ -408,8 +422,48 @@ export function ArticleEditor({
   const [componentQuery, setComponentQuery] = useState("");
   const [componentCategory, setComponentCategory] = useState<string>("全部");
   const [assetMotion, setAssetMotion] = useState<VisualAssetMotion>("static");
+  const [assetSource, setAssetSource] = useState<"official" | "personal">("official");
   const [assetQuery, setAssetQuery] = useState("");
   const [assetFunction, setAssetFunction] = useState("all");
+  const queryClient = useQueryClient();
+  const privateResourcesQuery = useQuery({
+    queryKey: ["editor-private-resources"],
+    queryFn: () => listResources({ resourceType: "image", pageSize: 100 }),
+    staleTime: 30_000,
+  });
+  const privateResources = privateResourcesQuery.data?.items ?? [];
+  const resourceIdsKey = privateResources.map((resource) => resource.id).join(",");
+  const privateResourceUrlsQuery = useQuery({
+    queryKey: ["editor-private-resource-urls", resourceIdsKey],
+    enabled: privateResources.length > 0,
+    staleTime: 4 * 60_000,
+    queryFn: async () => {
+      const entries = await Promise.all(
+        privateResources.map(async (resource) => {
+          try {
+            const access = await createResourceAccessUrl(resource.id, "original");
+            return [resource.id, access.url] as const;
+          } catch {
+            return [resource.id, null] as const;
+          }
+        }),
+      );
+      return Object.fromEntries(
+        entries.filter((entry): entry is readonly [string, string] => entry[1] !== null),
+      );
+    },
+  });
+  const privateResourceUrls = privateResourceUrlsQuery.data ?? {};
+  const resourceUrlMapRef = useRef<Readonly<Record<string, string>>>({});
+  resourceUrlMapRef.current = privateResourceUrls;
+  const uploadPrivateResource = useMutation({
+    mutationFn: (file: File) => uploadResource(file),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["editor-private-resources"] });
+      void queryClient.invalidateQueries({ queryKey: ["resources"] });
+    },
+    onError: (error) => onError(error instanceof Error ? error.message : "素材上传失败"),
+  });
   const visualTheme = themes.find(
     (theme) => theme.manifest.themeId === (previewThemeId ?? currentThemeId),
   );
@@ -448,10 +502,21 @@ export function ArticleEditor({
       );
     });
   }, [assetFunction, assetMotion, assetQuery]);
+  const visiblePrivateResources = useMemo(() => {
+    const normalized = assetQuery.trim().toLocaleLowerCase("zh-CN");
+    return privateResources.filter((resource) =>
+      normalized === ""
+        ? true
+        : `${resource.displayName ?? ""} ${resource.originalFilename ?? ""} ${resource.folder ?? ""} ${resource.tags.join(" ")}`
+            .toLocaleLowerCase("zh-CN")
+            .includes(normalized),
+    );
+  }, [assetQuery, privateResources]);
   const canvasShellRef = useRef<HTMLDivElement>(null);
   const extensions = useMemo(
     () =>
       createDocumentExtensions({
+        resourceUrlResolver: (resourceId) => resourceUrlMapRef.current[resourceId],
         textLocked,
         onTextMutationBlocked: () => {
           blockedNoticeRef.current("原文已锁定。请先解锁当前区块，再修改文字。");
@@ -505,6 +570,21 @@ export function ArticleEditor({
       }
     },
   });
+
+  useEffect(() => {
+    if (editor === null) return;
+    editor.view.dom.querySelectorAll<HTMLElement>("figure[data-resource-id]").forEach((figure) => {
+      const resourceId = figure.dataset.resourceId;
+      const url = resourceId === undefined ? undefined : privateResourceUrls[resourceId];
+      const image = figure.querySelector<HTMLImageElement>("img");
+      const label = figure.querySelector<HTMLElement>(".editor-atom-label");
+      if (url !== undefined && image !== null) {
+        image.src = url;
+        image.hidden = false;
+        if (label !== null) label.hidden = true;
+      }
+    });
+  }, [editor, privateResourceUrls]);
 
   useEffect(() => {
     editor?.setEditable(editable && !lockMutationPending);
@@ -992,27 +1072,19 @@ export function ArticleEditor({
             </div>
           ) : (
             <div className="space-y-2 p-3">
-              <div className="rounded-control border border-violet-200 bg-violet-50 p-2.5">
-                <p className="text-[9px] leading-4 text-violet-800">
-                  静态素材直接用于微信；动态素材在编辑器内播放，复制时自动换成静态备用图。
-                </p>
-              </div>
               <div className="grid grid-cols-2 gap-1 rounded-md bg-panel p-1">
-                {(["static", "dynamic"] as const).map((motion) => (
+                {(["official", "personal"] as const).map((source) => (
                   <button
                     className={`h-7 rounded text-[9px] font-medium ${
-                      assetMotion === motion
+                      assetSource === source
                         ? "bg-accent-soft text-accent-strong"
                         : "text-muted hover:bg-hover"
                     }`}
-                    key={motion}
-                    onClick={() => {
-                      setAssetMotion(motion);
-                      setAssetFunction("all");
-                    }}
+                    key={source}
+                    onClick={() => setAssetSource(source)}
                     type="button"
                   >
-                    {motion === "static" ? "静态 · 100" : "动态 · 50"}
+                    {source === "official" ? "推荐素材" : `我的素材 · ${privateResources.length}`}
                   </button>
                 ))}
               </div>
@@ -1026,65 +1098,207 @@ export function ArticleEditor({
                 <input
                   className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
                   onChange={(event) => setAssetQuery(event.target.value)}
-                  placeholder="搜索水墨、节气、党政、教育…"
+                  placeholder={
+                    assetSource === "official"
+                      ? "搜索水墨、节气、党政、教育…"
+                      : "搜索名称、文件夹或标签"
+                  }
                   value={assetQuery}
                 />
               </label>
-              <select
-                aria-label="按素材用途筛选"
-                className="h-8 w-full rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
-                onChange={(event) => setAssetFunction(event.target.value)}
-                value={assetFunction}
-              >
-                <option value="all">全部用途</option>
-                {Object.entries(VISUAL_ASSET_FUNCTION_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <p className="px-1 text-[9px] text-faint">
-                当前 {visibleEditorAssets.length} 个可插入素材
-              </p>
-              <div className="max-h-[510px] space-y-2 overflow-y-auto pr-0.5">
-                {visibleEditorAssets.map((asset) => (
-                  <button
-                    className="w-full overflow-hidden rounded-control border border-line bg-panel text-left transition hover:border-line-strong hover:bg-hover disabled:opacity-45"
-                    disabled={!editable}
-                    key={asset.id}
-                    onClick={() => {
-                      if (!insertVisualAssetAfterSelection(editor, asset)) {
-                        onError("当前动态素材缺少静态备用图，暂时无法插入。");
-                      }
-                    }}
-                    type="button"
-                  >
-                    <span className="relative block aspect-[5/2] overflow-hidden bg-white">
-                      <img
-                        alt=""
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                        src={asset.previewPath}
-                      />
-                      <span
-                        className={`absolute top-1.5 left-1.5 rounded-full px-1.5 py-0.5 text-[7px] font-semibold text-white ${
-                          asset.motion === "dynamic" ? "bg-violet-600/85" : "bg-zinc-900/70"
+              {assetSource === "official" ? (
+                <>
+                  <div className="rounded-control border border-violet-200 bg-violet-50 p-2.5">
+                    <p className="text-[9px] leading-4 text-violet-800">
+                      推荐素材按用途选择；静态可直接用于微信，动态复制时自动使用静态备用图。
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 rounded-md bg-panel p-1">
+                    {(["static", "dynamic"] as const).map((motion) => (
+                      <button
+                        className={`h-7 rounded text-[9px] font-medium ${
+                          assetMotion === motion
+                            ? "bg-accent-soft text-accent-strong"
+                            : "text-muted hover:bg-hover"
                         }`}
+                        key={motion}
+                        onClick={() => {
+                          setAssetMotion(motion);
+                          setAssetFunction("all");
+                        }}
+                        type="button"
                       >
-                        {asset.motion === "dynamic" ? "动态 SVG" : "静态 SVG"}
-                      </span>
-                    </span>
-                    <span className="block px-2.5 py-2">
-                      <span className="block truncate text-[9px] font-semibold text-ink">
-                        {asset.name}
-                      </span>
-                      <span className="mt-0.5 block truncate text-[8px] text-faint">
-                        {VISUAL_ASSET_FUNCTION_LABELS[asset.function]} · {asset.scenes.join(" / ")}
-                      </span>
-                    </span>
-                  </button>
-                ))}
-              </div>
+                        {motion === "static" ? "静态 · 100" : "动态 · 50"}
+                      </button>
+                    ))}
+                  </div>
+                  <select
+                    aria-label="按素材用途筛选"
+                    className="h-8 w-full rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
+                    onChange={(event) => setAssetFunction(event.target.value)}
+                    value={assetFunction}
+                  >
+                    <option value="all">全部用途</option>
+                    {Object.entries(VISUAL_ASSET_FUNCTION_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="px-1 text-[9px] text-faint">
+                    当前 {visibleEditorAssets.length} 个可插入素材
+                  </p>
+                  <div className="max-h-[510px] space-y-2 overflow-y-auto pr-0.5">
+                    {visibleEditorAssets.map((asset) => (
+                      <button
+                        className="w-full overflow-hidden rounded-control border border-line bg-panel text-left transition hover:border-line-strong hover:bg-hover disabled:opacity-45"
+                        disabled={!editable}
+                        key={asset.id}
+                        onClick={() => {
+                          if (!insertVisualAssetAfterSelection(editor, asset)) {
+                            onError("当前动态素材缺少静态备用图，暂时无法插入。");
+                          }
+                        }}
+                        type="button"
+                      >
+                        <span className="relative block aspect-[5/2] overflow-hidden bg-white">
+                          <img
+                            alt=""
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            src={asset.previewPath}
+                          />
+                          <span
+                            className={`absolute top-1.5 left-1.5 rounded-full px-1.5 py-0.5 text-[7px] font-semibold text-white ${
+                              asset.motion === "dynamic" ? "bg-violet-600/85" : "bg-zinc-900/70"
+                            }`}
+                          >
+                            {asset.motion === "dynamic" ? "动态 SVG" : "静态 SVG"}
+                          </span>
+                        </span>
+                        <span className="block px-2.5 py-2">
+                          <span className="block truncate text-[9px] font-semibold text-ink">
+                            {asset.name}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[8px] text-faint">
+                            {VISUAL_ASSET_FUNCTION_LABELS[asset.function]} ·{" "}
+                            {asset.scenes.join(" / ")}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-accent/35 bg-accent-soft text-[10px] font-semibold text-accent hover:border-accent disabled:opacity-45">
+                    {uploadPrivateResource.isPending ? (
+                      <LoaderCircle aria-hidden="true" className="animate-spin" size={12} />
+                    ) : (
+                      <UploadCloud aria-hidden="true" size={12} />
+                    )}
+                    {uploadPrivateResource.isPending ? "正在上传…" : "上传到我的素材"}
+                    <input
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="sr-only"
+                      disabled={uploadPrivateResource.isPending}
+                      onChange={(event) => {
+                        const file = event.currentTarget.files?.[0];
+                        if (file !== undefined) uploadPrivateResource.mutate(file);
+                        event.currentTarget.value = "";
+                      }}
+                      type="file"
+                    />
+                  </label>
+                  {privateResourcesQuery.isPending ? (
+                    <p className="rounded-control border border-line bg-panel p-4 text-center text-[10px] text-muted">
+                      正在读取我的素材…
+                    </p>
+                  ) : visiblePrivateResources.length === 0 ? (
+                    <div className="rounded-control border border-line bg-panel p-5 text-center">
+                      <ImageIcon aria-hidden="true" className="mx-auto text-faint" size={18} />
+                      <p className="mt-2 text-[10px] font-medium text-ink">还没有匹配的图片</p>
+                      <p className="mt-1 text-[9px] leading-4 text-faint">
+                        上传后会永久保存在私有素材库，可反复使用。
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="max-h-[510px] space-y-2 overflow-y-auto pr-0.5">
+                      {visiblePrivateResources.map((resource) => {
+                        const url = privateResourceUrls[resource.id];
+                        return (
+                          <article
+                            className="overflow-hidden rounded-control border border-line bg-panel"
+                            key={resource.id}
+                          >
+                            <div className="grid aspect-[5/2] place-items-center overflow-hidden bg-panel-muted">
+                              {url === undefined ? (
+                                <ImageIcon aria-hidden="true" className="text-faint" size={18} />
+                              ) : (
+                                <img
+                                  alt={resourceLabel(resource)}
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                  src={url}
+                                />
+                              )}
+                            </div>
+                            <div className="p-2.5">
+                              <p className="truncate text-[9px] font-semibold text-ink">
+                                {resourceLabel(resource)}
+                              </p>
+                              <p className="mt-0.5 truncate text-[8px] text-faint">
+                                {resource.folder ?? "未分组"}
+                                {resource.tags.length === 0
+                                  ? ""
+                                  : ` · ${resource.tags.join(" / ")}`}
+                              </p>
+                              <div className="mt-2 grid grid-cols-2 gap-1.5">
+                                <button
+                                  className="h-7 rounded-md bg-accent text-[9px] font-semibold text-white disabled:opacity-45"
+                                  disabled={!editable || url === undefined}
+                                  onClick={() => {
+                                    insertVisualAssetAfterSelection(editor, {
+                                      id: `private_${resource.id}`,
+                                      motion: "static",
+                                      name: resourceLabel(resource),
+                                      resourceId: resource.id,
+                                    });
+                                  }}
+                                  type="button"
+                                >
+                                  插入
+                                </button>
+                                <button
+                                  className="h-7 rounded-md border border-line text-[9px] font-medium text-ink hover:bg-hover disabled:opacity-35"
+                                  disabled={
+                                    !editable ||
+                                    selection?.type !== "imageBlock" ||
+                                    url === undefined
+                                  }
+                                  onClick={() => {
+                                    if (selection?.type !== "imageBlock") return;
+                                    updateBlockAttributes(editor, selection.blockId, {
+                                      alt: resourceLabel(resource),
+                                      originalResourceId:
+                                        selection.attributes.originalResourceId ??
+                                        selection.attributes.resourceId,
+                                      resourceId: resource.id,
+                                    });
+                                  }}
+                                  type="button"
+                                >
+                                  替换当前
+                                </button>
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </aside>
@@ -1199,11 +1413,12 @@ export function ArticleEditor({
                 </div>
               </div>
 
-              {typeof selection.attributes.componentId === "string" &&
+              {(typeof selection.attributes.componentId === "string" ||
+                selection.type === "imageBlock") &&
               (componentAttributeFields[selection.type]?.length ?? 0) > 0 ? (
                 <div>
                   <p className="text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
-                    组件文字槽
+                    {selection.type === "imageBlock" ? "图片信息" : "组件文字槽"}
                   </p>
                   <div className="mt-2 space-y-2">
                     {componentAttributeFields[selection.type]?.map((field) => (
@@ -1230,6 +1445,102 @@ export function ArticleEditor({
                       图片槽尚未选择资源；正式复制前需替换为文章资源。
                     </p>
                   ) : null}
+                </div>
+              ) : null}
+
+              {selection.type === "imageBlock" ? (
+                <div className="space-y-4 rounded-control border border-line bg-panel-muted p-3">
+                  <div>
+                    <p className="text-[10px] font-medium text-ink">显示宽度</p>
+                    <div className="mt-2 grid grid-cols-3 gap-1">
+                      {(
+                        [
+                          ["full", "通栏"],
+                          ["percent", "自定义"],
+                          ["original", "原始"],
+                        ] as const
+                      ).map(([value, label]) => (
+                        <button
+                          className={`h-8 rounded-md border text-[9px] ${
+                            selection.attributes.widthMode === value ||
+                            (selection.attributes.widthMode === undefined && value === "full")
+                              ? "border-accent bg-accent-soft text-accent"
+                              : "border-line bg-panel text-muted"
+                          }`}
+                          disabled={!editable}
+                          key={value}
+                          onClick={() =>
+                            updateBlockAttributes(editor, selection.blockId, { widthMode: value })
+                          }
+                          type="button"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {selection.attributes.widthMode === "percent" ? (
+                      <label className="mt-3 block">
+                        <span className="flex items-center justify-between text-[9px] text-muted">
+                          图片宽度
+                          <span>{String(selection.attributes.widthPercent ?? 80)}%</span>
+                        </span>
+                        <input
+                          className="mt-2 w-full accent-indigo-600"
+                          disabled={!editable}
+                          max={100}
+                          min={30}
+                          onChange={(event) =>
+                            updateBlockAttributes(editor, selection.blockId, {
+                              widthPercent: Number(event.currentTarget.value),
+                            })
+                          }
+                          step={5}
+                          type="range"
+                          value={Number(selection.attributes.widthPercent ?? 80)}
+                        />
+                      </label>
+                    ) : null}
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-ink">裁切方式</p>
+                    <div className="mt-2 grid grid-cols-3 gap-1">
+                      {(
+                        [
+                          ["contain", "完整显示"],
+                          ["cover", "铺满裁切"],
+                          ["fill", "拉伸填充"],
+                        ] as const
+                      ).map(([value, label]) => (
+                        <button
+                          className={`h-8 rounded-md border text-[9px] ${
+                            selection.attributes.objectFit === value ||
+                            (selection.attributes.objectFit === undefined && value === "contain")
+                              ? "border-accent bg-accent-soft text-accent"
+                              : "border-line bg-panel text-muted"
+                          }`}
+                          disabled={!editable}
+                          key={value}
+                          onClick={() =>
+                            updateBlockAttributes(editor, selection.blockId, { objectFit: value })
+                          }
+                          type="button"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-accent/25 bg-panel text-[9px] font-medium text-accent hover:bg-hover"
+                    onClick={() => {
+                      setLeftPanel("assets");
+                      setAssetSource("personal");
+                    }}
+                    type="button"
+                  >
+                    <ImageIcon aria-hidden="true" size={11} />
+                    从我的素材替换
+                  </button>
                 </div>
               ) : null}
 
@@ -1273,6 +1584,109 @@ export function ArticleEditor({
                   )}
                 </div>
               ) : null}
+
+              <div className="rounded-control border border-line bg-panel-muted p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-medium text-ink">自由样式</p>
+                  <button
+                    className="text-[9px] font-medium text-accent hover:text-accent-strong disabled:opacity-40"
+                    disabled={!editable}
+                    onClick={() =>
+                      updateBlockAttributes(editor, selection.blockId, { styleOverrides: {} })
+                    }
+                    type="button"
+                  >
+                    重置
+                  </button>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      ["textColor", "文字", "#18181b"],
+                      ["backgroundColor", "背景", "#ffffff"],
+                      ["borderColor", "边框", "#d4d4d8"],
+                    ] as const
+                  ).map(([attribute, label, fallback]) => {
+                    const overrides = selection.attributes.styleOverrides as
+                      Record<string, unknown> | undefined;
+                    const value = overrides?.[attribute];
+                    return (
+                      <label className="text-center" key={attribute}>
+                        <span className="mb-1.5 block text-[8px] text-faint">{label}</span>
+                        <input
+                          aria-label={`${label}颜色`}
+                          className="h-7 w-full cursor-pointer rounded border border-line bg-panel p-0.5 disabled:opacity-40"
+                          disabled={!editable}
+                          onChange={(event) =>
+                            updateBlockAttributes(editor, selection.blockId, {
+                              styleOverrides: {
+                                ...overrides,
+                                [attribute]: event.currentTarget.value,
+                              },
+                            })
+                          }
+                          type="color"
+                          value={
+                            typeof value === "string" && /^#[0-9a-f]{6}$/iu.test(value)
+                              ? value
+                              : fallback
+                          }
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+                <div className="mt-3 space-y-3">
+                  {(
+                    [
+                      ["padding", "内边距", 0, 40, 12],
+                      ["borderRadius", "圆角", 0, 32, 8],
+                      ["borderWidth", "边框", 0, 6, 0],
+                    ] as const
+                  ).map(([attribute, label, min, max, fallback]) => {
+                    const overrides = selection.attributes.styleOverrides as
+                      Record<string, unknown> | undefined;
+                    const current =
+                      attribute === "padding" ? overrides?.paddingTop : overrides?.[attribute];
+                    const value = typeof current === "number" ? current : fallback;
+                    return (
+                      <label className="block" key={attribute}>
+                        <span className="flex items-center justify-between text-[8px] text-faint">
+                          {label}
+                          <span>{value}px</span>
+                        </span>
+                        <input
+                          className="mt-1 w-full accent-indigo-600"
+                          disabled={!editable}
+                          max={max}
+                          min={min}
+                          onChange={(event) => {
+                            const next = Number(event.currentTarget.value);
+                            updateBlockAttributes(editor, selection.blockId, {
+                              styleOverrides: {
+                                ...overrides,
+                                ...(attribute === "padding"
+                                  ? {
+                                      paddingBottom: next,
+                                      paddingLeft: next,
+                                      paddingRight: next,
+                                      paddingTop: next,
+                                    }
+                                  : { [attribute]: next }),
+                                ...(attribute === "borderWidth" && next > 0
+                                  ? { borderStyle: "solid" }
+                                  : {}),
+                              },
+                            });
+                          }}
+                          type="range"
+                          value={value}
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
 
               <div>
                 <p className="text-[10px] font-medium tracking-[0.08em] text-faint uppercase">

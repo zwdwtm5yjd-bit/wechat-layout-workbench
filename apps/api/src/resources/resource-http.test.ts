@@ -296,6 +296,18 @@ class InMemoryResourceRepository implements ResourceRepository {
     return resource;
   }
 
+  async updateMetadata(
+    ownerId: string,
+    resourceId: string,
+    metadata: ResourceRecord["metadata"],
+  ): Promise<ResourceRecord | null> {
+    const resource = await this.findOwnedById(ownerId, resourceId);
+    if (resource === null) return null;
+    const updated = { ...resource, metadata, updatedAt: new Date() };
+    this.resources.set(resourceId, updated);
+    return updated;
+  }
+
   async listReferences(
     ownerId: string,
     resourceId: string,
@@ -500,6 +512,21 @@ describe("resource HTTP flow", () => {
       })
       .expect(200);
     expect(access.body.data.url).toContain("thumbnail.webp?signed=true");
+
+    const updatedMetadata = await supertest(application.getHttpServer())
+      .patch(`/api/v1/resources/${resourceId}`)
+      .set("x-csrf-token", csrfToken)
+      .send({
+        displayName: "活动封面",
+        folder: "品牌图片",
+        tags: ["横图", "活动", "横图"],
+      })
+      .expect(200);
+    expect(updatedMetadata.body.data).toMatchObject({
+      displayName: "活动封面",
+      folder: "品牌图片",
+      tags: ["横图", "活动"],
+    });
 
     const deduplicated = await supertest(application.getHttpServer())
       .post("/api/v1/resources/uploads")

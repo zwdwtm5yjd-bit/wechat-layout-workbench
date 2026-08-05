@@ -164,7 +164,7 @@ describe("ImportStructureWorkspace", () => {
         ],
       });
     });
-    expect(push).toHaveBeenCalledWith(`/workspace/articles/${articleId}`);
+    expect(push).toHaveBeenCalledWith(`/workspace/articles/${articleId}?guide=1`);
   });
 
   it("renders an already confirmed import as read-only and keeps the editor entry", async () => {

@@ -28,6 +28,9 @@ export interface ResourceThumbnailMetadata {
 }
 
 export interface ResourceMetadata {
+  readonly displayName?: string;
+  readonly folder?: string;
+  readonly tags?: readonly string[];
   readonly thumbnail?: ResourceThumbnailMetadata;
   readonly pages?: number;
 }
@@ -126,6 +129,12 @@ export interface ResourceRepository {
   findOwnedById(ownerUserId: string, resourceId: string): Promise<ResourceRecord | null>;
   listOwned(ownerUserId: string, input: ResourceListInput): Promise<ResourceListResult>;
   createValidated(input: CreateValidatedResourceInput): Promise<ResourceRecord>;
+  updateMetadata(
+    ownerUserId: string,
+    resourceId: string,
+    metadata: ResourceMetadata,
+    context: RequestContext & { readonly actorUserId: string },
+  ): Promise<ResourceRecord | null>;
   listReferences(
     ownerUserId: string,
     resourceId: string,

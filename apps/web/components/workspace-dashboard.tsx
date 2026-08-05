@@ -46,10 +46,10 @@ export function WorkspaceDashboard({ today }: { readonly today: string }) {
           <div className="relative">
             <p className="text-[12px] font-medium text-muted">{today}</p>
             <h1 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-ink">
-              欢迎回来，继续完成今天的排版
+              把一篇原稿，做成可发布的公众号成稿
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-              从空白画布开始，或导入已经定稿的文章。编辑、预览、兼容检查和复制现在位于同一条工作流。
+              按“导入原稿 → 检查结构 → 选择成稿 → 完善并发布”一步步完成；需要时随时进入自由编辑。
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center gap-2 rounded-full bg-success-soft px-3 py-1.5 text-[12px] font-medium text-success">
@@ -78,13 +78,13 @@ export function WorkspaceDashboard({ today }: { readonly today: string }) {
               已上线
             </span>
           </div>
-          <p className="mt-5 text-[12px] font-medium text-indigo-200">V0.1 工作流</p>
-          <p className="mt-1 text-lg font-semibold">从导入到公众号复制</p>
+          <p className="mt-5 text-[12px] font-medium text-indigo-200">成稿向导</p>
+          <p className="mt-1 text-lg font-semibold">三套方案 + 自由编辑</p>
           <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/10">
             <div className="h-full w-full rounded-full bg-indigo-300" />
           </div>
           <p className="mt-3 text-[11px] leading-5 text-indigo-100/70">
-            文章、主题预览、基础组件、设备预览、兼容报告与正式复制入口已经贯通。
+            自动建立阅读层级和视觉节奏，也可上传、保存、替换自己的图片素材。
           </p>
         </div>
       </section>
@@ -221,7 +221,8 @@ export function WorkspaceDashboard({ today }: { readonly today: string }) {
                 className="inline-flex items-center gap-1 hover:text-accent"
                 href="/workspace/themes"
               >
-                <Palette aria-hidden="true" size={12} />2 主题
+                <Palette aria-hidden="true" size={12} />
+                10 主题
               </Link>
               <Link
                 className="inline-flex items-center gap-1 hover:text-accent"

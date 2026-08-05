@@ -268,6 +268,52 @@ export class PostgresResourceRepository implements ResourceRepository {
     }
   }
 
+  async updateMetadata(
+    ownerUserId: string,
+    resourceId: string,
+    metadata: ResourceMetadata,
+    context: CreateValidatedResourceInput["context"],
+  ): Promise<ResourceRecord | null> {
+    return this.connection.db.transaction(async (transaction) => {
+      const [current] = await transaction
+        .select({ ...getTableColumns(resources) })
+        .from(resources)
+        .where(
+          and(
+            eq(resources.id, resourceId),
+            eq(resources.ownerUserId, ownerUserId),
+            isNull(resources.deletedAt),
+          ),
+        )
+        .limit(1)
+        .for("update");
+      if (current === undefined) return null;
+      const now = new Date();
+      const [updated] = await transaction
+        .update(resources)
+        .set({ metadataJson: metadata as unknown as Record<string, unknown>, updatedAt: now })
+        .where(eq(resources.id, resourceId))
+        .returning();
+      if (updated === undefined) throw new Error("资源信息更新失败");
+      await transaction.insert(auditLogs).values({
+        id: createUuidV7(),
+        actorUserId: context.actorUserId,
+        actorType: "user",
+        action: "resource.metadata.update",
+        targetType: "resource",
+        targetId: resourceId,
+        accountId: current.accountId,
+        requestId: context.requestId,
+        traceId: context.traceId,
+        beforeSummary: current.metadataJson,
+        afterSummary: metadata as unknown as Record<string, unknown>,
+        metadataJson: {},
+        createdAt: now,
+      });
+      return recordFromRow(updated);
+    });
+  }
+
   async listReferences(
     ownerUserId: string,
     resourceId: string,
