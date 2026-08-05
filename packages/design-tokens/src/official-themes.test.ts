@@ -61,4 +61,39 @@ describe("official theme packages", () => {
     });
     expect(resolved.tokens.image.shadow).toBe("none");
   });
+
+  it("maps reusable H5 material scenes to searchable theme categories", () => {
+    const materialCategories = [
+      "用途:放假通知",
+      "用途:温馨提示",
+      "用途:安全提醒",
+      "用途:活动纪实",
+      "用途:主题教育",
+      "用途:党建宣传",
+      "用途:党日活动",
+      "用途:会议报道",
+      "用途:节气科普",
+      "用途:节气食育",
+      "用途:节日祝福",
+      "节假:二十四节气",
+      "节假:春节",
+      "节假:元旦",
+      "节假:除夕",
+      "节假:小年",
+      "节假:清明节",
+      "节假:劳动节",
+      "节假:母亲节",
+      "节假:端午节",
+      "节假:中秋节",
+      "节假:国庆节",
+      "节假:重阳节",
+      "节假:腊八节",
+    ];
+
+    for (const category of materialCategories) {
+      expect(listOfficialThemes({ category }), category).not.toHaveLength(0);
+    }
+    expect(listOfficialThemes({ category: "用途:党建宣传" })[0]?.manifest.name).toBe("现代政务红");
+    expect(listOfficialThemes({ category: "节假:中秋节" })[0]?.manifest.name).toBe("国风雅韵");
+  });
 });

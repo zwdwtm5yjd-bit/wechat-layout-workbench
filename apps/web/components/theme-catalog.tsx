@@ -6,22 +6,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
 import { listThemes, type OfficialTheme } from "../lib/themes/client";
-
-const filterRows = [
-  {
-    axis: "用途",
-    options: ["公司宣传", "活动推广", "人物介绍", "产品推介", "图集", "散文随笔", "促销宣传"],
-  },
-  { axis: "行业", options: ["企业", "校园", "科技", "餐饮", "旅游", "媒体", "文化"] },
-  { axis: "风格", options: ["简洁", "商务", "杂志", "卡通", "手绘", "喜庆", "中国风"] },
-  { axis: "色调", options: ["红", "黑", "黄", "绿", "蓝", "青", "橙"] },
-] as const;
-
-type ThemeFilterAxis = (typeof filterRows)[number]["axis"];
-
-function displayCategory(category: string): string {
-  return category.includes(":") ? (category.split(":").at(-1) ?? category) : category;
-}
+import {
+  displayThemeCategory,
+  summarizeThemeCategories,
+  THEME_FILTER_ROWS,
+  type ThemeFilterAxis,
+} from "../lib/themes/taxonomy";
 
 function ThemeArtwork({
   theme,
@@ -102,8 +92,8 @@ export function ThemeCatalog() {
           <p className="text-[12px] font-medium text-accent">VISUAL SYSTEM</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">主题</h1>
           <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted">
-            10 套官方场景主题已安装，覆盖商务、校园、旅行、餐饮、人物、节日与国风。
-            每套都可在编辑器中试穿并安全复制到微信。
+            10 套官方场景主题已安装，并按用途、行业、节假、风格与色调重新分类。
+            可直接搜索“放假通知”“党建宣传”“中秋节”等内容场景。
           </p>
         </div>
         <label className="relative w-full md:w-72">
@@ -123,7 +113,7 @@ export function ThemeCatalog() {
       </section>
 
       <section className="space-y-2 rounded-card border border-line bg-panel p-4 shadow-subtle">
-        {filterRows.map((row) => (
+        {THEME_FILTER_ROWS.map((row) => (
           <div className="flex items-start gap-3" key={row.axis}>
             <span className="w-10 shrink-0 pt-1.5 text-[11px] text-faint">{row.axis}</span>
             <div className="flex flex-wrap gap-1.5">
@@ -191,7 +181,7 @@ export function ThemeCatalog() {
                 <div>
                   <p className="text-[14px] font-semibold text-ink">{theme.manifest.name}</p>
                   <p className="mt-1 text-[11px] text-muted">
-                    {theme.manifest.categories.slice(0, 3).map(displayCategory).join(" · ")}
+                    {summarizeThemeCategories(theme.manifest.categories)}
                   </p>
                 </div>
                 <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-1 text-[10px] font-medium text-success">
@@ -248,7 +238,10 @@ export function ThemeCatalog() {
                     <div className="flex justify-between gap-4">
                       <dt className="text-faint">分类</dt>
                       <dd className="text-ink">
-                        {selected.manifest.categories.map(displayCategory).join("、")}
+                        {selected.manifest.categories
+                          .filter((category) => category.includes(":"))
+                          .map(displayThemeCategory)
+                          .join("、")}
                       </dd>
                     </div>
                     <div className="flex justify-between gap-4">

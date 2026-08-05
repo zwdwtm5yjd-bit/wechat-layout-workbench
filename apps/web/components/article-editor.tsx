@@ -84,6 +84,7 @@ import {
 } from "react";
 
 import { themePreviewKey, type OfficialTheme } from "../lib/themes/client";
+import { summarizeThemeCategories } from "../lib/themes/taxonomy";
 import { COMPONENT_CATALOG_GROUPS, V0_COMPONENT_PREVIEWS } from "../lib/v0-catalog";
 
 const officialComponentRegistry = createOfficialComponentRegistry();
@@ -798,7 +799,7 @@ export function ArticleEditor({
                 <input
                   className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
                   onChange={(event) => setThemeQuery(event.target.value)}
-                  placeholder="搜索商务、校园、旅行…"
+                  placeholder="搜索通知、党建、中秋节…"
                   value={themeQuery}
                 />
               </label>
@@ -825,7 +826,8 @@ export function ArticleEditor({
                       <div>
                         <p className="text-[11px] font-semibold text-ink">{theme.manifest.name}</p>
                         <p className="mt-1 text-[9px] text-faint">
-                          {theme.manifest.categories.join(" · ")} · v{theme.manifest.version}
+                          {summarizeThemeCategories(theme.manifest.categories, true)} · v
+                          {theme.manifest.version}
                         </p>
                       </div>
                       {applied ? (
