@@ -1007,11 +1007,22 @@ export interface components {
       /** @example true */
       success: boolean;
     };
+    AiLayoutModelOptionDto: {
+      available: boolean;
+      description: string;
+      /** @enum {string} */
+      id: "deepseek" | "qwen" | "kimi";
+      label: string;
+      model: string;
+    };
     AiLayoutStatusDto: {
       available: boolean;
-      model: string;
       /** @enum {string} */
-      provider: "kimi-code" | "openai-compatible";
+      defaultProviderId: "auto" | "deepseek" | "qwen" | "kimi";
+      model: string;
+      models: components["schemas"]["AiLayoutModelOptionDto"][];
+      /** @enum {string} */
+      provider: "auto" | "deepseek" | "qwen" | "kimi";
     };
     ApiErrorOpenApiModel: {
       /** @example VALIDATION_FAILED */
@@ -1594,14 +1605,19 @@ export interface components {
         | "forest-green"
         | "crimson-editorial"
         | "ink-gold";
+      /** @enum {string} */
+      providerId?: "auto" | "deepseek" | "qwen" | "kimi";
       styleBrief?: string;
     };
     GenerateAiLayoutResponseDto: {
       available: boolean;
       decision: Record<string, never>;
-      model: string;
       /** @enum {string} */
-      provider: "kimi-code" | "openai-compatible";
+      defaultProviderId: "auto" | "deepseek" | "qwen" | "kimi";
+      model: string;
+      models: components["schemas"]["AiLayoutModelOptionDto"][];
+      /** @enum {string} */
+      provider: "auto" | "deepseek" | "qwen" | "kimi";
     };
     ImportBlockRelationDto: {
       alt?: string;

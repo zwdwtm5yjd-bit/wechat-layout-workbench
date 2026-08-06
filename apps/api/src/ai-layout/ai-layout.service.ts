@@ -13,7 +13,9 @@ import {
   AI_LAYOUT_VISUAL_INTENSITIES,
   type AiLayoutBlockDecision,
   type AiLayoutComponentId,
+  type AiLayoutConcreteProviderId,
   type AiLayoutDecision,
+  type AiLayoutProviderId,
   type AiLayoutStatus,
   type AiLayoutTreatment,
   type GenerateAiLayoutInput,
@@ -28,6 +30,7 @@ import { DocumentService } from "../documents/document.service.js";
 import {
   AI_LAYOUT_FETCH,
   AI_LAYOUT_OPTIONS,
+  type AiLayoutProviderRuntimeOptions,
   type AiLayoutRuntimeOptions,
 } from "./ai-layout.constants.js";
 
@@ -294,6 +297,14 @@ function sanitizeDecision(
   };
 }
 
+const providerProfiles: Readonly<
+  Record<AiLayoutConcreteProviderId, Readonly<{ description: string; label: string }>>
+> = {
+  deepseek: { description: "速度快、成本低，适合日常排版", label: "DeepSeek" },
+  qwen: { description: "中文结构稳定，适合政务和长文", label: "通义千问" },
+  kimi: { description: "长文理解强，作为质量兜底", label: "Kimi" },
+};
+
 function providerFailure(status: number): ApiException {
   if (status === 401 || status === 403) {
     return new ApiException(HttpStatus.BAD_GATEWAY, {
@@ -305,7 +316,7 @@ function providerFailure(status: number): ApiException {
   if (status === 402) {
     return new ApiException(HttpStatus.BAD_GATEWAY, {
       code: "AI_LAYOUT_PROVIDER_QUOTA_UNAVAILABLE",
-      message: "Kimi Code 会员权益或调用额度暂时不可用",
+      message: "所选 AI 模型的调用额度暂时不可用",
       retryable: false,
     });
   }
@@ -332,11 +343,140 @@ export class AiLayoutService {
   ) {}
 
   status(): AiLayoutStatus {
+    const availableProviders = this.options.providers.filter(
+      (provider) => provider.apiKey !== null,
+    );
+    const preferredProvider =
+      this.options.defaultProviderId === "auto"
+        ? availableProviders[0]
+        : availableProviders.find((provider) => provider.id === this.options.defaultProviderId);
     return {
-      available: this.options.apiKey !== null,
-      model: this.options.model,
-      provider: this.options.provider,
+      available: availableProviders.length > 0,
+      defaultProviderId: this.options.defaultProviderId,
+      model: preferredProvider?.model ?? this.options.providers[0]?.model ?? "未配置",
+      models: this.options.providers.map((provider) => ({
+        available: provider.apiKey !== null,
+        description: providerProfiles[provider.id].description,
+        id: provider.id,
+        label: providerProfiles[provider.id].label,
+        model: provider.model,
+      })),
+      provider: this.options.defaultProviderId,
     };
+  }
+
+  private providerStatus(provider: AiLayoutProviderRuntimeOptions): AiLayoutStatus {
+    return {
+      ...this.status(),
+      model: provider.model,
+      provider: provider.id,
+    };
+  }
+
+  private providersFor(requested: AiLayoutProviderId): readonly AiLayoutProviderRuntimeOptions[] {
+    const configured = this.options.providers.filter((provider) => provider.apiKey !== null);
+    if (requested === "auto") return configured;
+    const selected = configured.find((provider) => provider.id === requested);
+    if (selected !== undefined) return [selected];
+    throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, {
+      code: "AI_LAYOUT_PROVIDER_NOT_CONFIGURED",
+      message: `${providerProfiles[requested].label} 尚未配置，请选择其他模型或自动选择`,
+      retryable: false,
+    });
+  }
+
+  private async requestDecision(
+    provider: AiLayoutProviderRuntimeOptions,
+    instructions: string,
+    userInput: string,
+  ): Promise<unknown> {
+    if (provider.apiKey === null) throw providerFailure(HttpStatus.SERVICE_UNAVAILABLE);
+    const endpoint =
+      provider.protocol === "chat-completions"
+        ? `${provider.baseUrl}/chat/completions`
+        : `${provider.baseUrl}/responses`;
+    const requestBody =
+      provider.protocol === "chat-completions"
+        ? {
+            model: provider.model,
+            messages: [
+              {
+                role: "system",
+                content: [
+                  instructions,
+                  "只返回一个 JSON 对象，不要使用 Markdown 代码围栏，也不要输出解释文字。",
+                  `返回对象必须符合这个 JSON Schema：${JSON.stringify(responseJsonSchema)}`,
+                ].join("\n"),
+              },
+              { role: "user", content: userInput },
+            ],
+            response_format: { type: "json_object" },
+            max_tokens: 8_000,
+            stream: false,
+            ...(provider.id === "qwen"
+              ? { enable_thinking: false }
+              : provider.id === "deepseek" || provider.baseUrl.includes("moonshot")
+                ? { thinking: { type: "disabled" } }
+                : {}),
+          }
+        : {
+            model: provider.model,
+            instructions,
+            input: userInput,
+            reasoning: { effort: "medium" },
+            text: {
+              format: {
+                type: "json_schema",
+                name: "wechat_article_layout_decision",
+                strict: true,
+                schema: responseJsonSchema,
+              },
+              verbosity: "low",
+            },
+            max_output_tokens: 8_000,
+          };
+
+    let response: Response;
+    try {
+      response = await this.fetcher(endpoint, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${provider.apiKey}`,
+          "Content-Type": "application/json",
+          "User-Agent": "WeChatLayout/1.0",
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(this.options.timeoutMs),
+      });
+    } catch {
+      throw new ApiException(HttpStatus.BAD_GATEWAY, {
+        code: "AI_LAYOUT_PROVIDER_UNREACHABLE",
+        message: `${providerProfiles[provider.id].label} 暂时无法连接`,
+        retryable: true,
+      });
+    }
+
+    if (!response.ok) throw providerFailure(response.status);
+    let payload: unknown;
+    try {
+      payload = (await response.json()) as unknown;
+    } catch {
+      throw providerFailure(response.status);
+    }
+    const serialized =
+      provider.protocol === "chat-completions" ? chatCompletionText(payload) : outputText(payload);
+    if (serialized === null) throw providerFailure(response.status);
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(modelJsonText(serialized)) as unknown;
+    } catch {
+      throw providerFailure(response.status);
+    }
+    const validated = decisionSchema.safeParse(parsed);
+    if (!validated.success) throw providerFailure(response.status);
+    return validated.data;
   }
 
   async generate(
@@ -344,10 +484,12 @@ export class AiLayoutService {
     articleId: string,
     input: GenerateAiLayoutInput,
   ): Promise<GenerateAiLayoutResult> {
-    if (this.options.apiKey === null) {
+    const requestedProvider = input.providerId ?? this.options.defaultProviderId;
+    const providers = this.providersFor(requestedProvider);
+    if (providers.length === 0) {
       throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, {
         code: "AI_LAYOUT_NOT_CONFIGURED",
-        message: "真实 AI 排版尚未连接模型，请先配置 AI_LAYOUT_API_KEY",
+        message: "真实 AI 排版尚未连接可用模型",
         retryable: false,
       });
     }
@@ -409,88 +551,26 @@ export class AiLayoutService {
       article: { articleId, blocks: outline },
     });
 
-    const endpoint =
-      this.options.protocol === "chat-completions"
-        ? `${this.options.baseUrl}/chat/completions`
-        : `${this.options.baseUrl}/responses`;
-    const requestBody =
-      this.options.protocol === "chat-completions"
-        ? {
-            model: this.options.model,
-            messages: [
-              {
-                role: "system",
-                content: [
-                  instructions,
-                  "只返回一个 JSON 对象，不要使用 Markdown 代码围栏，也不要输出解释文字。",
-                  `返回对象必须符合这个 JSON Schema：${JSON.stringify(responseJsonSchema)}`,
-                ].join("\n"),
-              },
-              { role: "user", content: userInput },
-            ],
-            response_format: { type: "json_object" },
-            reasoning_effort: "high",
-            max_tokens: 8_000,
-            stream: false,
-          }
-        : {
-            model: this.options.model,
-            instructions,
-            input: userInput,
-            reasoning: { effort: "medium" },
-            text: {
-              format: {
-                type: "json_schema",
-                name: "wechat_article_layout_decision",
-                strict: true,
-                schema: responseJsonSchema,
-              },
-              verbosity: "low",
-            },
-            max_output_tokens: 8_000,
-          };
-
-    let response: Response;
-    try {
-      response = await this.fetcher(endpoint, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${this.options.apiKey}`,
-          "Content-Type": "application/json",
-          "User-Agent": "WeChatLayout/1.0",
-        },
-        body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(this.options.timeoutMs),
-      });
-    } catch {
+    let lastError: unknown = null;
+    for (const provider of providers) {
+      try {
+        const decision = await this.requestDecision(provider, instructions, userInput);
+        return {
+          ...this.providerStatus(provider),
+          decision: sanitizeDecision(decision as AiLayoutDecision, blocks),
+        };
+      } catch (error) {
+        lastError = error;
+        if (requestedProvider !== "auto") throw error;
+      }
+    }
+    if (lastError instanceof ApiException) {
       throw new ApiException(HttpStatus.BAD_GATEWAY, {
-        code: "AI_LAYOUT_PROVIDER_UNREACHABLE",
-        message: "暂时无法连接 AI 排版服务，请稍后再试",
+        code: "AI_LAYOUT_ALL_PROVIDERS_FAILED",
+        message: "可用 AI 模型均未返回有效排版，稍后再试或手动指定模型",
         retryable: true,
       });
     }
-
-    if (!response.ok) throw providerFailure(response.status);
-    const payload = (await response.json()) as unknown;
-    const serialized =
-      this.options.protocol === "chat-completions"
-        ? chatCompletionText(payload)
-        : outputText(payload);
-    if (serialized === null) throw providerFailure(response.status);
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(modelJsonText(serialized)) as unknown;
-    } catch {
-      throw providerFailure(response.status);
-    }
-    const validated = decisionSchema.safeParse(parsed);
-    if (!validated.success) throw providerFailure(response.status);
-
-    return {
-      ...this.status(),
-      decision: sanitizeDecision(validated.data, blocks),
-    };
+    throw providerFailure(HttpStatus.BAD_GATEWAY);
   }
 }

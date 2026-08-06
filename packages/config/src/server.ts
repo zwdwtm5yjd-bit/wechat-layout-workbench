@@ -101,6 +101,18 @@ export const serverEnvironmentSchema = z
     AI_LAYOUT_MODEL: emptyStringAsUndefined(z.string().trim().min(1).max(100)),
     AI_LAYOUT_PROTOCOL: emptyStringAsUndefined(z.enum(["chat-completions", "responses"])),
     AI_LAYOUT_PROVIDER: emptyStringAsUndefined(z.enum(["kimi-code", "openai-compatible"])),
+    AI_LAYOUT_DEFAULT_PROVIDER: emptyStringAsUndefined(
+      z.enum(["auto", "deepseek", "qwen", "kimi"]),
+    ),
+    AI_LAYOUT_DEEPSEEK_API_KEY: emptyStringAsUndefined(z.string().trim().min(1)),
+    AI_LAYOUT_DEEPSEEK_BASE_URL: emptyStringAsUndefined(z.url()),
+    AI_LAYOUT_DEEPSEEK_MODEL: emptyStringAsUndefined(z.string().trim().min(1).max(100)),
+    AI_LAYOUT_QWEN_API_KEY: emptyStringAsUndefined(z.string().trim().min(1)),
+    AI_LAYOUT_QWEN_BASE_URL: emptyStringAsUndefined(z.url()),
+    AI_LAYOUT_QWEN_MODEL: emptyStringAsUndefined(z.string().trim().min(1).max(100)),
+    AI_LAYOUT_KIMI_API_KEY: emptyStringAsUndefined(z.string().trim().min(1)),
+    AI_LAYOUT_KIMI_BASE_URL: emptyStringAsUndefined(z.url()),
+    AI_LAYOUT_KIMI_MODEL: emptyStringAsUndefined(z.string().trim().min(1).max(100)),
     AI_LAYOUT_TIMEOUT_MS: emptyStringAsUndefined(z.coerce.number().int().min(5_000).max(180_000)),
   })
   .superRefine((value, context) => {
@@ -256,9 +268,25 @@ export interface ServerConfiguration {
   readonly aiLayout: Readonly<{
     apiKey: SecretValue | null;
     baseUrl: string;
+    defaultProvider: "auto" | "deepseek" | "qwen" | "kimi";
+    deepseek: Readonly<{
+      apiKey: SecretValue | null;
+      baseUrl: string;
+      model: string;
+    }>;
+    kimi: Readonly<{
+      apiKey: SecretValue | null;
+      baseUrl: string;
+      model: string;
+    }>;
     model: string;
     protocol: "chat-completions" | "responses";
     provider: "kimi-code" | "openai-compatible";
+    qwen: Readonly<{
+      apiKey: SecretValue | null;
+      baseUrl: string;
+      model: string;
+    }>;
     timeoutMs: number;
   }>;
 }
@@ -389,9 +417,42 @@ export function parseServerEnvironment(input: EnvironmentInput): ServerConfigura
       apiKey:
         value.AI_LAYOUT_API_KEY === undefined ? null : new SecretValue(value.AI_LAYOUT_API_KEY),
       baseUrl: (value.AI_LAYOUT_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/u, ""),
+      defaultProvider: value.AI_LAYOUT_DEFAULT_PROVIDER ?? "auto",
+      deepseek: Object.freeze({
+        apiKey:
+          value.AI_LAYOUT_DEEPSEEK_API_KEY === undefined
+            ? null
+            : new SecretValue(value.AI_LAYOUT_DEEPSEEK_API_KEY),
+        baseUrl: (value.AI_LAYOUT_DEEPSEEK_BASE_URL ?? "https://api.deepseek.com").replace(
+          /\/$/u,
+          "",
+        ),
+        model: value.AI_LAYOUT_DEEPSEEK_MODEL ?? "deepseek-v4-flash",
+      }),
+      kimi: Object.freeze({
+        apiKey:
+          value.AI_LAYOUT_KIMI_API_KEY === undefined
+            ? null
+            : new SecretValue(value.AI_LAYOUT_KIMI_API_KEY),
+        baseUrl: (value.AI_LAYOUT_KIMI_BASE_URL ?? "https://api.moonshot.cn/v1").replace(
+          /\/$/u,
+          "",
+        ),
+        model: value.AI_LAYOUT_KIMI_MODEL ?? "kimi-k2.6",
+      }),
       model: value.AI_LAYOUT_MODEL ?? "gpt-5.6-sol",
       protocol: value.AI_LAYOUT_PROTOCOL ?? "responses",
       provider: value.AI_LAYOUT_PROVIDER ?? "openai-compatible",
+      qwen: Object.freeze({
+        apiKey:
+          value.AI_LAYOUT_QWEN_API_KEY === undefined
+            ? null
+            : new SecretValue(value.AI_LAYOUT_QWEN_API_KEY),
+        baseUrl: (
+          value.AI_LAYOUT_QWEN_BASE_URL ?? "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        ).replace(/\/$/u, ""),
+        model: value.AI_LAYOUT_QWEN_MODEL ?? "qwen3.5-flash",
+      }),
       timeoutMs: value.AI_LAYOUT_TIMEOUT_MS ?? 90_000,
     }),
   });

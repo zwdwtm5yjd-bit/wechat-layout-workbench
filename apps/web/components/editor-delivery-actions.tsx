@@ -1,5 +1,6 @@
 "use client";
 
+import { AI_LAYOUT_PROVIDER_IDS, type AiLayoutProviderId } from "@wechat-layout/api-contracts";
 import type { DocumentV1 } from "@wechat-layout/document-schema";
 import { useQuery } from "@tanstack/react-query";
 import type { RenderOutput } from "../lib/copy/client";
@@ -36,7 +37,7 @@ interface EditorDeliveryActionsProps {
   readonly applyingPlanId?: string | null;
   readonly document: DocumentV1;
   readonly documentVersion: number;
-  readonly onApplyLayout: (plan: LayoutPlan) => Promise<void>;
+  readonly onApplyLayout: (plan: LayoutPlan, providerId: AiLayoutProviderId) => Promise<void>;
   readonly saveStatus: DocumentSaveSnapshot["status"];
   readonly themes: readonly OfficialTheme[];
 }
@@ -65,6 +66,7 @@ export function EditorDeliveryActions({
   const [copyOpen, setCopyOpen] = useState(false);
   const [layoutOpen, setLayoutOpen] = useState(false);
   const [layoutMode, setLayoutMode] = useState<LayoutDesignMode>("preset");
+  const [providerId, setProviderId] = useState<AiLayoutProviderId>("auto");
   const [styleBrief, setStyleBrief] = useState("");
   const [renderOutput, setRenderOutput] = useState<RenderOutput | null>(null);
   const aiStatusQuery = useQuery({
@@ -73,6 +75,9 @@ export function EditorDeliveryActions({
     staleTime: 60_000,
   });
   const aiAvailable = aiStatusQuery.data?.available === true;
+  const selectedModel = aiStatusQuery.data?.models.find((model) => model.id === providerId);
+  const selectedProviderAvailable =
+    providerId === "auto" ? aiAvailable : selectedModel?.available === true;
   const analysis = useMemo(() => analyzeDocumentLayout(document), [document]);
   const layoutPlans = useMemo(
     () => createLayoutPlans(document, themes, { brief: styleBrief, mode: layoutMode }),
@@ -82,6 +87,13 @@ export function EditorDeliveryActions({
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("guide") === "1") {
       setLayoutOpen(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("wechat-layout-ai-provider");
+    if (AI_LAYOUT_PROVIDER_IDS.some((candidate) => candidate === stored)) {
+      setProviderId(stored as AiLayoutProviderId);
     }
   }, []);
 
@@ -264,6 +276,78 @@ export function EditorDeliveryActions({
                 </button>
               ))}
             </div>
+            {layoutMode === "preset" ? null : (
+              <section className="mt-4 rounded-control border border-line bg-panel-muted p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] font-semibold text-ink">选择排版大模型</p>
+                    <p className="mt-1 text-[9px] leading-4 text-muted">
+                      自动选择会优先使用 DeepSeek，失败时依次切换通义千问和 Kimi。
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-success-soft px-2 py-1 text-[9px] font-medium text-success">
+                    {aiStatusQuery.data?.models.filter((model) => model.available).length ?? 0}{" "}
+                    个节点可用
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  <button
+                    aria-pressed={providerId === "auto"}
+                    className={`rounded-control border p-3 text-left transition ${
+                      providerId === "auto"
+                        ? "border-accent bg-panel ring-2 ring-accent/10"
+                        : "border-line bg-panel hover:border-line-strong"
+                    }`}
+                    disabled={!aiAvailable}
+                    onClick={() => {
+                      setProviderId("auto");
+                      window.localStorage.setItem("wechat-layout-ai-provider", "auto");
+                    }}
+                    type="button"
+                  >
+                    <span className="flex items-center justify-between gap-2 text-[10px] font-semibold text-ink">
+                      自动选择
+                      <span className="rounded-full bg-accent-soft px-1.5 py-0.5 text-[8px] text-accent">
+                        推荐
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-[8px] leading-4 text-muted">
+                      自动容灾，优先低成本节点
+                    </span>
+                  </button>
+                  {(aiStatusQuery.data?.models ?? []).map((model) => (
+                    <button
+                      aria-pressed={providerId === model.id}
+                      className={`rounded-control border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                        providerId === model.id
+                          ? "border-accent bg-panel ring-2 ring-accent/10"
+                          : "border-line bg-panel hover:border-line-strong"
+                      }`}
+                      disabled={!model.available}
+                      key={model.id}
+                      onClick={() => {
+                        setProviderId(model.id);
+                        window.localStorage.setItem("wechat-layout-ai-provider", model.id);
+                      }}
+                      type="button"
+                    >
+                      <span className="flex items-center justify-between gap-2 text-[10px] font-semibold text-ink">
+                        {model.label}
+                        <span
+                          className={`size-1.5 rounded-full ${model.available ? "bg-success" : "bg-faint"}`}
+                        />
+                      </span>
+                      <span className="mt-1 block text-[8px] leading-4 text-muted">
+                        {model.description}
+                      </span>
+                      <span className="mt-1 block truncate font-mono text-[7px] text-faint">
+                        {model.model}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
             {layoutMode === "described" ? (
               <label className="mt-4 block rounded-control border border-line bg-panel-muted p-4">
                 <span className="text-[10px] font-semibold text-ink">你想要什么感觉？</span>
@@ -285,13 +369,12 @@ export function EditorDeliveryActions({
                 不再使用内容指纹假装 AI，也不会插入占位图集。
               </div>
             ) : null}
-            {layoutMode === "preset" || aiAvailable ? null : (
+            {layoutMode === "preset" || selectedProviderAvailable ? null : (
               <div className="mt-4 rounded-control border border-warning/25 bg-warning-soft p-4 text-[10px] leading-5 text-warning">
-                真实 AI 模型尚未连接，因此本次不会生成“假 AI”结果。服务器配置
-                AI_LAYOUT_API_KEY 后即可启用
-                {aiStatusQuery.data?.model === undefined
-                  ? "。"
-                  : ` ${aiStatusQuery.data.model}。`}
+                {providerId === "auto"
+                  ? "尚未连接可用的 AI 模型。"
+                  : `${selectedModel?.label ?? "所选模型"} 尚未配置。`}
+                请切换到已连接的模型后再生成。
               </div>
             )}
             <div
@@ -342,11 +425,11 @@ export function EditorDeliveryActions({
                         saveStatus !== "saved" ||
                         applyingPlanId !== null ||
                         plan.theme === null ||
-                        (layoutMode !== "preset" && !aiAvailable) ||
+                        (layoutMode !== "preset" && !selectedProviderAvailable) ||
                         (layoutMode === "described" && styleBrief.trim().length < 3)
                       }
                       onClick={() => {
-                        void onApplyLayout(plan)
+                        void onApplyLayout(plan, providerId)
                           .then(() => setLayoutOpen(false))
                           .catch(() => undefined);
                       }}
@@ -359,13 +442,13 @@ export function EditorDeliveryActions({
                       )}
                       {applying
                         ? "正在生成成稿…"
-                        : layoutMode !== "preset" && !aiAvailable
+                        : layoutMode !== "preset" && !selectedProviderAvailable
                           ? "模型未连接"
-                        : layoutMode === "original"
-                          ? "生成并应用原创排版"
-                          : layoutMode === "described"
-                            ? "按描述生成并应用"
-                            : "应用这套设计语言"}
+                          : layoutMode === "original"
+                            ? "生成并应用原创排版"
+                            : layoutMode === "described"
+                              ? "按描述生成并应用"
+                              : "应用这套设计语言"}
                     </button>
                   </article>
                 );

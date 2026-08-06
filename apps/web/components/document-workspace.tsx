@@ -1,6 +1,7 @@
 "use client";
 
 import { normalizeDocument } from "@wechat-layout/editor-core";
+import type { AiLayoutProviderId } from "@wechat-layout/api-contracts";
 import type { DocumentV1 } from "@wechat-layout/document-schema";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -262,7 +263,10 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
     }
   };
 
-  const handleApplyLayout = async (plan: LayoutPlan): Promise<void> => {
+  const handleApplyLayout = async (
+    plan: LayoutPlan,
+    providerId: AiLayoutProviderId,
+  ): Promise<void> => {
     if (controller === null || applyingPlanId !== null) {
       return;
     }
@@ -282,6 +286,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
           baseDocumentVersion: current.documentVersion,
           mode: plan.mode,
           preferredLanguageId: plan.languageId,
+          providerId,
           ...(plan.brief === null ? {} : { styleBrief: plan.brief }),
         });
         aiDecision = generated.decision;

@@ -23,11 +23,16 @@ function options(
   overrides: Partial<AiLayoutRuntimeOptions> = {},
 ): AiLayoutRuntimeOptions {
   return {
-    apiKey,
-    baseUrl: "https://api.example.test/v1",
-    model: "layout-model",
-    protocol: "responses",
-    provider: "openai-compatible",
+    defaultProviderId: "auto",
+    providers: [
+      {
+        apiKey,
+        baseUrl: "https://api.example.test/v1",
+        id: "deepseek",
+        model: "layout-model",
+        protocol: "responses",
+      },
+    ],
     timeoutMs: 10_000,
     ...overrides,
   };
@@ -38,10 +43,11 @@ describe("AiLayoutService", () => {
     const fetcher = vi.fn();
     const service = new AiLayoutService(options(null), fetcher, documents());
 
-    expect(service.status()).toEqual({
+    expect(service.status()).toMatchObject({
       available: false,
+      defaultProviderId: "auto",
       model: "layout-model",
-      provider: "openai-compatible",
+      provider: "auto",
     });
     await expect(
       service.generate(ownerUserId, articleId, {
@@ -165,8 +171,15 @@ describe("AiLayoutService", () => {
     );
     const service = new AiLayoutService(
       options("kimi-secret", {
-        protocol: "chat-completions",
-        provider: "kimi-code",
+        providers: [
+          {
+            apiKey: "kimi-secret",
+            baseUrl: "https://api.example.test/v1",
+            id: "kimi",
+            model: "layout-model",
+            protocol: "chat-completions",
+          },
+        ],
       }),
       fetcher,
       documents(),
@@ -193,7 +206,77 @@ describe("AiLayoutService", () => {
     };
     expect(requestBody.response_format).toEqual({ type: "json_object" });
     expect(requestBody.messages[0]?.content).toContain("JSON Schema");
-    expect(result.provider).toBe("kimi-code");
+    expect(result.provider).toBe("kimi");
     expect(result.decision.designName).toBe("纸上脉络");
+  });
+
+  it("automatically falls back to the next configured model", async () => {
+    const fallbackDecision = {
+      languageId: "minimal-blue",
+      designName: "清晰路径",
+      concept: "用稳定结构组织全文。",
+      rhythm: "balanced",
+      variantSeed: 1098,
+      visualIntensity: "restrained",
+      dividerComponentId: "cmp_divider_ornament_dots_004",
+      hero: {
+        componentId: "cmp_intro_autumn_persimmon_001",
+        eyebrow: "ARTICLE",
+        title: "内容路径",
+        footer: "阅读 · 理解",
+      },
+      footer: {
+        componentId: "cmp_notice_story_intro_006",
+        title: "读到这里",
+        text: "带走文章的核心判断",
+      },
+      dividerAfterBlockIds: [],
+      blocks: [],
+    };
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 429 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: JSON.stringify(fallbackDecision) } }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    const service = new AiLayoutService(
+      options(null, {
+        providers: [
+          {
+            apiKey: "deepseek-secret",
+            baseUrl: "https://deepseek.example/v1",
+            id: "deepseek",
+            model: "deepseek-v4-flash",
+            protocol: "chat-completions",
+          },
+          {
+            apiKey: "qwen-secret",
+            baseUrl: "https://qwen.example/v1",
+            id: "qwen",
+            model: "qwen3.5-flash",
+            protocol: "chat-completions",
+          },
+        ],
+      }),
+      fetcher,
+      documents(),
+    );
+
+    const result = await service.generate(ownerUserId, articleId, {
+      baseDocumentVersion: 7,
+      mode: "original",
+      providerId: "auto",
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher.mock.calls[0]?.[0]).toBe("https://deepseek.example/v1/chat/completions");
+    expect(fetcher.mock.calls[1]?.[0]).toBe("https://qwen.example/v1/chat/completions");
+    expect(result.provider).toBe("qwen");
+    expect(result.model).toBe("qwen3.5-flash");
   });
 });

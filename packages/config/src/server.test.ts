@@ -47,11 +47,43 @@ describe("parseServerEnvironment", () => {
     expect(configuration.aiLayout).toEqual({
       apiKey: null,
       baseUrl: "https://api.openai.com/v1",
+      defaultProvider: "auto",
+      deepseek: {
+        apiKey: null,
+        baseUrl: "https://api.deepseek.com",
+        model: "deepseek-v4-flash",
+      },
+      kimi: {
+        apiKey: null,
+        baseUrl: "https://api.moonshot.cn/v1",
+        model: "kimi-k2.6",
+      },
       model: "gpt-5.6-sol",
       protocol: "responses",
       provider: "openai-compatible",
+      qwen: {
+        apiKey: null,
+        baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        model: "qwen3.5-flash",
+      },
       timeoutMs: 90_000,
     });
+  });
+
+  it("keeps every model provider key redacted", () => {
+    const configuration = parseServerEnvironment({
+      ...validEnvironment,
+      AI_LAYOUT_DEEPSEEK_API_KEY: "sk-deepseek-secret",
+      AI_LAYOUT_QWEN_API_KEY: "sk-qwen-secret",
+      AI_LAYOUT_KIMI_API_KEY: "sk-kimi-secret",
+    });
+
+    expect(JSON.stringify(configuration)).not.toContain("sk-deepseek-secret");
+    expect(JSON.stringify(configuration)).not.toContain("sk-qwen-secret");
+    expect(JSON.stringify(configuration)).not.toContain("sk-kimi-secret");
+    expect(revealSecret(configuration.aiLayout.deepseek.apiKey!)).toBe("sk-deepseek-secret");
+    expect(revealSecret(configuration.aiLayout.qwen.apiKey!)).toBe("sk-qwen-secret");
+    expect(revealSecret(configuration.aiLayout.kimi.apiKey!)).toBe("sk-kimi-secret");
   });
 
   it("keeps the optional AI layout key redacted", () => {

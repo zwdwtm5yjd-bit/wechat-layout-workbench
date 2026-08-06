@@ -12,6 +12,10 @@ export type AiLayoutDesignLanguageId = (typeof AI_LAYOUT_DESIGN_LANGUAGE_IDS)[nu
 export const AI_LAYOUT_MODES = ["described", "original"] as const;
 export type AiLayoutMode = (typeof AI_LAYOUT_MODES)[number];
 
+export const AI_LAYOUT_PROVIDER_IDS = ["auto", "deepseek", "qwen", "kimi"] as const;
+export type AiLayoutProviderId = (typeof AI_LAYOUT_PROVIDER_IDS)[number];
+export type AiLayoutConcreteProviderId = Exclude<AiLayoutProviderId, "auto">;
+
 export const AI_LAYOUT_RHYTHMS = ["compact", "balanced", "airy"] as const;
 export type AiLayoutRhythm = (typeof AI_LAYOUT_RHYTHMS)[number];
 
@@ -139,14 +143,23 @@ export interface AiLayoutDecision {
 
 export interface AiLayoutStatus {
   readonly available: boolean;
+  readonly defaultProviderId: AiLayoutProviderId;
   readonly model: string;
-  readonly provider: "kimi-code" | "openai-compatible";
+  readonly models: readonly Readonly<{
+    available: boolean;
+    description: string;
+    id: AiLayoutConcreteProviderId;
+    label: string;
+    model: string;
+  }>[];
+  readonly provider: AiLayoutProviderId;
 }
 
 export interface GenerateAiLayoutInput {
   readonly baseDocumentVersion: number;
   readonly mode: AiLayoutMode;
   readonly preferredLanguageId?: AiLayoutDesignLanguageId;
+  readonly providerId?: AiLayoutProviderId;
   readonly styleBrief?: string;
 }
 

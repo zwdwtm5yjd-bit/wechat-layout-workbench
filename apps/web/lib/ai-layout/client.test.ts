@@ -14,7 +14,13 @@ describe("AI layout client", () => {
       new Response(
         JSON.stringify({
           success: true,
-          data: { available: false, model: "gpt-5.6-sol", provider: "openai-compatible" },
+          data: {
+            available: false,
+            defaultProviderId: "auto",
+            model: "deepseek-v4-flash",
+            models: [],
+            provider: "auto",
+          },
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       ),
@@ -36,8 +42,10 @@ describe("AI layout client", () => {
           success: true,
           data: {
             available: true,
-            model: "gpt-5.6-sol",
-            provider: "openai-compatible",
+            defaultProviderId: "auto",
+            model: "deepseek-v4-flash",
+            models: [],
+            provider: "deepseek",
             decision: {},
           },
         }),
@@ -49,6 +57,7 @@ describe("AI layout client", () => {
     await generateAiLayout("article", {
       baseDocumentVersion: 7,
       mode: "described",
+      providerId: "deepseek",
       styleBrief: "克制的政务杂志感",
     });
     const request = fetcher.mock.calls[0]?.[1] as RequestInit;
@@ -56,6 +65,7 @@ describe("AI layout client", () => {
     expect(JSON.parse(String(request.body))).toMatchObject({
       baseDocumentVersion: 7,
       mode: "described",
+      providerId: "deepseek",
       styleBrief: "克制的政务杂志感",
     });
   });
