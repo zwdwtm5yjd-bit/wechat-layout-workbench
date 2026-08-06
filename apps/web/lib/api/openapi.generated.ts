@@ -122,6 +122,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/ai-layout/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 检查真实 AI 排版模型是否已连接 */
+    get: operations["AiLayoutController_status"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/articles": {
     parameters: {
       query?: never;
@@ -157,6 +174,23 @@ export interface paths {
     head?: never;
     /** 更新文章元数据或用户可控状态 */
     patch: operations["ArticleController_update"];
+    trace?: never;
+  };
+  "/api/v1/articles/{articleId}/ai-layout/plan": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 由服务端大模型为当前文章生成专属排版决策 */
+    post: operations["AiLayoutController_generate"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   "/api/v1/articles/{articleId}/archive": {
@@ -973,6 +1007,12 @@ export interface components {
       /** @example true */
       success: boolean;
     };
+    AiLayoutStatusDto: {
+      available: boolean;
+      model: string;
+      /** @enum {string} */
+      provider: "kimi-code" | "openai-compatible";
+    };
     ApiErrorOpenApiModel: {
       /** @example VALIDATION_FAILED */
       code: string;
@@ -1542,11 +1582,35 @@ export interface components {
       targetAccountId?: string | null;
       title?: string;
     };
+    GenerateAiLayoutDto: {
+      baseDocumentVersion: number;
+      /** @enum {string} */
+      mode: "described" | "original";
+      /** @enum {string} */
+      preferredLanguageId?:
+        | "minimal-blue"
+        | "warm-paper"
+        | "night-cyan"
+        | "forest-green"
+        | "crimson-editorial"
+        | "ink-gold";
+      styleBrief?: string;
+    };
+    GenerateAiLayoutResponseDto: {
+      available: boolean;
+      decision: Record<string, never>;
+      model: string;
+      /** @enum {string} */
+      provider: "kimi-code" | "openai-compatible";
+    };
     ImportBlockRelationDto: {
       alt?: string;
+      caption?: string;
       listDepth?: number;
       listStart?: number;
       originalNumberText?: string;
+      /** Format: uuid */
+      resourceId?: string;
       sourceUrl?: string | null;
       tableCells?: string[];
     };
@@ -1740,6 +1804,8 @@ export interface components {
         | "claude";
       /** @description 剪贴板提供的 HTML；服务端只保存清洗后的结构和标准化纯文本 */
       html?: string;
+      /** @description 已上传到私有素材库、需要插入正文并参与排版的图片 */
+      images?: components["schemas"]["PasteImportImageDto"][];
       /**
        * @default standard
        * @enum {string}
@@ -1747,6 +1813,14 @@ export interface components {
       layoutStrength: "light" | "standard" | "strong";
       /** @description 剪贴板纯文本回退，也是原文追踪的优先来源 */
       plainText?: string;
+    };
+    PasteImportImageDto: {
+      alt?: string;
+      caption?: string;
+      /** @description 插在第几个正文区块之后；0 表示正文开头 */
+      placementIndex: number;
+      /** Format: uuid */
+      resourceId: string;
     };
     RenderOutputResponseDto: {
       canCopy: boolean;
@@ -2556,6 +2630,32 @@ export interface operations {
       };
     };
   };
+  AiLayoutController_status: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AiLayoutStatusDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   ArticleController_list: {
     parameters: {
       query?: {
@@ -2781,6 +2881,54 @@ export interface operations {
         content?: never;
       };
       /** @description 文章状态不允许当前操作 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AiLayoutController_generate: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GenerateAiLayoutDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GenerateAiLayoutResponseDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description CSRF 校验失败 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 文章版本已变化 */
       409: {
         headers: {
           [name: string]: unknown;

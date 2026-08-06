@@ -10,6 +10,7 @@ import {
   IsUUID,
   IsUrl,
   Length,
+  Max,
   Matches,
   Min,
   ValidateNested,
@@ -33,6 +34,36 @@ import type {
 } from "./import.types.js";
 
 const layoutStrengths = ["light", "standard", "strong"] as const;
+
+export class PasteImportImageDto {
+  @ApiProperty({ format: "uuid", type: String })
+  @IsUUID()
+  resourceId!: string;
+
+  @ApiProperty({
+    description: "插在第几个正文区块之后；0 表示正文开头",
+    maximum: 2_000,
+    minimum: 0,
+    type: Number,
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(2_000)
+  placementIndex!: number;
+
+  @ApiPropertyOptional({ maxLength: 500, type: String })
+  @IsOptional()
+  @IsString()
+  @Length(1, 500)
+  alt?: string;
+
+  @ApiPropertyOptional({ maxLength: 2_000, type: String })
+  @IsOptional()
+  @IsString()
+  @Length(1, 2_000)
+  caption?: string;
+}
 
 export class PasteImportDto {
   @ApiPropertyOptional({ format: "uuid", nullable: true, type: String })
@@ -59,6 +90,18 @@ export class PasteImportDto {
   @IsString()
   @Length(1, IMPORT_MAX_CONTENT_CHARACTERS)
   plainText?: string;
+
+  @ApiPropertyOptional({
+    description: "已上传到私有素材库、需要插入正文并参与排版的图片",
+    isArray: true,
+    type: () => PasteImportImageDto,
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => PasteImportImageDto)
+  images?: PasteImportImageDto[];
 
   @ApiPropertyOptional({
     default: "preserve_structure",
@@ -276,6 +319,12 @@ export class ImportBlockRelationDto {
 
   @ApiPropertyOptional({ type: String })
   alt?: string;
+
+  @ApiPropertyOptional({ type: String })
+  caption?: string;
+
+  @ApiPropertyOptional({ format: "uuid", type: String })
+  resourceId?: string;
 
   @ApiPropertyOptional({ isArray: true, type: String })
   tableCells?: string[];

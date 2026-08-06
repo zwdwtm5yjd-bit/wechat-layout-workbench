@@ -78,6 +78,7 @@ export async function createPasteImport(input: PasteImportInput): Promise<Import
     ...(input.accountId === undefined ? {} : { accountId: input.accountId }),
     ...(input.html === undefined ? {} : { html: input.html }),
     ...(input.plainText === undefined ? {} : { plainText: input.plainText }),
+    ...(input.images === undefined ? {} : { images: input.images.map((image) => ({ ...image })) }),
     cleaningMode: input.cleaningMode ?? "preserve_structure",
     detectedSourceHint: input.detectedSourceHint ?? "auto",
     contentType: input.contentType ?? "general",

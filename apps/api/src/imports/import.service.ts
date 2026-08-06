@@ -96,6 +96,12 @@ function toDto(record: ImportStructureRecord): ImportStructureDto {
           ? {}
           : { sourceUrl: block.relationMetadata.sourceUrl }),
         ...(block.relationMetadata.alt === undefined ? {} : { alt: block.relationMetadata.alt }),
+        ...(block.relationMetadata.caption === undefined
+          ? {}
+          : { caption: block.relationMetadata.caption }),
+        ...(block.relationMetadata.resourceId === undefined
+          ? {}
+          : { resourceId: block.relationMetadata.resourceId }),
         ...(block.relationMetadata.tableCells === undefined
           ? {}
           : { tableCells: [...block.relationMetadata.tableCells] }),
@@ -128,6 +134,12 @@ export class ImportService {
       ...(plainText === undefined ? {} : { plainText }),
       cleaningMode: body.cleaningMode ?? "preserve_structure",
       detectedSourceHint: body.detectedSourceHint ?? "auto",
+      images: (body.images ?? []).map((image) => ({
+        resourceId: image.resourceId,
+        placementIndex: image.placementIndex,
+        ...(image.alt === undefined ? {} : { alt: image.alt.trim() }),
+        ...(image.caption === undefined ? {} : { caption: image.caption.trim() }),
+      })),
     });
     if (parsed.originalText === "" || parsed.blocks.length === 0) {
       throw validation("未识别到可导入的可见内容", "body");

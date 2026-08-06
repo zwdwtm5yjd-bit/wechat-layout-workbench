@@ -49,6 +49,7 @@ export interface ImportBlock {
     readonly originalNumberText?: string;
     readonly sourceUrl?: string | null;
     readonly alt?: string;
+    readonly caption?: string;
     readonly tableCells?: readonly string[];
     readonly resourceId?: string;
   }>;

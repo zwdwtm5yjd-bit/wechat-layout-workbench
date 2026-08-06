@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   ClipboardPaste,
@@ -10,14 +10,16 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import {
   createDocxImport,
   createWebpageImport,
   ImportClientError,
+  type ImportJob,
   type PasteImportInput,
 } from "../lib/imports/client";
+import { getJob } from "../lib/jobs/client";
 import { ResourceClientError, uploadResource } from "../lib/resources/client";
 import { CreationProgress } from "./creation-progress";
 import { PasteImportWorkspace } from "./paste-import-workspace";
@@ -85,6 +87,8 @@ function AsyncImportPanel({ mode }: { readonly mode: "docx" | "webpage" }) {
   const { pushToast } = useAppToast();
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState("");
+  const [pendingJob, setPendingJob] = useState<ImportJob | null>(null);
+  const failedJobNotice = useRef<string | null>(null);
   const [cleaningMode, setCleaningMode] = useState<CleaningMode>("preserve_structure");
   const [layoutStrength, setLayoutStrength] = useState<LayoutStrength>("standard");
   const mutation = useMutation({
@@ -107,19 +111,46 @@ function AsyncImportPanel({ mode }: { readonly mode: "docx" | "webpage" }) {
       });
     },
     onSuccess: (job) => {
+      setPendingJob(job);
       pushToast({
         title: mode === "docx" ? "DOCX 已进入解析队列" : "网页已进入抓取队列",
-        description: "任务中心会持续更新进度，完成后可确认文章结构。",
+        description: "正在处理，完成后会自动进入文章结构确认。",
         tone: "success",
       });
-      router.push(
-        `/workspace/jobs?focus=${encodeURIComponent(job.jobId)}&article=${encodeURIComponent(job.articleId)}`,
-      );
     },
     onError: (error) => {
       pushToast({ title: "无法创建导入任务", description: importError(error), tone: "warning" });
     },
   });
+  const jobQuery = useQuery({
+    queryKey: ["import-job-progress", pendingJob?.jobId],
+    enabled: pendingJob !== null,
+    queryFn: () => getJob(pendingJob!.jobId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "success" || status === "failed" || status === "cancelled" ? false : 1_200;
+    },
+  });
+
+  useEffect(() => {
+    const job = jobQuery.data;
+    if (job === undefined || pendingJob === null) return;
+    if (job.status === "success") {
+      router.push(`/workspace/imports/${encodeURIComponent(pendingJob.articleId)}/structure`);
+      return;
+    }
+    if (
+      (job.status === "failed" || job.status === "cancelled") &&
+      failedJobNotice.current !== job.id
+    ) {
+      failedJobNotice.current = job.id;
+      pushToast({
+        title: mode === "docx" ? "DOCX 解析没有完成" : "网页导入没有完成",
+        description: job.errorMessage ?? "可以重新提交，或前往任务中心查看详细原因。",
+        tone: "warning",
+      });
+    }
+  }, [jobQuery.data, mode, pendingJob, pushToast, router]);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -131,8 +162,16 @@ function AsyncImportPanel({ mode }: { readonly mode: "docx" | "webpage" }) {
       });
       return;
     }
+    failedJobNotice.current = null;
     mutation.mutate();
   };
+
+  const activeJob =
+    pendingJob !== null &&
+    (jobQuery.data === undefined ||
+      ["queued", "running", "retry_pending"].includes(jobQuery.data.status));
+  const progressLabel =
+    jobQuery.data?.latestMessage ?? (mode === "docx" ? "正在解析 DOCX" : "正在抓取网页");
 
   return (
     <form className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]" onSubmit={submit}>
@@ -195,15 +234,27 @@ function AsyncImportPanel({ mode }: { readonly mode: "docx" | "webpage" }) {
         </section>
         <button
           className="flex h-12 w-full items-center justify-center gap-2 rounded-control bg-accent px-5 text-[13px] font-semibold text-white shadow-subtle hover:bg-accent-strong disabled:opacity-50"
-          disabled={mutation.isPending || (mode === "docx" && file === null)}
+          disabled={mutation.isPending || activeJob || (mode === "docx" && file === null)}
           type="submit"
         >
-          {mutation.isPending ? (
+          {mutation.isPending || activeJob ? (
             <LoaderCircle aria-hidden="true" className="animate-spin" size={16} />
           ) : null}
-          {mutation.isPending ? "正在提交…" : "开始安全导入"}
-          {mutation.isPending ? null : <ArrowRight aria-hidden="true" size={15} />}
+          {mutation.isPending
+            ? "正在上传原文件…"
+            : activeJob
+              ? `${progressLabel} · ${jobQuery.data?.progress ?? 0}%`
+              : "开始安全导入"}
+          {mutation.isPending || activeJob ? null : <ArrowRight aria-hidden="true" size={15} />}
         </button>
+        {pendingJob !== null ? (
+          <a
+            className="block text-center text-[10px] font-medium text-accent"
+            href={`/workspace/jobs?focus=${encodeURIComponent(pendingJob.jobId)}&article=${encodeURIComponent(pendingJob.articleId)}`}
+          >
+            查看后台任务详情
+          </a>
+        ) : null}
         <p className="flex items-start gap-2 px-1 text-[10px] leading-5 text-faint">
           <ShieldCheck aria-hidden="true" className="mt-0.5 shrink-0" size={13} />
           导入完成前不会覆盖任何已有文章；后台任务可取消、失败后可重试。

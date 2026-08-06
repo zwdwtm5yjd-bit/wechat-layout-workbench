@@ -108,7 +108,16 @@ interface MutableBlock {
   originalNumberText?: string;
   sourceUrl?: string | null;
   alt?: string;
+  caption?: string;
+  resourceId?: string;
   tableCells?: readonly string[];
+}
+
+interface UploadedPasteImage {
+  readonly resourceId: string;
+  readonly placementIndex: number;
+  readonly alt?: string;
+  readonly caption?: string;
 }
 
 function sha256(value: string): string {
@@ -386,8 +395,51 @@ function inferredElementRole(
 
 function titleFromBlocks(blocks: readonly MutableBlock[]): string {
   const explicit = blocks.find((block) => block.role === "title" && block.text !== "");
-  const candidate = explicit ?? blocks.find((block) => block.text !== "");
+  const candidate =
+    explicit ??
+    blocks.find(
+      (block) => block.role !== "image_reference" && block.role !== "excluded" && block.text !== "",
+    );
   return candidate?.text.slice(0, 500) || "未命名导入文章";
+}
+
+function insertUploadedImages(
+  blocks: readonly MutableBlock[],
+  images: readonly UploadedPasteImage[],
+): MutableBlock[] {
+  if (images.length === 0) return [...blocks];
+  const imageBlocks = images.map((image): MutableBlock => {
+    const alt = normalizedText(image.alt ?? "").slice(0, 500);
+    const caption = normalizedText(image.caption ?? "").slice(0, 2_000);
+    return {
+      role: "image_reference",
+      text: caption || alt || "[上传图片]",
+      originalTag: "uploaded-image",
+      resourceId: image.resourceId,
+      ...(alt === "" ? {} : { alt }),
+      ...(caption === "" ? {} : { caption }),
+    };
+  });
+  const groups = new Map<number, MutableBlock[]>();
+  images.forEach((image, index) => {
+    const placement = Math.max(0, Math.trunc(image.placementIndex));
+    groups.set(placement, [...(groups.get(placement) ?? []), imageBlocks[index]!]);
+  });
+
+  const result: MutableBlock[] = [...(groups.get(0) ?? [])];
+  let contentIndex = 0;
+  for (const block of blocks) {
+    result.push(block);
+    if (block.role === "image_reference") continue;
+    contentIndex += 1;
+    result.push(...(groups.get(contentIndex) ?? []));
+  }
+  const trailing = [...groups.entries()]
+    .filter(([placement]) => placement > contentIndex)
+    .sort(([left], [right]) => left - right)
+    .flatMap(([, entries]) => entries);
+  result.push(...trailing);
+  return result;
 }
 
 function extractHtmlBlocks(
@@ -674,6 +726,8 @@ function finalizeBlocks(blocks: readonly MutableBlock[]): ImportBlock[] {
           : { originalNumberText: block.originalNumberText }),
         ...(block.sourceUrl === undefined ? {} : { sourceUrl: block.sourceUrl }),
         ...(block.alt === undefined ? {} : { alt: block.alt }),
+        ...(block.caption === undefined ? {} : { caption: block.caption }),
+        ...(block.resourceId === undefined ? {} : { resourceId: block.resourceId }),
         ...(block.tableCells === undefined ? {} : { tableCells: block.tableCells }),
       },
     };
@@ -707,6 +761,7 @@ export function parsePasteImport(input: {
   readonly plainText?: string;
   readonly cleaningMode: ImportCleaningMode;
   readonly detectedSourceHint: ImportSourceHint;
+  readonly images?: readonly UploadedPasteImage[];
 }): ParsedPasteImport {
   const html = input.html?.trim() ?? "";
   const suppliedPlainText = normalizedText(input.plainText ?? "");
@@ -748,6 +803,7 @@ export function parsePasteImport(input: {
 
   const beforeEmptyFilter = mutableBlocks.length;
   mutableBlocks = mutableBlocks.filter((block) => normalizedText(block.text) !== "");
+  mutableBlocks = insertUploadedImages(mutableBlocks, input.images ?? []);
   const blocks = finalizeBlocks(mutableBlocks);
   const originalText = suppliedPlainText || derivedVisibleText;
   const originalTextHash = sha256(originalText);
@@ -921,6 +977,9 @@ export function buildImportedDocument(input: BuildImportedDocumentInput): Docume
           ...(block.relationMetadata.alt === undefined
             ? {}
             : { alt: block.relationMetadata.alt.slice(0, 500) }),
+          ...(block.relationMetadata.caption === undefined
+            ? {}
+            : { caption: block.relationMetadata.caption.slice(0, 2_000) }),
           widthMode: "full",
           widthPercent: 100,
           objectFit: "contain",

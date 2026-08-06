@@ -32,6 +32,14 @@ describe("import client", () => {
     await createPasteImport({
       html: "<h1>标题</h1>",
       plainText: "标题",
+      images: [
+        {
+          resourceId: "019c0fb5-7d53-7f66-bfb7-f70c0e462699",
+          placementIndex: 1,
+          alt: "现场照片.jpg",
+          caption: "活动现场",
+        },
+      ],
       cleaningMode: "preserve_structure",
       detectedSourceHint: "word",
       contentType: "general",
@@ -52,6 +60,14 @@ describe("import client", () => {
         html: "<h1>标题</h1>",
         plainText: "标题",
         detectedSourceHint: "word",
+        images: [
+          {
+            resourceId: "019c0fb5-7d53-7f66-bfb7-f70c0e462699",
+            placementIndex: 1,
+            alt: "现场照片.jpg",
+            caption: "活动现场",
+          },
+        ],
       }),
     );
   });

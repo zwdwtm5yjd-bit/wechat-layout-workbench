@@ -6,14 +6,25 @@ import {
   Check,
   ClipboardPaste,
   FileText,
+  ImagePlus,
   LoaderCircle,
   ShieldCheck,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ClipboardEvent, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ClipboardEvent,
+  type FormEvent,
+} from "react";
 
 import { createPasteImport, ImportClientError, type PasteImportInput } from "../lib/imports/client";
+import { ResourceClientError, uploadResource } from "../lib/resources/client";
 import { CreationProgress } from "./creation-progress";
 import { useAppToast } from "./ui/app-toast";
 
@@ -55,7 +66,36 @@ const sourceHints: readonly { readonly label: string; readonly value: SourceHint
 ];
 
 function errorMessage(error: unknown): string {
-  return error instanceof ImportClientError ? error.message : "导入失败，请稍后重试";
+  return error instanceof ImportClientError || error instanceof ResourceClientError
+    ? error.message
+    : "导入失败，请稍后重试";
+}
+
+interface PendingPasteImage {
+  readonly id: string;
+  readonly file: File;
+  readonly previewUrl: string | null;
+  readonly caption: string;
+  readonly placementIndex: number;
+}
+
+function imageId(): string {
+  return typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `paste-image-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function imagePreviewUrl(file: File): string | null {
+  return typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : null;
+}
+
+function paragraphLabels(value: string): readonly string[] {
+  return value
+    .replaceAll(/\r\n?/g, "\n")
+    .split(/\n+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .slice(0, 2_000);
 }
 
 export function PasteImportWorkspace({ embedded = false }: { readonly embedded?: boolean } = {}) {
@@ -63,6 +103,8 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
   const { pushToast } = useAppToast();
   const [plainText, setPlainText] = useState("");
   const [clipboardHtml, setClipboardHtml] = useState<string | undefined>();
+  const [images, setImages] = useState<readonly PendingPasteImage[]>([]);
+  const previewUrls = useRef<string[]>([]);
   const [cleaningMode, setCleaningMode] = useState<CleaningMode>("preserve_structure");
   const [sourceHint, setSourceHint] = useState<SourceHint>("auto");
   const [layoutStrength, setLayoutStrength] =
@@ -75,8 +117,43 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
     }
   }, []);
 
+  useEffect(
+    () => () => {
+      if (typeof URL.revokeObjectURL !== "function") return;
+      previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    },
+    [],
+  );
+
+  const paragraphs = useMemo(() => paragraphLabels(plainText), [plainText]);
+
   const importMutation = useMutation({
-    mutationFn: createPasteImport,
+    mutationFn: async () => {
+      const normalizedText = plainText.trim();
+      const uploaded = await Promise.all(
+        images.map(async (image) => ({ image, resource: await uploadResource(image.file) })),
+      );
+      return createPasteImport({
+        ...(clipboardHtml === undefined ? {} : { html: clipboardHtml }),
+        ...(normalizedText === "" ? {} : { plainText: normalizedText }),
+        ...(uploaded.length === 0
+          ? {}
+          : {
+              images: uploaded.map(({ image, resource }) => ({
+                resourceId: resource.id,
+                placementIndex: Math.min(image.placementIndex, paragraphs.length),
+                alt: image.file.name.slice(0, 500),
+                ...(image.caption.trim() === ""
+                  ? {}
+                  : { caption: image.caption.trim().slice(0, 2_000) }),
+              })),
+            }),
+        cleaningMode,
+        detectedSourceHint: sourceHint,
+        contentType: "general",
+        layoutStrength,
+      });
+    },
     onSuccess: (structure) => {
       pushToast({
         title: "内容已安全导入",
@@ -93,6 +170,60 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
       });
     },
   });
+
+  const addImages = (event: ChangeEvent<HTMLInputElement>) => {
+    const selected = [...(event.currentTarget.files ?? [])];
+    event.currentTarget.value = "";
+    if (selected.length === 0) return;
+    const available = Math.max(0, 30 - images.length);
+    const accepted = selected.slice(0, available);
+    if (accepted.length < selected.length) {
+      pushToast({
+        title: "最多添加 30 张图片",
+        description: "超出数量的图片没有加入本次文章。",
+        tone: "warning",
+      });
+    }
+    const oversized = accepted.filter((file) => file.size > 20 * 1024 * 1024);
+    const usable = accepted.filter((file) => file.size <= 20 * 1024 * 1024);
+    if (oversized.length > 0) {
+      pushToast({
+        title: "部分图片超过 20 MB",
+        description: "请压缩后重新选择。",
+        tone: "warning",
+      });
+    }
+    const additions = usable.map((file): PendingPasteImage => {
+      const previewUrl = imagePreviewUrl(file);
+      if (previewUrl !== null) previewUrls.current.push(previewUrl);
+      return {
+        id: imageId(),
+        file,
+        previewUrl,
+        caption: "",
+        placementIndex: paragraphs.length,
+      };
+    });
+    setImages((current) => [...current, ...additions]);
+  };
+
+  const updateImage = (
+    id: string,
+    patch: Partial<Pick<PendingPasteImage, "caption" | "placementIndex">>,
+  ) => {
+    setImages((current) =>
+      current.map((image) => (image.id === id ? { ...image, ...patch } : image)),
+    );
+  };
+
+  const removeImage = (id: string) => {
+    const removed = images.find((image) => image.id === id);
+    if (removed?.previewUrl !== null && removed?.previewUrl !== undefined) {
+      if (typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(removed.previewUrl);
+      previewUrls.current = previewUrls.current.filter((url) => url !== removed.previewUrl);
+    }
+    setImages((current) => current.filter((image) => image.id !== id));
+  };
 
   const handlePaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
     const pastedHtml = event.clipboardData.getData("text/html");
@@ -118,14 +249,7 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
       return;
     }
 
-    importMutation.mutate({
-      ...(clipboardHtml === undefined ? {} : { html: clipboardHtml }),
-      ...(normalizedText === "" ? {} : { plainText: normalizedText }),
-      cleaningMode,
-      detectedSourceHint: sourceHint,
-      contentType: "general",
-      layoutStrength,
-    });
+    importMutation.mutate();
   };
 
   return (
@@ -193,6 +317,115 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
                 导入后生成版本快照
               </span>
             </div>
+
+            <section
+              className="mt-5 rounded-card border border-line bg-panel p-4"
+              aria-label="正文图片"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-[12px] font-semibold text-ink">正文图片</h3>
+                  <p className="mt-1 text-[10px] leading-5 text-muted">
+                    可批量添加并指定插入位置；图片会保存到素材库并进入下一步 AI 排版。
+                  </p>
+                </div>
+                <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-control border border-accent/30 bg-accent-soft px-3 text-[11px] font-semibold text-accent hover:border-accent">
+                  <ImagePlus aria-hidden="true" size={14} />
+                  {images.length === 0 ? "添加图片" : "继续添加"}
+                  <input
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="sr-only"
+                    disabled={importMutation.isPending || images.length >= 30}
+                    multiple
+                    onChange={addImages}
+                    type="file"
+                  />
+                </label>
+              </div>
+
+              {images.length === 0 ? (
+                <div className="mt-4 grid min-h-24 place-items-center rounded-control border border-dashed border-line bg-panel-muted px-4 text-center">
+                  <p className="text-[10px] leading-5 text-faint">
+                    支持 PNG、JPEG、WebP、GIF，单张不超过 20 MB，最多 30 张。
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {images.map((image, index) => (
+                    <article
+                      className="overflow-hidden rounded-control border border-line"
+                      key={image.id}
+                    >
+                      <div className="relative grid aspect-[16/8] place-items-center overflow-hidden bg-panel-muted">
+                        {image.previewUrl === null ? (
+                          <ImagePlus aria-hidden="true" className="text-faint" size={22} />
+                        ) : (
+                          <img
+                            alt={image.file.name}
+                            className="h-full w-full object-cover"
+                            src={image.previewUrl}
+                          />
+                        )}
+                        <span className="absolute left-2 top-2 rounded-full bg-black/65 px-2 py-0.5 text-[9px] font-medium text-white">
+                          图片 {index + 1}
+                        </span>
+                        <button
+                          aria-label={`移除图片 ${index + 1}`}
+                          className="absolute right-2 top-2 grid size-7 place-items-center rounded-full bg-black/65 text-white hover:bg-danger"
+                          onClick={() => removeImage(image.id)}
+                          type="button"
+                        >
+                          <Trash2 aria-hidden="true" size={12} />
+                        </button>
+                      </div>
+                      <div className="space-y-2.5 p-3">
+                        <p className="truncate text-[10px] font-medium text-ink">
+                          {image.file.name}
+                        </p>
+                        <label className="block">
+                          <span className="mb-1 block text-[9px] text-faint">插入位置</span>
+                          <select
+                            aria-label={`图片 ${index + 1} 插入位置`}
+                            className="h-8 w-full rounded-md border border-line bg-panel-muted px-2 text-[10px] text-ink"
+                            onChange={(event) =>
+                              updateImage(image.id, { placementIndex: Number(event.target.value) })
+                            }
+                            value={Math.min(image.placementIndex, paragraphs.length)}
+                          >
+                            <option value={0}>正文开头</option>
+                            {paragraphs.map((paragraph, paragraphIndex) => (
+                              <option
+                                key={`${paragraphIndex}-${paragraph}`}
+                                value={paragraphIndex + 1}
+                              >
+                                {paragraphIndex + 1 === paragraphs.length
+                                  ? `全文结尾 · ${paragraph.slice(0, 18)}`
+                                  : `第 ${paragraphIndex + 1} 段后 · ${paragraph.slice(0, 18)}`}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-[9px] text-faint">
+                            图片说明（可选，帮助 AI 理解图片）
+                          </span>
+                          <input
+                            aria-label={`图片 ${index + 1} 说明`}
+                            className="h-8 w-full rounded-md border border-line bg-panel-muted px-2 text-[10px] text-ink outline-none focus:border-accent"
+                            maxLength={2_000}
+                            onChange={(event) =>
+                              updateImage(image.id, { caption: event.target.value })
+                            }
+                            placeholder="例如：活动现场合影"
+                            value={image.caption}
+                          />
+                        </label>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
         </div>
 
@@ -283,7 +516,11 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
             ) : (
               <ClipboardPaste aria-hidden="true" size={16} />
             )}
-            {importMutation.isPending ? "正在安全清洗…" : "识别文章结构"}
+            {importMutation.isPending
+              ? images.length > 0
+                ? "正在上传图片并识别…"
+                : "正在安全清洗…"
+              : "识别文章结构"}
             {importMutation.isPending ? null : <ArrowRight aria-hidden="true" size={15} />}
           </button>
 

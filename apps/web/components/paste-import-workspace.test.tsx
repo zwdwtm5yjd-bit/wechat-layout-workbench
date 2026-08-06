@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createPasteImport, type ImportStructure } from "../lib/imports/client";
+import { uploadResource } from "../lib/resources/client";
 import { PasteImportWorkspace } from "./paste-import-workspace";
 import { AppToastProvider } from "./ui/app-toast";
 
@@ -23,6 +24,15 @@ vi.mock("../lib/imports/client", async () => {
   return {
     ...actual,
     createPasteImport: vi.fn(),
+  };
+});
+
+vi.mock("../lib/resources/client", async () => {
+  const actual =
+    await vi.importActual<typeof import("../lib/resources/client")>("../lib/resources/client");
+  return {
+    ...actual,
+    uploadResource: vi.fn(),
   };
 });
 
@@ -84,6 +94,7 @@ afterEach(() => {
   cleanup();
   push.mockReset();
   vi.mocked(createPasteImport).mockReset();
+  vi.mocked(uploadResource).mockReset();
 });
 
 describe("PasteImportWorkspace", () => {
@@ -138,5 +149,39 @@ describe("PasteImportWorkspace", () => {
     const submitted = vi.mocked(createPasteImport).mock.calls[0]?.[0];
     expect(submitted).toEqual(expect.objectContaining({ plainText: "手工修改后的正文" }));
     expect(submitted).not.toHaveProperty("html");
+  });
+
+  it("uploads selected images and sends their placement into structure recognition", async () => {
+    const resourceId = "019c0fb5-7d53-7f66-bfb7-f70c0e462699";
+    vi.mocked(uploadResource).mockResolvedValue({ id: resourceId } as never);
+    vi.mocked(createPasteImport).mockResolvedValue({
+      ...structure(),
+      statistics: { ...structure().statistics, imageCount: 1 },
+    });
+    render(<PasteImportWorkspace />, { wrapper: Providers });
+    const user = userEvent.setup();
+
+    await user.type(screen.getByRole("textbox", { name: "粘贴文章内容" }), "活动回顾\n正文内容");
+    const image = new File(["image-bytes"], "现场照片.jpg", { type: "image/jpeg" });
+    await user.upload(screen.getByLabelText(/添加图片/), image);
+    await user.selectOptions(screen.getByRole("combobox", { name: "图片 1 插入位置" }), "1");
+    await user.type(screen.getByRole("textbox", { name: "图片 1 说明" }), "活动现场合影");
+    await user.click(screen.getByRole("button", { name: /识别文章结构/ }));
+
+    await waitFor(() => expect(uploadResource).toHaveBeenCalledWith(image));
+    await waitFor(() => expect(createPasteImport).toHaveBeenCalled());
+    expect(vi.mocked(createPasteImport).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        plainText: "活动回顾\n正文内容",
+        images: [
+          {
+            resourceId,
+            placementIndex: 1,
+            alt: "现场照片.jpg",
+            caption: "活动现场合影",
+          },
+        ],
+      }),
+    );
   });
 });

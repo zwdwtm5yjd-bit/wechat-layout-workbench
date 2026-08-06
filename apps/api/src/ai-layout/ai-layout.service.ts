@@ -366,7 +366,13 @@ export class AiLayoutService {
       blockId: node.attrs.blockId,
       index,
       semanticRole: node.attrs.semanticRole ?? null,
-      text: textFromNode(node).replaceAll(/\s+/gu, " ").trim().slice(0, 1_000),
+      text: (node.type === "imageBlock"
+        ? [node.attrs.alt, node.attrs.caption].filter(Boolean).join(" · ")
+        : textFromNode(node)
+      )
+        .replaceAll(/\s+/gu, " ")
+        .trim()
+        .slice(0, 1_000),
       type: node.type,
     }));
     const preferred = input.preferredLanguageId ?? "由你根据全文判断";

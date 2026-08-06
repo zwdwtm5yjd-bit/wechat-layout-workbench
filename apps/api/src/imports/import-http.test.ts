@@ -325,6 +325,39 @@ describe("paste import HTTP flow", () => {
     );
   });
 
+  it("keeps uploaded image resources in the import structure", async () => {
+    const resourceId = createUuidV7();
+    const response = await supertest(application.getHttpServer())
+      .post("/api/v1/imports/paste")
+      .set("x-csrf-token", "test-csrf-token")
+      .send({
+        plainText: "活动回顾\n正文内容",
+        images: [
+          {
+            resourceId,
+            placementIndex: 1,
+            alt: "现场照片.jpg",
+            caption: "活动现场合影",
+          },
+        ],
+      })
+      .expect(201);
+
+    expect(response.body.data.statistics.imageCount).toBe(1);
+    expect(response.body.data.blocks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "image_reference",
+          relation: expect.objectContaining({
+            resourceId,
+            alt: "现场照片.jpg",
+            caption: "活动现场合影",
+          }),
+        }),
+      ]),
+    );
+  });
+
   it("restores structure state on refresh while hiding another owner's import", async () => {
     const created = await supertest(application.getHttpServer())
       .post("/api/v1/imports/paste")

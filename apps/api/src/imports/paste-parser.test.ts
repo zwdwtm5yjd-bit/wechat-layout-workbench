@@ -143,4 +143,63 @@ describe("paste import parser", () => {
     ]);
     expect(validateDocument(document)).toEqual(expect.objectContaining({ success: true }));
   });
+
+  it("inserts uploaded private images at selected paragraph positions", () => {
+    const firstResourceId = "019c0000-0000-7000-8000-000000000011";
+    const secondResourceId = "019c0000-0000-7000-8000-000000000012";
+    const parsed = parsePasteImport({
+      cleaningMode: "preserve_structure",
+      detectedSourceHint: "plain_text",
+      plainText: "活动回顾\n第一段正文。\n第二段正文。",
+      images: [
+        {
+          resourceId: firstResourceId,
+          placementIndex: 1,
+          alt: "活动现场.jpg",
+          caption: "活动现场合影",
+        },
+        {
+          resourceId: secondResourceId,
+          placementIndex: 99,
+          alt: "成果展示.png",
+        },
+      ],
+    });
+    const document = buildImportedDocument({
+      accountId: null,
+      articleId: "019c0000-0000-7000-8000-000000000002",
+      blocks: parsed.blocks,
+      documentId: "019c0000-0000-7000-8000-000000000001",
+      documentSourceType: parsed.documentSourceType,
+      now: new Date("2026-07-30T00:00:00.000Z"),
+      originalTextHash: parsed.originalTextHash,
+    });
+
+    expect(parsed.originalText).toBe("活动回顾\n第一段正文。\n第二段正文。");
+    expect(parsed.statistics.imageCount).toBe(2);
+    expect(parsed.blocks.map((block) => block.role)).toEqual([
+      "title",
+      "image_reference",
+      "paragraph",
+      "paragraph",
+      "image_reference",
+    ]);
+    expect(document.content.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "imageBlock",
+          attrs: expect.objectContaining({
+            resourceId: firstResourceId,
+            alt: "活动现场.jpg",
+            caption: "活动现场合影",
+          }),
+        }),
+        expect.objectContaining({
+          type: "imageBlock",
+          attrs: expect.objectContaining({ resourceId: secondResourceId }),
+        }),
+      ]),
+    );
+    expect(validateDocument(document)).toEqual(expect.objectContaining({ success: true }));
+  });
 });
