@@ -14,6 +14,7 @@ import type {
   DocumentV1,
   HeadingNode,
   ImageBlockNode,
+  InlineNode,
   ParagraphNode,
   SemanticCardNode,
   StyleOverrides,
@@ -571,7 +572,7 @@ function languageRhythm(plan: LayoutPlan): {
       case "night-cyan":
         return { bodyGap: 18, headingGap: 32, lineHeight: 1.85, radius: 8 };
       case "crimson-editorial":
-        return { bodyGap: 16, headingGap: 32, lineHeight: 1.85, radius: 3 };
+        return { bodyGap: 20, headingGap: 38, lineHeight: 1.8, radius: 6 };
       default:
         return { bodyGap: 18, headingGap: 32, lineHeight: 1.85, radius: 6 };
     }
@@ -603,6 +604,28 @@ function planStyle(node: BlockNode, plan: LayoutPlan): StyleOverrides {
   const restrained = plan.visualIntensity === "restrained";
   if (node.type === "heading") {
     const levelOne = node.attrs.level === 1;
+    if (plan.languageId === "crimson-editorial") {
+      const levelTwo = node.attrs.level === 2;
+      return {
+        backgroundColor: "#FFFFFF",
+        borderColor: levelTwo ? "#DC2626" : "#FEE2E2",
+        borderRadius: 0,
+        borderStyle: "solid",
+        borderWidth: levelTwo ? 3 : node.attrs.level === 3 ? 0 : 1,
+        fontSize: levelOne ? 24 : levelTwo ? 18 : 15,
+        fontWeight: levelOne ? 700 : 600,
+        letterSpacing: levelTwo ? 0.5 : 0.3,
+        lineHeight: levelTwo ? 1.4 : 1.5,
+        marginBottom: levelTwo ? 20 : 14,
+        marginTop: levelOne ? 8 : levelTwo ? 42 : 28,
+        paddingBottom: levelTwo ? 14 : 0,
+        paddingLeft: node.attrs.level === 3 ? 10 : 0,
+        paddingRight: 0,
+        paddingTop: 0,
+        textAlign: levelOne ? "center" : "left",
+        textColor: "#1C1917",
+      };
+    }
     const quietHeading = plan.languageId === "forest-green" || plan.languageId === "ink-gold";
     const sectionSurface =
       levelOne || quietHeading || plan.visualVariant === 2 ? undefined : surface;
@@ -641,7 +664,7 @@ function planStyle(node: BlockNode, plan: LayoutPlan): StyleOverrides {
   }
   if (node.type === "paragraph") {
     return {
-      fontSize: 14,
+      fontSize: plan.languageId === "crimson-editorial" ? 15 : 14,
       letterSpacing: plan.languageId === "ink-gold" ? 0.5 : 0.3,
       lineHeight: rhythm.lineHeight,
       marginBottom: rhythm.bodyGap,
@@ -1039,9 +1062,11 @@ function componentizeBlock(
       componentId,
       node.attrs.level === 1 ? components.heading1 : components.heading2,
     );
+    const crimsonChapter = plan.languageId === "crimson-editorial" && node.attrs.level === 2;
+    const crimsonSubheading = plan.languageId === "crimson-editorial" && node.attrs.level === 3;
     const shouldNumber =
       node.attrs.level === 2 &&
-      component.variant === "marker" &&
+      (crimsonChapter || component.variant === "marker") &&
       !/^\s*(?:\d+|[一二三四五六七八九十]+)[.、/]/u.test(textFromNode(node));
     return {
       ...structuredClone(node),
@@ -1050,6 +1075,8 @@ function componentizeBlock(
         componentId: component.id,
         componentVersion: "1.0.0",
         componentVariantId: "default",
+        ...(crimsonChapter ? { semanticRole: "layout_plan_crimson_chapter" } : {}),
+        ...(crimsonSubheading ? { semanticRole: "layout_plan_crimson_subheading" } : {}),
         ...(shouldNumber ? { numbering: String(sectionNumber).padStart(2, "0") } : {}),
       },
     } as HeadingNode;
@@ -1138,6 +1165,7 @@ function introCard(
 ): SemanticCardNode {
   const component = selectedComponent(copy?.componentId, LAYOUT_COMPONENTS[plan.languageId].hero);
   const readingMinutes = Math.max(1, Math.ceil(characterCount / 500));
+  const crimson = plan.languageId === "crimson-editorial";
   const keywords =
     plan.articleGene.keywords.length > 0
       ? plan.articleGene.keywords.slice(0, 3).join(" \u00b7 ")
@@ -1150,15 +1178,35 @@ function introCard(
       componentVersion: "1.0.0",
       componentVariantId: "default",
       compatibilityLevel: "safe",
-      eyebrow: copy?.eyebrow ?? `ARTICLE GUIDE \u00b7 ${plan.articleGene.articleTypeLabel}`,
-      footer:
-        copy?.footer ??
-        `${String(characterCount)} 字 \u00b7 约 ${String(readingMinutes)} 分钟 \u00b7 ${keywords}`,
+      eyebrow: crimson
+        ? "“"
+        : (copy?.eyebrow ?? `ARTICLE GUIDE \u00b7 ${plan.articleGene.articleTypeLabel}`),
+      footer: crimson
+        ? (copy?.footer ?? `${String(characterCount)} 字 · 约 ${String(readingMinutes)} 分钟`)
+        : (copy?.footer ??
+          `${String(characterCount)} 字 \u00b7 约 ${String(readingMinutes)} 分钟 \u00b7 ${keywords}`),
       locked: false,
       semanticRole: "layout_plan_generated_intro",
       styleRef: `layout.${plan.languageId}.hero`,
+      ...(crimson
+        ? {
+            styleOverrides: {
+              backgroundColor: "#FFFFFF",
+              borderColor: "#FEE2E2",
+              borderRadius: 12,
+              borderStyle: "solid",
+              borderWidth: 1,
+              marginBottom: 32,
+              marginTop: 10,
+              paddingBottom: 22,
+              paddingLeft: 24,
+              paddingRight: 24,
+              paddingTop: 24,
+            },
+          }
+        : {}),
       title: copy?.title ?? plan.articleGene.summary,
-      variant: component.variant,
+      variant: crimson ? "editorial_quote_intro" : component.variant,
     },
     ...(paragraph === undefined ? {} : { content: [paragraph] }),
   };
@@ -1171,6 +1219,7 @@ function dataCard(
   componentId?: AiLayoutComponentId | null,
 ): SemanticCardNode {
   const component = selectedComponent(componentId, LAYOUT_COMPONENTS[plan.languageId].notice);
+  const crimson = plan.languageId === "crimson-editorial";
   return {
     type: "semanticCard",
     attrs: {
@@ -1180,7 +1229,7 @@ function dataCard(
       componentVariantId: "default",
       compatibilityLevel: "safe",
       eyebrow: treatment === "data" ? "DATA \u00b7 关键信息" : "FOCUS \u00b7 阅读提示",
-      footer: treatment === "data" ? "核心数据已保留原文表达" : "信息来自原文",
+      footer: treatment === "data" ? "核心数据来自原文" : "信息来自原文",
       locked: false,
       semanticRole: "layout_plan_generated_data",
       styleRef: `layout.${plan.languageId}.data`,
@@ -1192,8 +1241,8 @@ function dataCard(
         marginBottom: 24,
         marginTop: 24,
       },
-      title: treatment === "data" ? "数据要点" : "重点提示",
-      variant: component.variant,
+      title: treatment === "data" ? "关键数据" : "重点提示",
+      variant: crimson && treatment === "data" ? "editorial_data_triptych" : component.variant,
     },
     content: [paragraph],
   };
@@ -1212,7 +1261,7 @@ function tailCard(plan: LayoutPlan, copy?: AiLayoutDecision["footer"]): Semantic
       componentVersion: "1.0.0",
       componentVariantId: "default",
       compatibilityLevel: "safe",
-      eyebrow: "READ \u00b7 SHARE",
+      eyebrow: plan.languageId === "crimson-editorial" ? "END" : "READ \u00b7 SHARE",
       footer: copy?.text ?? "感谢阅读 \u00b7 愿好内容被更多人看见",
       locked: false,
       semanticRole: "layout_plan_generated_footer",
@@ -1232,7 +1281,45 @@ function tailCard(plan: LayoutPlan, copy?: AiLayoutDecision["footer"]): Semantic
         textAlign: "center",
       },
       title: copy?.title ?? "\ud83d\udc4d 点赞 \u00b7 \ud83d\udc40 在看 \u00b7 \u2197 转发",
-      variant: component.variant,
+      variant: plan.languageId === "crimson-editorial" ? "editorial_footer" : component.variant,
+    },
+  };
+}
+
+function overviewCard(plan: LayoutPlan, headings: readonly HeadingNode[]): SemanticCardNode | null {
+  if (plan.languageId !== "crimson-editorial" || headings.length < 2) return null;
+  const items = headings.slice(0, 3).map((heading, index) => {
+    const number = String(index + 1).padStart(2, "0");
+    return `${number}\t${textFromNode(heading).trim()}`;
+  });
+  return {
+    type: "semanticCard",
+    attrs: {
+      blockId: blockId(),
+      componentId: "cmp_notice_checklist_action_005",
+      componentVersion: "1.0.0",
+      componentVariantId: "default",
+      compatibilityLevel: "safe",
+      eyebrow: "📌 本文看点",
+      footer: items.join("\n"),
+      locked: false,
+      semanticRole: "layout_plan_generated_overview",
+      styleRef: "layout.crimson-editorial.overview",
+      styleOverrides: {
+        backgroundColor: "#FFFFFF",
+        borderColor: "#FFFFFF",
+        borderRadius: 0,
+        borderStyle: "solid",
+        borderWidth: 0,
+        marginBottom: 32,
+        marginTop: 10,
+        paddingBottom: 0,
+        paddingLeft: 0,
+        paddingRight: 0,
+        paddingTop: 0,
+      },
+      title: "阅读导航",
+      variant: "editorial_overview",
     },
   };
 }
@@ -1264,14 +1351,82 @@ function dataCandidates(
   );
 }
 
+function editorialHighlightContent(
+  content: readonly InlineNode[] | undefined,
+  budget: number,
+): { readonly content: readonly InlineNode[] | undefined; readonly used: number } {
+  if (content === undefined || budget <= 0) return { content, used: 0 };
+  let used = 0;
+  const highlighted = content.flatMap((inline): readonly InlineNode[] => {
+    if (inline.type !== "text" || used >= budget) return [structuredClone(inline)];
+    const phrases = [...inline.text.matchAll(/[“"]([^”"]{4,24})[”"]/gu)]
+      .map((match) => match[1]?.trim() ?? "")
+      .filter((phrase) => phrase.length >= 4)
+      .slice(0, Math.min(2, budget - used));
+    if (phrases.length === 0) return [structuredClone(inline)];
+    let segments: InlineNode[] = [structuredClone(inline)];
+    for (const phrase of phrases) {
+      let applied = false;
+      segments = segments.flatMap((segment): readonly InlineNode[] => {
+        if (applied || segment.type !== "text") return [segment];
+        const start = segment.text.indexOf(phrase);
+        if (start < 0) return [segment];
+        applied = true;
+        used += 1;
+        const before = segment.text.slice(0, start);
+        const after = segment.text.slice(start + phrase.length);
+        return [
+          ...(before === "" ? [] : [{ ...segment, text: before }]),
+          {
+            ...segment,
+            text: phrase,
+            marks: [
+              ...(segment.marks ?? []),
+              ...(segment.marks?.some((mark) => mark.type === "bold") === true
+                ? []
+                : [{ type: "bold" as const }]),
+              ...(segment.marks?.some((mark) => mark.type === "underline") === true
+                ? []
+                : [{ type: "underline" as const }]),
+            ],
+          },
+          ...(after === "" ? [] : [{ ...segment, text: after }]),
+        ];
+      });
+    }
+    return segments;
+  });
+  return { content: highlighted, used };
+}
+
+function editorialHighlightBlocks(
+  blocks: readonly DocNode["content"][number][],
+  plan: LayoutPlan,
+): DocNode["content"] {
+  if (plan.languageId !== "crimson-editorial") return [...blocks];
+  let budget = 12;
+  return blocks.map((node) => {
+    if (node.type !== "paragraph" || budget <= 0) return node;
+    const highlighted = editorialHighlightContent(node.content, Math.min(2, budget));
+    budget -= highlighted.used;
+    return {
+      ...node,
+      ...(highlighted.content === undefined ? {} : { content: [...highlighted.content] }),
+    };
+  });
+}
+
 export function applyLayoutPlanToDocument(document: DocumentV1, plan: LayoutPlan): DocumentV1 {
   const analysis = analyzeDocumentLayout(document);
   const originalBlocks = restoreOriginalBlocks(document.content.content);
   let sectionNumber = 0;
-  const styledBlocks = originalBlocks.map((node) => {
-    if (node.type === "heading" && node.attrs.level === 2) sectionNumber += 1;
-    return componentizeBlock(node, plan, sectionNumber);
-  }) as DocNode["content"];
+  const styledBlocks = editorialHighlightBlocks(
+    originalBlocks.map((node) => {
+      if (node.type === "heading" && node.attrs.level === 2) sectionNumber += 1;
+      return componentizeBlock(node, plan, sectionNumber);
+    }),
+    plan,
+  );
   const result: DocNode["content"] = [];
   const emphasis = emphasisCandidates(styledBlocks);
   const introIndex = styledBlocks.findIndex(
@@ -1285,9 +1440,20 @@ export function applyLayoutPlanToDocument(document: DocumentV1, plan: LayoutPlan
     plan.languageId === "forest-green" || plan.languageId === "ink-gold" ? 2 : 1;
   let sectionIndex = 0;
   let introInserted = false;
+  let overviewInserted = false;
+  const overview = overviewCard(
+    plan,
+    styledBlocks.filter(
+      (node): node is HeadingNode => node.type === "heading" && node.attrs.level === 2,
+    ),
+  );
 
   styledBlocks.forEach((node, index) => {
     if (node.type === "heading" && node.attrs.level === 2) {
+      if (!overviewInserted && overview !== null) {
+        result.push(overview);
+        overviewInserted = true;
+      }
       sectionIndex += 1;
       if (headingCount > 1 && result.length > 0 && (sectionIndex - 1) % dividerCadence === 0) {
         result.push(generatedDivider(plan));
@@ -1365,17 +1531,36 @@ export function applyAiLayoutDecisionToDocument(
   const dividerAfter = new Set(decision.dividerAfterBlockIds);
   const originalBlocks = restoreOriginalBlocks(document.content.content);
   let sectionNumber = 0;
-  const styledBlocks = originalBlocks.map((original) => {
-    const blockDecision = decisions.get(original.attrs.blockId);
-    const treatment = blockDecision?.treatment ?? "body";
-    const structural = aiStructuralNode(original, treatment);
-    if (structural.type === "heading" && structural.attrs.level === 2) sectionNumber += 1;
-    return componentizeBlock(structural, plan, sectionNumber, blockDecision?.componentId);
-  }) as DocNode["content"];
+  const styledBlocks = editorialHighlightBlocks(
+    originalBlocks.map((original) => {
+      const blockDecision = decisions.get(original.attrs.blockId);
+      const treatment = blockDecision?.treatment ?? "body";
+      const structural = aiStructuralNode(original, treatment);
+      if (structural.type === "heading" && structural.attrs.level === 2) sectionNumber += 1;
+      return componentizeBlock(structural, plan, sectionNumber, blockDecision?.componentId);
+    }),
+    plan,
+  );
   const result: DocNode["content"] = [];
   let leadInserted = false;
+  let overviewInserted = false;
+  const overview = overviewCard(
+    plan,
+    styledBlocks.filter(
+      (node): node is HeadingNode => node.type === "heading" && node.attrs.level === 2,
+    ),
+  );
 
   styledBlocks.forEach((node) => {
+    if (
+      node.type === "heading" &&
+      node.attrs.level === 2 &&
+      !overviewInserted &&
+      overview !== null
+    ) {
+      result.push(overview);
+      overviewInserted = true;
+    }
     const blockDecision = decisions.get(node.attrs.blockId);
     const treatment = blockDecision?.treatment ?? "body";
     if (treatment === "lead" && node.type === "paragraph" && !leadInserted) {

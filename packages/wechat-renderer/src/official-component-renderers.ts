@@ -160,9 +160,265 @@ function officialVisualCardRenderer(
   });
 }
 
+type SemanticCardRenderInput = Parameters<typeof genericSemanticCardRenderer>[0];
+
+function editorialIntroRenderer(input: SemanticCardRenderInput): SafeHtmlNode {
+  return htmlElement("section", {
+    children: [
+      htmlElement("p", {
+        children: ["“"],
+        style: {
+          ...TEXT_WRAP_STYLE,
+          color: "#DC2626",
+          "font-size": "42px",
+          "font-weight": 900,
+          "line-height": 0.7,
+          margin: "0 0 10px",
+        },
+      }),
+      ...(input.node.attrs.title === undefined
+        ? []
+        : [
+            htmlElement("p", {
+              children: [input.node.attrs.title],
+              style: {
+                ...TEXT_WRAP_STYLE,
+                color: "#1C1917",
+                "font-size": "16px",
+                "font-weight": 800,
+                "line-height": 1.75,
+                margin: "0 0 10px",
+              },
+            }),
+          ]),
+      ...input.children,
+      ...(input.node.attrs.footer === undefined
+        ? []
+        : [
+            htmlElement("p", {
+              children: [input.node.attrs.footer],
+              style: {
+                ...TEXT_WRAP_STYLE,
+                color: "#9CA3AF",
+                "font-size": "10px",
+                "letter-spacing": "1px",
+                margin: "12px 0 0",
+              },
+            }),
+          ]),
+    ],
+    style: {
+      ...TEXT_WRAP_STYLE,
+      "background-color": "#FFFFFF",
+      border: "1px solid #FEE2E2",
+      "border-radius": "12px",
+      "box-shadow": "0 4px 24px rgba(220,38,38,0.12)",
+      margin: "10px 0 32px",
+      padding: "26px 24px 22px",
+      ...input.style,
+    },
+  });
+}
+
+function editorialOverviewRenderer(input: SemanticCardRenderInput): SafeHtmlNode {
+  const items = (input.node.attrs.footer ?? "")
+    .split("\n")
+    .map((line) => line.split("\t", 2))
+    .filter((parts): parts is [string, string] => parts.length === 2 && parts[1] !== "")
+    .slice(0, 3);
+  return htmlElement("section", {
+    children: [
+      htmlElement("p", {
+        children: [input.node.attrs.eyebrow ?? "📌 本文看点"],
+        style: {
+          ...TEXT_WRAP_STYLE,
+          color: "#9CA3AF",
+          "font-size": "14px",
+          "letter-spacing": "1px",
+          margin: "0 0 14px",
+        },
+      }),
+      htmlElement("section", {
+        children: items.map(([number, label], index) =>
+          htmlElement("span", {
+            children: [
+              htmlElement("span", {
+                children: [number],
+                style: {
+                  "background-color": "#DC2626",
+                  "border-radius": "4px",
+                  color: "#FFFFFF",
+                  display: "inline-block",
+                  "font-size": "12px",
+                  "font-weight": 800,
+                  margin: "0 0 8px",
+                  padding: "2px 10px",
+                },
+              }),
+              htmlElement("span", {
+                children: [label],
+                style: {
+                  ...TEXT_WRAP_STYLE,
+                  color: "#1C1917",
+                  display: "block",
+                  "font-size": "13px",
+                  "font-weight": 700,
+                  "line-height": 1.55,
+                },
+              }),
+            ],
+            style: {
+              ...TEXT_WRAP_STYLE,
+              "background-color": "#FEF2F2",
+              border: "1px solid #FEE2E2",
+              "border-radius": "10px",
+              display: "inline-block",
+              "margin-right": index === items.length - 1 ? "0" : "1.5%",
+              padding: "16px 10px",
+              "text-align": "center",
+              "vertical-align": "top",
+              width: items.length === 2 ? "49%" : "32.2%",
+            },
+          }),
+        ),
+        style: { ...TEXT_WRAP_STYLE, width: "100%" },
+      }),
+    ],
+    style: { ...TEXT_WRAP_STYLE, margin: "0 0 32px", ...input.style },
+  });
+}
+
+function editorialDataItems(
+  text: string,
+): readonly { readonly label: string; readonly value: string }[] {
+  const matches = [...text.matchAll(/\d+(?:\.\d+)?(?:%|万|亿|倍|件|人|项|个|条|台)?/gu)]
+    .filter((match) => !/^20\d{2}$/u.test(match[0]))
+    .slice(0, 3);
+  return matches.map((match, index) => {
+    const start = match.index ?? 0;
+    const leading =
+      text
+        .slice(Math.max(0, start - 14), start)
+        .split(/[，。；：、]/u)
+        .at(-1) ?? "";
+    const label = leading
+      .replace(/^(?:累计|达到|共计|约|已|为)/u, "")
+      .trim()
+      .slice(-10);
+    return { label: label || `关键数据 ${String(index + 1)}`, value: match[0] };
+  });
+}
+
+function editorialDataRenderer(input: SemanticCardRenderInput): SafeHtmlNode {
+  const text = (input.node.content ?? []).map((child) => blockText(child)).join(" ");
+  const items = editorialDataItems(text);
+  return htmlElement("section", {
+    children: [
+      ...(items.length < 2
+        ? []
+        : [
+            htmlElement("section", {
+              children: items.map((item, index) =>
+                htmlElement("span", {
+                  children: [
+                    htmlElement("span", {
+                      children: [item.value],
+                      style: {
+                        color: "#DC2626",
+                        display: "block",
+                        "font-size": "24px",
+                        "font-weight": 900,
+                        "line-height": 1.1,
+                        margin: "0 0 5px",
+                      },
+                    }),
+                    htmlElement("span", {
+                      children: [item.label],
+                      style: { color: "#9CA3AF", "font-size": "11px", "line-height": 1.45 },
+                    }),
+                  ],
+                  style: {
+                    ...TEXT_WRAP_STYLE,
+                    "background-color": "#FEF2F2",
+                    border: "1px solid #FEE2E2",
+                    "border-radius": "10px",
+                    display: "inline-block",
+                    "margin-right": index === items.length - 1 ? "0" : "1.5%",
+                    padding: "16px 8px",
+                    "text-align": "center",
+                    "vertical-align": "top",
+                    width: items.length === 2 ? "49%" : "32.2%",
+                  },
+                }),
+              ),
+              style: { ...TEXT_WRAP_STYLE, margin: "0 0 16px", width: "100%" },
+            }),
+          ]),
+      ...input.children,
+    ],
+    style: { ...TEXT_WRAP_STYLE, margin: "20px 0 24px", ...input.style },
+  });
+}
+
+function editorialFooterRenderer(input: SemanticCardRenderInput): SafeHtmlNode {
+  return htmlElement("section", {
+    children: [
+      htmlElement("section", {
+        children: ["—  END  —"],
+        style: {
+          color: "#DC2626",
+          "font-size": "11px",
+          "font-weight": 700,
+          "letter-spacing": "3px",
+          margin: "0 0 18px",
+          "text-align": "center",
+        },
+      }),
+      ...(input.node.attrs.title === undefined
+        ? []
+        : [
+            htmlElement("p", {
+              children: [input.node.attrs.title],
+              style: {
+                color: "#1C1917",
+                "font-size": "15px",
+                "font-weight": 700,
+                margin: "0 0 10px",
+                "text-align": "center",
+              },
+            }),
+          ]),
+      ...(input.node.attrs.footer === undefined
+        ? []
+        : [
+            htmlElement("p", {
+              children: [input.node.attrs.footer],
+              style: {
+                color: "#9CA3AF",
+                "font-size": "11px",
+                margin: "0",
+                "text-align": "center",
+              },
+            }),
+          ]),
+    ],
+    style: {
+      ...TEXT_WRAP_STYLE,
+      "border-top": "2px solid #DC2626",
+      margin: "38px 0 16px",
+      padding: "20px 16px 24px",
+      ...input.style,
+    },
+  });
+}
+
 function officialSemanticCardRenderer(
   input: Parameters<typeof genericSemanticCardRenderer>[0],
 ): SafeHtmlNode {
+  if (input.node.attrs.variant === "editorial_quote_intro") return editorialIntroRenderer(input);
+  if (input.node.attrs.variant === "editorial_overview") return editorialOverviewRenderer(input);
+  if (input.node.attrs.variant === "editorial_data_triptych") return editorialDataRenderer(input);
+  if (input.node.attrs.variant === "editorial_footer") return editorialFooterRenderer(input);
   if (input.manifest.semanticRoles.includes("visual")) {
     return officialVisualCardRenderer(input);
   }

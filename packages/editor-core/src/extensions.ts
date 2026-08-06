@@ -340,7 +340,12 @@ const Heading = Node.create({
         : 1;
     return [
       `h${String(level)}`,
-      mergeAttributes(HTMLAttributes, { class: `editor-heading editor-heading-${String(level)}` }),
+      mergeAttributes(HTMLAttributes, {
+        class: `editor-heading editor-heading-${String(level)}`,
+        ...(typeof node.attrs.numbering === "string"
+          ? { "data-numbering": node.attrs.numbering }
+          : {}),
+      }),
       0,
     ];
   },

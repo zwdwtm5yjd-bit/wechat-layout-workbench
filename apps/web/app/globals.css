@@ -374,6 +374,139 @@ a {
   font-size: 11px;
 }
 
+.wechat-article-editor u {
+  text-decoration-color: #fecaca;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.editor-heading[data-semantic-role="layout_plan_crimson_chapter"] {
+  display: flex;
+  align-items: center;
+  padding: 0 0 14px !important;
+  border: 0 !important;
+  border-bottom: 3px solid #dc2626 !important;
+  background: #fff !important;
+  color: #1c1917 !important;
+  font-size: 18px !important;
+  font-weight: 800;
+}
+
+.editor-heading[data-semantic-role="layout_plan_crimson_chapter"]::before {
+  flex: 0 0 auto;
+  padding: 4px 14px;
+  margin-right: 14px;
+  border-radius: 6px;
+  background: #dc2626;
+  color: #fff;
+  content: attr(data-numbering);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.3;
+}
+
+.editor-heading[data-semantic-role="layout_plan_crimson_subheading"] {
+  padding: 0 0 0 10px !important;
+  border: 0 !important;
+  border-left: 3px solid #dc2626 !important;
+  background: transparent !important;
+  color: #1c1917 !important;
+  font-size: 15px !important;
+  font-weight: 800;
+}
+
+.editor-semantic-card[data-component-variant="editorial_quote_intro"] {
+  padding: 26px 24px 22px;
+  border-color: #fee2e2;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 24px rgb(220 38 38 / 12%);
+}
+
+.editor-semantic-card[data-component-variant="editorial_quote_intro"]
+  > .editor-semantic-card__label,
+.editor-semantic-card[data-component-variant="editorial_quote_intro"]
+  > .editor-semantic-card__artwork {
+  display: none;
+}
+
+.editor-semantic-card[data-component-variant="editorial_quote_intro"]
+  > .editor-semantic-card__eyebrow {
+  color: #dc2626;
+  font-size: 42px;
+  font-weight: 900;
+  line-height: 0.7;
+}
+
+.editor-semantic-card[data-component-variant="editorial_quote_intro"]
+  > .editor-semantic-card__title {
+  color: #1c1917;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.75;
+}
+
+.editor-semantic-card[data-component-variant="editorial_overview"] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+}
+
+.editor-semantic-card[data-component-variant="editorial_overview"] > .editor-semantic-card__label,
+.editor-semantic-card[data-component-variant="editorial_overview"] > .editor-semantic-card__title {
+  display: none;
+}
+
+.editor-semantic-card[data-component-variant="editorial_overview"]
+  > .editor-semantic-card__eyebrow {
+  color: #9ca3af;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.editor-semantic-card[data-component-variant="editorial_overview"] > .editor-semantic-card__footer {
+  padding: 14px 16px;
+  border: 1px solid #fee2e2;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #1c1917;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 2;
+  white-space: pre-line;
+}
+
+.editor-semantic-card[data-component-variant="editorial_data_triptych"] {
+  border-color: #fee2e2;
+  background: #fef2f2;
+}
+
+.editor-semantic-card[data-component-variant="editorial_data_triptych"]
+  > .editor-semantic-card__eyebrow,
+.editor-semantic-card[data-component-variant="editorial_data_triptych"]
+  > .editor-semantic-card__title {
+  color: #dc2626;
+}
+
+.editor-semantic-card[data-component-variant="editorial_footer"] {
+  padding: 20px 16px 24px;
+  border: 0;
+  border-top: 2px solid #dc2626;
+  border-radius: 0;
+  background: #fff;
+  text-align: center;
+}
+
+.editor-semantic-card[data-component-variant="editorial_footer"] > .editor-semantic-card__label {
+  display: none;
+}
+
+.editor-semantic-card[data-component-variant="editorial_footer"] > .editor-semantic-card__eyebrow {
+  color: #dc2626;
+  letter-spacing: 3px;
+}
+
 .editor-atom {
   display: grid;
   min-height: 150px;

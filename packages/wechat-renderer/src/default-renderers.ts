@@ -38,7 +38,7 @@ function inlineStyle(marks: readonly DocumentMark[] | undefined): {
         style["font-style"] = "italic";
         break;
       case "underline":
-        decorations.push("underline");
+        style["border-bottom"] = "2px solid #FECACA";
         break;
       case "strike":
         decorations.push("line-through");
@@ -237,6 +237,85 @@ function headingRenderer(
   const defaultRef = `heading.level${String(node.attrs.level)}.default`;
   const appearance = resolvedComponentAppearance(node, context, path, defaultRef);
   const resolvedStyle = appearance?.style ?? context.styleFor(node, defaultRef);
+  if (node.attrs.semanticRole === "layout_plan_crimson_chapter") {
+    return htmlElement("section", {
+      children: [
+        htmlElement("span", {
+          children: [node.attrs.numbering ?? "•"],
+          style: {
+            "background-color": "#DC2626",
+            "border-radius": "6px",
+            color: "#FFFFFF",
+            display: "inline-block",
+            "font-size": "18px",
+            "font-weight": 900,
+            "line-height": 1.3,
+            "margin-right": "14px",
+            padding: "4px 14px",
+            "vertical-align": "middle",
+          },
+        }),
+        htmlElement("span", {
+          children: [
+            htmlElement("span", {
+              children: ["SECTION"],
+              style: {
+                color: "#DC2626",
+                display: "block",
+                "font-size": "10px",
+                "font-weight": 700,
+                "letter-spacing": "3px",
+                "line-height": 1.3,
+                margin: "0 0 2px",
+              },
+            }),
+            htmlElement("span", {
+              children: renderInline(node.content),
+              style: {
+                color: "#1C1917",
+                display: "block",
+                "font-size": "18px",
+                "font-weight": 800,
+                "line-height": 1.4,
+              },
+            }),
+          ],
+          style: {
+            display: "inline-block",
+            "max-width": "78%",
+            "vertical-align": "middle",
+          },
+        }),
+      ],
+      style: mergeStyles(
+        {
+          ...TEXT_WRAP_STYLE,
+          "border-bottom": "3px solid #DC2626",
+          margin: "42px 0 20px",
+          padding: "0 0 14px",
+        },
+        edgeBorderStyle(resolvedStyle, "border-bottom"),
+      ),
+    });
+  }
+  if (node.attrs.semanticRole === "layout_plan_crimson_subheading") {
+    return htmlElement("section", {
+      children: renderInline(node.content),
+      style: mergeStyles(
+        {
+          ...TEXT_WRAP_STYLE,
+          "border-left": "3px solid #DC2626",
+          color: "#1C1917",
+          "font-size": "15px",
+          "font-weight": 800,
+          "line-height": 1.4,
+          margin: "28px 0 14px",
+          "padding-left": "10px",
+        },
+        edgeBorderStyle(resolvedStyle, "border-left"),
+      ),
+    });
+  }
   const structuralStyle =
     appearance?.visualVariant === "leftbar"
       ? edgeBorderStyle(resolvedStyle, "border-left")

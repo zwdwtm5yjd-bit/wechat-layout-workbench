@@ -7,6 +7,7 @@ import {
   applyAiLayoutDecisionToDocument,
   applyLayoutPlanToDocument,
   createLayoutPlans,
+  createLayoutPlanForLanguage,
   layoutPlanFromAiDecision,
 } from "./layout-planner";
 
@@ -144,5 +145,75 @@ describe("layout planner", () => {
     expect(result.content.content.find((node) => node.type === "divider")?.attrs.componentId).toBe(
       "cmp_divider_dashed_subtle_002",
     );
+  });
+
+  it("builds the red-white editorial baseline from article structure", () => {
+    const timestamp = "2026-08-06T00:00:00.000Z";
+    const document: DocumentV1 = {
+      articleId: "article_crimson_baseline",
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "heading",
+            attrs: { blockId: "title", level: 1, locked: false },
+            content: [{ type: "text", text: "实干担当，提质增效" }],
+          },
+          {
+            type: "paragraph",
+            attrs: { blockId: "lead", locked: false },
+            content: [{ type: "text", text: "把“精准落地”和“实质提升”作为全文主线。" }],
+          },
+          {
+            type: "heading",
+            attrs: { blockId: "section_1", level: 2, locked: false },
+            content: [{ type: "text", text: "以稳为基，筑牢工作底座" }],
+          },
+          {
+            type: "paragraph",
+            attrs: { blockId: "body_1", locked: false },
+            content: [{ type: "text", text: "通过“体系闭环”推动工作稳中提质。" }],
+          },
+          {
+            type: "heading",
+            attrs: { blockId: "section_2", level: 2, locked: false },
+            content: [{ type: "text", text: "以新为要，激发工作动能" }],
+          },
+          {
+            type: "paragraph",
+            attrs: { blockId: "body_2", locked: false },
+            content: [{ type: "text", text: "累计形成510项成果，覆盖644人，完成率95%。" }],
+          },
+        ],
+      },
+      documentId: "document_crimson_baseline",
+      meta: {
+        createdAt: timestamp,
+        sourceType: "manual",
+        textLocked: true,
+        updatedAt: timestamp,
+      },
+      schemaVersion: "1.0.0",
+    };
+    const plan = createLayoutPlanForLanguage(document, [], "crimson-editorial", {
+      mode: "original",
+    });
+    const result = applyLayoutPlanToDocument(document, plan);
+
+    expect(() => parseDocument(result)).not.toThrow();
+    expect(
+      result.content.content.some(
+        (node) => node.attrs.semanticRole === "layout_plan_generated_overview",
+      ),
+    ).toBe(true);
+    const chapters = result.content.content.filter(
+      (node) => node.attrs.semanticRole === "layout_plan_crimson_chapter",
+    );
+    expect(chapters).toHaveLength(2);
+    expect(chapters.map((node) => (node.type === "heading" ? node.attrs.numbering : null))).toEqual(
+      ["01", "02"],
+    );
+    const highlighted = JSON.stringify(result).match(/"type":"underline"/gu) ?? [];
+    expect(highlighted.length).toBeGreaterThanOrEqual(2);
   });
 });

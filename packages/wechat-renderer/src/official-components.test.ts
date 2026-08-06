@@ -221,6 +221,57 @@ describe("official component renderers", () => {
     });
   });
 
+  it("renders the crimson editorial navigation, chapter and data rhythm", () => {
+    const overview = renderWechatHtml({
+      document: documentWith(
+        {
+          type: "semanticCard",
+          attrs: {
+            blockId: "crimson_overview",
+            componentId: "cmp_notice_checklist_action_005",
+            componentVersion: "1.0.0",
+            eyebrow: "📌 本文看点",
+            footer: "01\t以稳为基\n02\t以新为要\n03\t以实为本",
+            locked: false,
+            semanticRole: "layout_plan_generated_overview",
+            title: "阅读导航",
+            variant: "editorial_overview",
+          },
+        },
+        100,
+      ),
+      mode: "standard",
+    });
+    expect(overview.html).toContain("本文看点");
+    expect(overview.html).toContain("以稳为基");
+    expect(overview.html).toContain("以实为本");
+    expect(overview.html).toContain("width:32.2%");
+
+    const data = renderWechatHtml({
+      document: documentWith(
+        {
+          type: "semanticCard",
+          attrs: {
+            blockId: "crimson_data",
+            componentId: "cmp_notice_risk_red_004",
+            componentVersion: "1.0.0",
+            locked: false,
+            semanticRole: "layout_plan_generated_data",
+            title: "关键数据",
+            variant: "editorial_data_triptych",
+          },
+          content: [paragraph("crimson_data_body", "覆盖510项任务、644人参与，完成率95%。")],
+        },
+        101,
+      ),
+      mode: "standard",
+    });
+    expect(data.html).toContain("510");
+    expect(data.html).toContain("644");
+    expect(data.html).toContain("95%");
+    expect(data.html).toContain("font-size:24px");
+  });
+
   it("renders original visual assets and gallery layouts through HTTPS-safe markup", () => {
     const visualAssets = OFFICIAL_COMPONENT_ASSETS.filter((asset) =>
       asset.manifest.semanticRoles.includes("visual"),
