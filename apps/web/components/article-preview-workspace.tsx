@@ -1,7 +1,10 @@
 "use client";
 
 import { normalizeDocument } from "@wechat-layout/editor-core";
-import { builtInVisualAssetPublicPath } from "@wechat-layout/component-registry";
+import {
+  OFFICIAL_COMPONENT_ASSETS,
+  builtInVisualAssetPublicPath,
+} from "@wechat-layout/component-registry";
 import type {
   BlockNode,
   DocumentMark,
@@ -280,19 +283,50 @@ function PreviewBlock({ node }: { readonly node: BlockNode }) {
     );
   }
   if (node.type === "semanticCard") {
+    const asset = OFFICIAL_COMPONENT_ASSETS.find(
+      (candidate) => candidate.manifest.componentId === node.attrs.componentId,
+    );
+    const artwork = asset?.preview.sample.assetPath;
+    const dark =
+      node.attrs.variant === "tech_orbit_hero" ||
+      node.attrs.variant === "film_triptych" ||
+      node.attrs.variant === "magazine_duo";
     return (
-      <section className="my-6 rounded-lg border border-zinc-200 bg-zinc-50 p-5" style={style}>
-        {node.attrs.eyebrow === undefined ? null : (
-          <p className="text-[11px] font-semibold tracking-wider text-indigo-600 uppercase">
-            {node.attrs.eyebrow}
-          </p>
+      <section
+        className={`my-6 overflow-hidden rounded-xl border ${dark ? "border-slate-700 bg-[#102d4c]" : "border-zinc-200 bg-zinc-50"}`}
+        style={style}
+      >
+        {artwork === undefined ? null : (
+          <img
+            alt={`${asset?.preview.name ?? "高级模块"}装饰`}
+            className="block h-auto max-h-[260px] w-full object-cover"
+            src={artwork}
+          />
         )}
-        {node.attrs.title === undefined ? null : (
-          <h3 className="mt-2 text-lg font-bold text-zinc-900">{node.attrs.title}</h3>
-        )}
-        {(node.content ?? []).map((child) => (
-          <PreviewBlock key={child.attrs.blockId} node={child} />
-        ))}
+        <div className="p-5">
+          {node.attrs.eyebrow === undefined ? null : (
+            <p
+              className={`text-[11px] font-semibold tracking-wider uppercase ${dark ? "text-amber-300" : "text-indigo-600"}`}
+            >
+              {node.attrs.eyebrow}
+            </p>
+          )}
+          {node.attrs.title === undefined ? null : (
+            <h3 className={`mt-2 text-lg font-bold ${dark ? "text-white" : "text-zinc-900"}`}>
+              {node.attrs.title}
+            </h3>
+          )}
+          <div className={dark ? "text-slate-100" : undefined}>
+            {(node.content ?? []).map((child) => (
+              <PreviewBlock key={child.attrs.blockId} node={child} />
+            ))}
+          </div>
+          {node.attrs.footer === undefined ? null : (
+            <p className={`mt-4 text-xs ${dark ? "text-slate-300" : "text-zinc-500"}`}>
+              {node.attrs.footer}
+            </p>
+          )}
+        </div>
       </section>
     );
   }

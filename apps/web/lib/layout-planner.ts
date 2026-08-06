@@ -1,13 +1,13 @@
-import {
-  OFFICIAL_VISUAL_ASSETS,
-  type OfficialVisualAsset,
-  type VisualAssetStyle,
-} from "@wechat-layout/component-registry";
+import type { VisualAssetStyle } from "@wechat-layout/component-registry";
 import type {
   BlockNode,
+  DividerNode,
   DocNode,
   DocumentV1,
+  HeadingNode,
+  ImageBlockNode,
   ParagraphNode,
+  SemanticCardNode,
   StyleOverrides,
 } from "@wechat-layout/document-schema";
 
@@ -606,40 +606,87 @@ function planStyle(node: BlockNode, plan: LayoutPlan): StyleOverrides {
   return {};
 }
 
-function visualAsset(
-  plan: LayoutPlan,
-  functionName: "divider" | "hero",
-  offset: number,
-): OfficialVisualAsset {
-  const exact = OFFICIAL_VISUAL_ASSETS.filter(
-    (asset) =>
-      asset.motion === "static" &&
-      asset.style === plan.assetStyle &&
-      asset.function === functionName,
-  );
-  const fallback = OFFICIAL_VISUAL_ASSETS.filter(
-    (asset) => asset.motion === "static" && asset.function === functionName,
-  );
-  const candidates = exact.length > 0 ? exact : fallback;
-  return candidates[(plan.articleGene.seed + offset) % candidates.length]!;
+interface LayoutComponentSet {
+  readonly divider: { readonly id: string; readonly variant: "dashed" | "ornament" };
+  readonly heading1: { readonly id: string; readonly variant: string };
+  readonly heading2: { readonly id: string; readonly variant: string };
+  readonly hero: { readonly id: string; readonly variant: string };
+  readonly image: { readonly id: string; readonly variant: string };
+  readonly notice: { readonly id: string; readonly variant: string };
+  readonly quote: { readonly id: string; readonly variant: string };
 }
 
-function generatedImage(plan: LayoutPlan, functionName: "divider" | "hero", offset: number) {
-  const asset = visualAsset(plan, functionName, offset);
-  return {
-    type: "imageBlock" as const,
-    attrs: {
-      alt: `${plan.designName}${functionName === "hero" ? "主视觉" : "章节转场"}`,
-      blockId: blockId(),
-      compatibilityLevel: "safe" as const,
-      locked: false,
-      objectFit: "contain" as const,
-      resourceId: asset.resourceId,
-      semanticRole: "layout_plan_generated",
-      widthMode: "full" as const,
-      styleRef: `layout.${plan.languageId}.${plan.visualVariant}`,
-    },
-  };
+const LAYOUT_COMPONENTS: Readonly<Record<DesignLanguageId, LayoutComponentSet>> = {
+  "minimal-blue": {
+    hero: { id: "cmp_tech_orbit_hero_001", variant: "tech_orbit_hero" },
+    heading1: { id: "cmp_head_level1_underlined_003", variant: "underlined" },
+    heading2: { id: "cmp_head_level2_marker_006", variant: "marker" },
+    quote: { id: "cmp_quote_highlight_center_006", variant: "highlight" },
+    notice: { id: "cmp_notice_info_blue_001", variant: "info" },
+    image: { id: "cmp_image_rounded_caption_002", variant: "rounded_caption" },
+    divider: { id: "cmp_divider_ornament_center_003", variant: "ornament" },
+  },
+  "warm-paper": {
+    hero: { id: "cmp_intro_autumn_persimmon_001", variant: "autumn_persimmon_intro" },
+    heading1: { id: "cmp_head_level1_frame_006", variant: "framed" },
+    heading2: { id: "cmp_head_level2_pill_005", variant: "pill" },
+    quote: { id: "cmp_quote_postcard_warm_005", variant: "postcard" },
+    notice: { id: "cmp_notice_story_intro_006", variant: "story" },
+    image: { id: "cmp_image_polaroid_caption_005", variant: "polaroid" },
+    divider: { id: "cmp_divider_ornament_dots_004", variant: "ornament" },
+  },
+  "night-cyan": {
+    hero: { id: "cmp_tech_orbit_hero_001", variant: "tech_orbit_hero" },
+    heading1: { id: "cmp_head_level1_ribbon_005", variant: "ribbon" },
+    heading2: { id: "cmp_head_level2_marker_006", variant: "marker" },
+    quote: { id: "cmp_quote_conclusion_card_003", variant: "conclusion" },
+    notice: { id: "cmp_notice_info_blue_001", variant: "info" },
+    image: { id: "cmp_image_border_documentary_003", variant: "documentary" },
+    divider: { id: "cmp_divider_dashed_subtle_002", variant: "dashed" },
+  },
+  "forest-green": {
+    hero: { id: "cmp_intro_leaf_story_003", variant: "leaf_story_intro" },
+    heading1: { id: "cmp_head_level1_centered_004", variant: "centered" },
+    heading2: { id: "cmp_head_level2_underlined_003", variant: "underlined" },
+    quote: { id: "cmp_quote_postcard_warm_005", variant: "postcard" },
+    notice: { id: "cmp_notice_success_green_002", variant: "success" },
+    image: { id: "cmp_image_rounded_caption_002", variant: "rounded_caption" },
+    divider: { id: "cmp_divider_ornament_dots_004", variant: "ornament" },
+  },
+  "crimson-editorial": {
+    hero: { id: "cmp_gov_red_gold_banner_001", variant: "civic_red_banner" },
+    heading1: { id: "cmp_head_level1_numbered_002", variant: "numbered" },
+    heading2: { id: "cmp_head_level2_leftbar_002", variant: "leftbar" },
+    quote: { id: "cmp_quote_document_source_004", variant: "document" },
+    notice: { id: "cmp_notice_risk_red_004", variant: "risk" },
+    image: { id: "cmp_image_border_documentary_003", variant: "documentary" },
+    divider: { id: "cmp_divider_ornament_center_003", variant: "ornament" },
+  },
+  "ink-gold": {
+    hero: { id: "cmp_hero_ink_mountain_001", variant: "ink_mountain_hero" },
+    heading1: { id: "cmp_head_level1_frame_006", variant: "framed" },
+    heading2: { id: "cmp_head_level2_underlined_003", variant: "underlined" },
+    quote: { id: "cmp_quote_citation_marks_002", variant: "quotation" },
+    notice: { id: "cmp_notice_story_intro_006", variant: "story" },
+    image: { id: "cmp_image_polaroid_caption_005", variant: "polaroid" },
+    divider: { id: "cmp_divider_ornament_dots_004", variant: "ornament" },
+  },
+};
+
+function isGeneratedLayoutRole(role: string | undefined): boolean {
+  return role?.startsWith("layout_plan_generated") === true;
+}
+
+function restoreOriginalBlocks(nodes: readonly DocNode["content"][number][]): DocNode["content"] {
+  return nodes.flatMap((node): DocNode["content"] => {
+    if (isGeneratedLayoutRole(node.attrs.semanticRole)) {
+      if (node.type === "semanticCard" && node.content !== undefined) {
+        return restoreOriginalBlocks(node.content);
+      }
+      return [];
+    }
+    return [unwrapGeneratedEmphasis(node)];
+  });
 }
 
 function unwrapGeneratedEmphasis(node: DocNode["content"][number]): DocNode["content"][number] {
@@ -689,10 +736,14 @@ function emphasisCandidates(blocks: readonly DocNode["content"][number][]): Read
 }
 
 function emphasisBlock(node: ParagraphNode, plan: LayoutPlan): DocNode["content"][number] {
+  const component = LAYOUT_COMPONENTS[plan.languageId].quote;
   return {
     type: "blockquote",
     attrs: {
       blockId: blockId(),
+      componentId: component.id,
+      componentVersion: "1.0.0",
+      componentVariantId: "default",
       compatibilityLevel: "safe",
       locked: false,
       quoteType: "standard",
@@ -707,55 +758,285 @@ function emphasisBlock(node: ParagraphNode, plan: LayoutPlan): DocNode["content"
         },
         plan,
       ),
-      variant: `${plan.languageId}-${String(plan.visualVariant)}`,
+      variant: component.variant,
     },
     content: [node],
   };
 }
 
-export function applyLayoutPlanToDocument(document: DocumentV1, plan: LayoutPlan): DocumentV1 {
-  const originalBlocks = document.content.content
-    .filter((node) => node.attrs.semanticRole !== "layout_plan_generated")
-    .map(unwrapGeneratedEmphasis);
-  const styledBlocks = originalBlocks.map((node) => ({
-    ...structuredClone(node),
-    attrs: {
-      ...structuredClone(node.attrs),
-      styleRef: `layout.${plan.languageId}.${plan.visualVariant}`,
-      styleOverrides: {
-        ...structuredClone(node.attrs.styleOverrides ?? {}),
-        ...planStyle(node, plan),
-      },
+function componentizeBlock(
+  node: DocNode["content"][number],
+  plan: LayoutPlan,
+  sectionNumber: number,
+): DocNode["content"][number] {
+  const components = LAYOUT_COMPONENTS[plan.languageId];
+  const baseAttrs = {
+    ...structuredClone(node.attrs),
+    styleRef: `layout.${plan.languageId}.${plan.visualVariant}`,
+    styleOverrides: {
+      ...structuredClone(node.attrs.styleOverrides ?? {}),
+      ...planStyle(node, plan),
     },
-  })) as DocNode["content"];
+  };
+  if (node.type === "heading") {
+    const component = node.attrs.level === 1 ? components.heading1 : components.heading2;
+    const shouldNumber =
+      node.attrs.level === 2 &&
+      component.variant === "marker" &&
+      !/^\s*(?:\d+|[一二三四五六七八九十]+)[.、/]/u.test(textFromNode(node));
+    return {
+      ...structuredClone(node),
+      attrs: {
+        ...baseAttrs,
+        componentId: component.id,
+        componentVersion: "1.0.0",
+        componentVariantId: "default",
+        ...(shouldNumber ? { numbering: String(sectionNumber).padStart(2, "0") } : {}),
+      },
+    } as HeadingNode;
+  }
+  if (node.type === "blockquote") {
+    return {
+      ...structuredClone(node),
+      attrs: {
+        ...baseAttrs,
+        componentId: components.quote.id,
+        componentVersion: "1.0.0",
+        componentVariantId: "default",
+        variant: components.quote.variant,
+        showQuotes:
+          components.quote.variant === "quotation" || components.quote.variant === "postcard",
+      },
+    };
+  }
+  if (node.type === "imageBlock") {
+    return {
+      ...structuredClone(node),
+      attrs: {
+        ...baseAttrs,
+        componentId: components.image.id,
+        componentVersion: "1.0.0",
+        componentVariantId: "default",
+        horizontalAlign: node.attrs.horizontalAlign ?? "center",
+        objectFit: node.attrs.objectFit ?? "cover",
+      },
+    } as ImageBlockNode;
+  }
+  if (node.type === "bulletList") {
+    return {
+      ...structuredClone(node),
+      attrs: {
+        ...baseAttrs,
+        bulletStyle:
+          plan.articleGene.articleType === "tutorial" || plan.articleGene.articleType === "list"
+            ? "check"
+            : "brand",
+      },
+    };
+  }
+  return { ...structuredClone(node), attrs: baseAttrs } as DocNode["content"][number];
+}
+
+function generatedDivider(plan: LayoutPlan): DividerNode {
+  const component = LAYOUT_COMPONENTS[plan.languageId].divider;
+  return {
+    type: "divider",
+    attrs: {
+      align: "center",
+      blockId: blockId(),
+      componentId: component.id,
+      componentVersion: "1.0.0",
+      componentVariantId: "default",
+      compatibilityLevel: "safe",
+      ...(component.variant === "ornament" ? { icon: "\u2022  \u2022  \u2022" } : {}),
+      locked: false,
+      semanticRole: "layout_plan_generated_divider",
+      spacingAfter: 28,
+      spacingBefore: 28,
+      styleRef: `layout.${plan.languageId}.divider`,
+      styleOverrides: planStyle(
+        { type: "divider", attrs: { blockId: "preview", locked: false } },
+        plan,
+      ),
+      variant: component.variant,
+      widthPercent: component.variant === "ornament" ? 28 : 68,
+    },
+  };
+}
+
+function introCard(
+  paragraph: ParagraphNode | undefined,
+  plan: LayoutPlan,
+  characterCount: number,
+): SemanticCardNode {
+  const component = LAYOUT_COMPONENTS[plan.languageId].hero;
+  const readingMinutes = Math.max(1, Math.ceil(characterCount / 500));
+  const keywords =
+    plan.articleGene.keywords.length > 0
+      ? plan.articleGene.keywords.slice(0, 3).join(" \u00b7 ")
+      : `${plan.articleGene.articleTypeLabel} \u00b7 ${plan.articleGene.emotionLabel}`;
+  return {
+    type: "semanticCard",
+    attrs: {
+      blockId: blockId(),
+      componentId: component.id,
+      componentVersion: "1.0.0",
+      componentVariantId: "default",
+      compatibilityLevel: "safe",
+      eyebrow: `ARTICLE GUIDE \u00b7 ${plan.articleGene.articleTypeLabel}`,
+      footer: `${String(characterCount)} 字 \u00b7 约 ${String(readingMinutes)} 分钟 \u00b7 ${keywords}`,
+      locked: false,
+      semanticRole: "layout_plan_generated_intro",
+      styleRef: `layout.${plan.languageId}.hero`,
+      title: plan.articleGene.summary,
+      variant: component.variant,
+    },
+    ...(paragraph === undefined ? {} : { content: [paragraph] }),
+  };
+}
+
+function dataCard(paragraph: ParagraphNode, plan: LayoutPlan): SemanticCardNode {
+  const component = LAYOUT_COMPONENTS[plan.languageId].notice;
+  return {
+    type: "semanticCard",
+    attrs: {
+      blockId: blockId(),
+      componentId: component.id,
+      componentVersion: "1.0.0",
+      componentVariantId: "default",
+      compatibilityLevel: "safe",
+      eyebrow: "DATA \u00b7 关键信息",
+      footer: "核心数据已保留原文表达",
+      locked: false,
+      semanticRole: "layout_plan_generated_data",
+      styleRef: `layout.${plan.languageId}.data`,
+      styleOverrides: {
+        borderColor: plan.accentColors[0],
+        borderRadius: 8,
+        borderStyle: "solid",
+        borderWidth: 1,
+        marginBottom: 24,
+        marginTop: 24,
+      },
+      title: "数据要点",
+      variant: component.variant,
+    },
+    content: [paragraph],
+  };
+}
+
+function tailCard(plan: LayoutPlan): SemanticCardNode {
+  return {
+    type: "semanticCard",
+    attrs: {
+      blockId: blockId(),
+      componentId: "cmp_notice_checklist_action_005",
+      componentVersion: "1.0.0",
+      componentVariantId: "default",
+      compatibilityLevel: "safe",
+      eyebrow: "READ \u00b7 SHARE",
+      footer: "感谢阅读 \u00b7 愿好内容被更多人看见",
+      locked: false,
+      semanticRole: "layout_plan_generated_footer",
+      styleRef: `layout.${plan.languageId}.footer`,
+      styleOverrides: {
+        backgroundColor: plan.accentColors[1],
+        borderColor: plan.accentColors[0],
+        borderRadius: 10,
+        borderStyle: "dashed",
+        borderWidth: 1,
+        marginBottom: 16,
+        marginTop: 38,
+        paddingBottom: 20,
+        paddingLeft: 20,
+        paddingRight: 20,
+        paddingTop: 20,
+        textAlign: "center",
+      },
+      title: "\ud83d\udc4d 点赞 \u00b7 \ud83d\udc40 在看 \u00b7 \u2197 转发",
+      variant: "checklist",
+    },
+  };
+}
+
+function dataCandidates(
+  blocks: readonly DocNode["content"][number][],
+  introIndex: number,
+  plan: LayoutPlan,
+): ReadonlySet<number> {
+  const limit =
+    plan.articleGene.articleType === "data" || plan.articleGene.articleType === "case" ? 2 : 1;
+  return new Set(
+    blocks
+      .map((node, index) => {
+        if (node.type !== "paragraph" || index === introIndex) return { index, score: -1 };
+        const text = textFromNode(node).trim();
+        const numbers =
+          text.match(/\d+(?:\.\d+)?(?:%|\u4e07|\u4ebf|\u500d|\u5e74|\u4e2a|\u9879|\u4eba)?/gu) ??
+          [];
+        return {
+          index,
+          score: text.length >= 18 && text.length <= 180 ? numbers.length : -1,
+        };
+      })
+      .filter((entry) => entry.score >= 2)
+      .toSorted((left, right) => right.score - left.score)
+      .slice(0, limit)
+      .map((entry) => entry.index),
+  );
+}
+
+export function applyLayoutPlanToDocument(document: DocumentV1, plan: LayoutPlan): DocumentV1 {
+  const analysis = analyzeDocumentLayout(document);
+  const originalBlocks = restoreOriginalBlocks(document.content.content);
+  let sectionNumber = 0;
+  const styledBlocks = originalBlocks.map((node) => {
+    if (node.type === "heading" && node.attrs.level === 2) sectionNumber += 1;
+    return componentizeBlock(node, plan, sectionNumber);
+  }) as DocNode["content"];
   const result: DocNode["content"] = [];
   const emphasis = emphasisCandidates(styledBlocks);
+  const introIndex = styledBlocks.findIndex(
+    (node) => node.type === "paragraph" && textFromNode(node).trim().length >= 12,
+  );
+  const data = dataCandidates(styledBlocks, introIndex, plan);
   const headingCount = styledBlocks.filter(
     (node) => node.type === "heading" && node.attrs.level === 2,
   ).length;
   const dividerCadence =
     plan.languageId === "forest-green" || plan.languageId === "ink-gold" ? 2 : 1;
   let sectionIndex = 0;
-  let heroInserted = false;
+  let introInserted = false;
 
   styledBlocks.forEach((node, index) => {
     if (node.type === "heading" && node.attrs.level === 2) {
       sectionIndex += 1;
       if (headingCount > 1 && result.length > 0 && (sectionIndex - 1) % dividerCadence === 0) {
-        result.push(generatedImage(plan, "divider", sectionIndex));
+        result.push(generatedDivider(plan));
       }
     }
-    const outputNode =
-      emphasis.has(index) && node.type === "paragraph" ? emphasisBlock(node, plan) : node;
-    result.push(outputNode);
-    if (!heroInserted && node.type === "heading" && node.attrs.level === 1) {
-      result.push(generatedImage(plan, "hero", 0));
-      heroInserted = true;
+    if (index === introIndex && node.type === "paragraph") {
+      result.push(introCard(node, plan, analysis.characterCount));
+      introInserted = true;
+    } else if (data.has(index) && node.type === "paragraph") {
+      result.push(dataCard(node, plan));
+    } else {
+      const outputNode =
+        emphasis.has(index) && node.type === "paragraph" ? emphasisBlock(node, plan) : node;
+      result.push(outputNode);
     }
   });
-  if (!heroInserted) {
-    result.unshift(generatedImage(plan, "hero", 0));
+  if (!introInserted) {
+    const titleIndex = result.findIndex(
+      (node) => node.type === "heading" && node.attrs.level === 1,
+    );
+    result.splice(
+      titleIndex < 0 ? 0 : titleIndex + 1,
+      0,
+      introCard(undefined, plan, analysis.characterCount),
+    );
   }
+  result.push(tailCard(plan));
 
   return {
     ...structuredClone(document),

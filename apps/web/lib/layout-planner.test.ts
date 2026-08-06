@@ -43,17 +43,27 @@ describe("layout planner", () => {
     const second = applyLayoutPlanToDocument(first, plan);
     expect(() => parseDocument(second)).not.toThrow();
     const after = JSON.stringify(second).match(/"text":"[^"]*"/gu);
+    const firstGenerated = first.content.content.filter((node) =>
+      node.attrs.semanticRole?.startsWith("layout_plan_generated"),
+    );
+    const secondGenerated = second.content.content.filter((node) =>
+      node.attrs.semanticRole?.startsWith("layout_plan_generated"),
+    );
+    const intro = secondGenerated.find(
+      (node) => node.attrs.semanticRole === "layout_plan_generated_intro",
+    );
+    const footer = secondGenerated.find(
+      (node) => node.attrs.semanticRole === "layout_plan_generated_footer",
+    );
+    const componentHeading = second.content.content.find((node) => node.type === "heading");
 
     expect(after).toEqual(before);
-    expect(
-      second.content.content.filter((node) => node.attrs.semanticRole === "layout_plan_generated")
-        .length,
-    ).toBeGreaterThan(0);
-    expect(
-      second.content.content.filter((node) => node.attrs.semanticRole === "layout_plan_generated"),
-    ).toHaveLength(
-      first.content.content.filter((node) => node.attrs.semanticRole === "layout_plan_generated")
-        .length,
-    );
+    expect(secondGenerated.length).toBeGreaterThan(1);
+    expect(secondGenerated).toHaveLength(firstGenerated.length);
+    expect(intro?.type).toBe("semanticCard");
+    expect(intro?.attrs.componentId).toMatch(/^cmp_(?:hero|intro|gov|tech)_/u);
+    expect(footer?.type).toBe("semanticCard");
+    expect(footer?.type === "semanticCard" ? footer.attrs.title : undefined).toContain("点赞");
+    expect(componentHeading?.attrs.componentId).toMatch(/^cmp_head_/u);
   });
 });
