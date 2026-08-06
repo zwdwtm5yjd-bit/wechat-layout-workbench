@@ -2,6 +2,7 @@ import { OFFICIAL_THEME_PACKAGES } from "@wechat-layout/design-tokens";
 import type { DocumentV1, ParagraphNode } from "@wechat-layout/document-schema";
 import { describe, expect, it } from "vitest";
 
+import { WechatCompatibilityEngine } from "./compatibility-engine.js";
 import { renderWechatHtml } from "./renderer.js";
 
 const bodyText =
@@ -148,6 +149,11 @@ describe("official theme rendering", () => {
       expect(safe.html).toContain(theme.preview.accentColors[0]);
       expect(safe.html).not.toContain("<script");
       expect(safe.html).toContain("第三层信息提示");
+      const compatibility = new WechatCompatibilityEngine({
+        now: () => new Date("2026-08-06T00:00:00.000Z"),
+      }).checkHtml(safe.html, { mode: "wechat_safe" });
+      expect(compatibility.summary.critical, theme.manifest.name).toBe(0);
+      expect(compatibility.canCopy, theme.manifest.name).toBe(true);
       return safe;
     });
 

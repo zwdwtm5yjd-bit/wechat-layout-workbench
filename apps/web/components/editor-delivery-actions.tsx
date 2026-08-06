@@ -3,7 +3,12 @@
 import type { DocumentV1 } from "@wechat-layout/document-schema";
 import type { RenderOutput } from "../lib/copy/client";
 import type { DocumentSaveSnapshot } from "../lib/documents/autosave";
-import { analyzeDocumentLayout, createLayoutPlans, type LayoutPlan } from "../lib/layout-planner";
+import {
+  analyzeDocumentLayout,
+  createLayoutPlans,
+  type LayoutDesignMode,
+  type LayoutPlan,
+} from "../lib/layout-planner";
 import type { OfficialTheme } from "../lib/themes/client";
 import {
   CheckCircle2,
@@ -57,9 +62,14 @@ export function EditorDeliveryActions({
   const [compatibilityOpen, setCompatibilityOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [layoutOpen, setLayoutOpen] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<LayoutDesignMode>("preset");
+  const [styleBrief, setStyleBrief] = useState("");
   const [renderOutput, setRenderOutput] = useState<RenderOutput | null>(null);
   const analysis = useMemo(() => analyzeDocumentLayout(document), [document]);
-  const layoutPlans = useMemo(() => createLayoutPlans(document, themes), [document, themes]);
+  const layoutPlans = useMemo(
+    () => createLayoutPlans(document, themes, { brief: styleBrief, mode: layoutMode }),
+    [document, layoutMode, styleBrief, themes],
+  );
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("guide") === "1") {
@@ -175,10 +185,10 @@ export function EditorDeliveryActions({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <Dialog.Title className="text-base font-semibold text-ink">
-                  选择一套成稿方案
+                  让内容决定排版
                 </Dialog.Title>
                 <Dialog.Description className="mt-1 text-[11px] text-muted">
-                  已分析文章结构。应用方案会先保存安全快照，再统一主题、标题、段距、引用和章节装饰。
+                  先识别文章类型、情绪和结构，再生成统一的视觉语言；原文保持不变。
                 </Dialog.Description>
               </div>
               <Dialog.Close
@@ -188,20 +198,88 @@ export function EditorDeliveryActions({
                 <X aria-hidden="true" size={15} />
               </Dialog.Close>
             </div>
-            <div className="mt-5 grid gap-3 rounded-control border border-line bg-panel-muted p-4 sm:grid-cols-4">
-              {[
-                ["正文", `${analysis.characterCount.toLocaleString("zh-CN")} 字`],
-                ["章节", `${analysis.headingCount} 个标题`],
-                ["现有图片", `${analysis.imageCount} 张`],
-                ["建议补图", `${analysis.missingImageCount} 张`],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <p className="text-[9px] text-faint">{label}</p>
-                  <p className="mt-1 text-[12px] font-semibold text-ink">{value}</p>
-                </div>
+            <div className="mt-5 rounded-control border border-line bg-panel-muted p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[10px] font-semibold text-accent">
+                  {analysis.gene.articleTypeLabel}
+                </span>
+                <span className="rounded-full border border-line bg-panel px-2.5 py-1 text-[10px] text-muted">
+                  {analysis.gene.emotionLabel}
+                </span>
+                <span className="text-[10px] leading-5 text-muted">{analysis.gene.summary}</span>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-4">
+                {[
+                  ["正文", `${analysis.characterCount.toLocaleString("zh-CN")} 字`],
+                  ["章节", `${analysis.headingCount} 个标题`],
+                  ["现有图片", `${analysis.imageCount} 张`],
+                  ["建议补图", `${analysis.missingImageCount} 张`],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <p className="text-[9px] text-faint">{label}</p>
+                    <p className="mt-1 text-[12px] font-semibold text-ink">{value}</p>
+                  </div>
+                ))}
+              </div>
+              {analysis.gene.structureSignals.length === 0 ? null : (
+                <p className="mt-3 text-[9px] leading-4 text-faint">
+                  结构线索：{analysis.gene.structureSignals.join(" · ")}
+                </p>
+              )}
+            </div>
+            <div
+              className="mt-5 grid gap-2 sm:grid-cols-3"
+              role="tablist"
+              aria-label="排版生成方式"
+            >
+              {(
+                [
+                  ["preset", "智能推荐", "从 6 种设计语言中选择"],
+                  ["described", "描述风格", "说出你想要的视觉感觉"],
+                  ["original", "AI 原创", "为本文生成唯一方案"],
+                ] as const
+              ).map(([mode, label, description]) => (
+                <button
+                  aria-selected={layoutMode === mode}
+                  className={`rounded-control border p-3 text-left transition ${
+                    layoutMode === mode
+                      ? "border-accent bg-accent-soft ring-2 ring-accent/10"
+                      : "border-line bg-panel hover:border-line-strong"
+                  }`}
+                  key={mode}
+                  onClick={() => setLayoutMode(mode)}
+                  role="tab"
+                  type="button"
+                >
+                  <span className="block text-[11px] font-semibold text-ink">{label}</span>
+                  <span className="mt-1 block text-[9px] leading-4 text-muted">{description}</span>
+                </button>
               ))}
             </div>
-            <div className="mt-5 grid gap-3 lg:grid-cols-3">
+            {layoutMode === "described" ? (
+              <label className="mt-4 block rounded-control border border-line bg-panel-muted p-4">
+                <span className="text-[10px] font-semibold text-ink">你想要什么感觉？</span>
+                <textarea
+                  className="mt-2 min-h-20 w-full resize-y rounded-control border border-line bg-panel px-3 py-2 text-[11px] leading-5 text-ink outline-none focus:border-accent"
+                  maxLength={300}
+                  onChange={(event) => setStyleBrief(event.currentTarget.value)}
+                  placeholder="例如：温暖的杂志感，米白底色，标题有手工纸气质，金句突出但不要太花。"
+                  value={styleBrief}
+                />
+                <span className="mt-1 block text-right text-[9px] text-faint">
+                  {styleBrief.length}/300
+                </span>
+              </label>
+            ) : null}
+            {layoutMode === "original" ? (
+              <div className="mt-4 rounded-control border border-accent/20 bg-accent-soft p-4 text-[10px] leading-5 text-muted">
+                原创模式会使用当前文章的稳定内容指纹决定标题处理、金句位置、章节转场与主视觉。
+                同一篇文章重复生成保持一致，换一篇文章会得到不同方案。
+              </div>
+            ) : null}
+            <div
+              className={`mt-5 grid gap-3 ${layoutPlans.length === 1 ? "mx-auto max-w-xl" : "lg:grid-cols-3"}`}
+            >
               {layoutPlans.map((plan) => {
                 const applying = applyingPlanId === plan.id;
                 return (
@@ -225,12 +303,13 @@ export function EditorDeliveryActions({
                         />
                       ))}
                     </div>
-                    <p className="mt-4 text-[14px] font-semibold text-ink">{plan.name}</p>
+                    <p className="mt-4 text-[14px] font-semibold text-ink">{plan.designName}</p>
                     <p className="mt-1 text-[10px] font-medium text-accent">
-                      {plan.themeName} · {plan.tone}
+                      {plan.languageName} · {plan.tone}
                     </p>
-                    <p className="mt-3 min-h-16 text-[11px] leading-5 text-muted">
-                      {plan.description}
+                    <p className="mt-3 text-[11px] leading-5 text-muted">{plan.description}</p>
+                    <p className="mt-2 rounded-md bg-panel-muted px-2.5 py-2 text-[9px] leading-4 text-faint">
+                      {plan.reasoning}
                     </p>
                     <ul className="mt-3 space-y-1.5 text-[10px] text-muted">
                       {plan.highlights.map((highlight) => (
@@ -243,7 +322,10 @@ export function EditorDeliveryActions({
                     <button
                       className="mt-5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-control bg-accent text-[11px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
                       disabled={
-                        saveStatus !== "saved" || applyingPlanId !== null || plan.theme === null
+                        saveStatus !== "saved" ||
+                        applyingPlanId !== null ||
+                        plan.theme === null ||
+                        (layoutMode === "described" && styleBrief.trim().length < 3)
                       }
                       onClick={() => {
                         void onApplyLayout(plan)
@@ -257,14 +339,20 @@ export function EditorDeliveryActions({
                       ) : (
                         <ImagePlus aria-hidden="true" size={13} />
                       )}
-                      {applying ? "正在生成成稿…" : "应用整套方案"}
+                      {applying
+                        ? "正在生成成稿…"
+                        : layoutMode === "original"
+                          ? "生成并应用原创排版"
+                          : layoutMode === "described"
+                            ? "按描述生成并应用"
+                            : "应用这套设计语言"}
                     </button>
                   </article>
                 );
               })}
             </div>
             <p className="mt-4 text-center text-[10px] text-faint">
-              应用后仍可自由拖动区块、换主题、上传自己的图片并逐项修改。
+              应用前自动保存安全快照；应用后仍可拖动区块、局部改样式、上传并保存自己的素材。
             </p>
           </Dialog.Content>
         </Dialog.Portal>

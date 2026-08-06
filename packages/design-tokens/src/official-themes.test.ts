@@ -11,8 +11,8 @@ import {
 import { validateThemeTokenDocument } from "./validation.js";
 
 describe("official theme packages", () => {
-  it("publishes ten immutable, complete and valid first-party themes", () => {
-    expect(OFFICIAL_THEME_PACKAGES).toHaveLength(10);
+  it("publishes sixteen immutable, complete and valid first-party themes", () => {
+    expect(OFFICIAL_THEME_PACKAGES).toHaveLength(16);
     expect(OFFICIAL_THEME_PACKAGES.filter((theme) => theme.manifest.isDefault)).toHaveLength(1);
 
     for (const theme of OFFICIAL_THEME_PACKAGES) {

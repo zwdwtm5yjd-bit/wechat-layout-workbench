@@ -9,13 +9,30 @@ import {
 } from "./layout-planner";
 
 describe("layout planner", () => {
-  it("analyzes the document and creates three user-facing plans", () => {
+  it("analyzes the article gene and creates six design-language plans", () => {
     const analysis = analyzeDocumentLayout(documentV1Fixture);
     const plans = createLayoutPlans(documentV1Fixture, []);
 
     expect(analysis.characterCount).toBeGreaterThan(0);
-    expect(plans).toHaveLength(3);
+    expect(analysis.gene.articleTypeLabel).not.toHaveLength(0);
+    expect(analysis.gene.emotionLabel).not.toHaveLength(0);
+    expect(plans).toHaveLength(6);
     expect(plans.filter((plan) => plan.recommended)).toHaveLength(1);
+  });
+
+  it("creates one described plan and one stable original plan", () => {
+    const described = createLayoutPlans(documentV1Fixture, [], {
+      brief: "温暖的杂志感，米白纸张和克制的陶土色",
+      mode: "described",
+    });
+    const original = createLayoutPlans(documentV1Fixture, [], { mode: "original" });
+
+    expect(described).toHaveLength(1);
+    expect(described[0]?.languageId).toBe("warm-paper");
+    expect(original).toHaveLength(1);
+    expect(original[0]?.id).toBe(
+      createLayoutPlans(documentV1Fixture, [], { mode: "original" })[0]?.id,
+    );
   });
 
   it("preserves source text while adding idempotent visual layout blocks", () => {

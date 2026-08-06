@@ -50,10 +50,10 @@ function serviceFixture() {
 }
 
 describe("ThemeService", () => {
-  it("lists ten installed immutable official themes", () => {
+  it("lists sixteen installed immutable official themes", () => {
     const { service } = serviceFixture();
     const result = service.list({});
-    expect(result.pagination).toMatchObject({ total: 10, totalPages: 1 });
+    expect(result.pagination).toMatchObject({ total: 16, totalPages: 1 });
     expect(result.items.map((theme) => theme.manifest.name)).toEqual([
       "高级极简",
       "现代政务红",
@@ -65,6 +65,12 @@ describe("ThemeService", () => {
       "人物专访",
       "节日红金",
       "国风雅韵",
+      "极简蓝",
+      "暖纸墨",
+      "暗夜青",
+      "森语绿",
+      "绯红编",
+      "墨金雅",
     ]);
     expect(result.items.every((theme) => theme.installed)).toBe(true);
   });
