@@ -16,5 +16,6 @@ import { PostgresDocumentRepository } from "./postgres-document.repository.js";
       useClass: PostgresDocumentRepository,
     },
   ],
+  exports: [DocumentService],
 })
 export class DocumentModule {}

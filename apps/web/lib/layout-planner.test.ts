@@ -1,11 +1,13 @@
 import { documentV1Fixture } from "@wechat-layout/document-schema/fixtures";
-import { parseDocument } from "@wechat-layout/document-schema";
+import { parseDocument, type DocumentV1 } from "@wechat-layout/document-schema";
 import { describe, expect, it } from "vitest";
 
 import {
   analyzeDocumentLayout,
+  applyAiLayoutDecisionToDocument,
   applyLayoutPlanToDocument,
   createLayoutPlans,
+  layoutPlanFromAiDecision,
 } from "./layout-planner";
 
 describe("layout planner", () => {
@@ -65,5 +67,61 @@ describe("layout planner", () => {
     expect(footer?.type).toBe("semanticCard");
     expect(footer?.type === "semanticCard" ? footer.attrs.title : undefined).toContain("点赞");
     expect(componentHeading?.attrs.componentId).toMatch(/^cmp_head_/u);
+  });
+
+  it("applies model-selected structure and removes unresolved visual placeholders", () => {
+    const document: DocumentV1 = structuredClone(documentV1Fixture);
+    document.content.content.push({
+      type: "semanticCard",
+      attrs: {
+        blockId: "block_empty_gallery",
+        componentId: "cmp_gallery_magazine_duo_002",
+        componentVersion: "1.0.0",
+        locked: false,
+      },
+      content: [
+        {
+          type: "imageBlock",
+          attrs: {
+            blockId: "block_pending_image",
+            locked: false,
+            resourceId: "component_slot_image_pending",
+          },
+        },
+      ],
+    });
+    const sourcePlan = createLayoutPlans(document, [], { mode: "original" })[0]!;
+    const decision = {
+      languageId: "crimson-editorial",
+      designName: "纪律坐标",
+      concept: "以报告式章节和克制的数据提示组织阅读。",
+      hero: { eyebrow: "INSPECTION REPORT", title: "稳中提质", footer: "体系化 · 标准化" },
+      footer: { title: "回看重点", text: "让监督成果落到行动" },
+      dividerAfterBlockIds: ["block_paragraph"],
+      blocks: document.content.content.map((node) => ({
+        blockId: node.attrs.blockId,
+        reason: "测试决策",
+        treatment:
+          node.attrs.blockId === "block_paragraph"
+            ? ("lead" as const)
+            : node.type === "imageBlock"
+              ? ("image" as const)
+              : ("body" as const),
+      })),
+    } as const;
+    const plan = layoutPlanFromAiDecision(document, [], sourcePlan, decision);
+    const result = applyAiLayoutDecisionToDocument(document, plan, decision);
+
+    expect(() => parseDocument(result)).not.toThrow();
+    expect(result.content.content.some((node) => node.attrs.blockId === "block_empty_gallery")).toBe(
+      false,
+    );
+    const intro = result.content.content.find(
+      (node) => node.attrs.semanticRole === "layout_plan_generated_intro",
+    );
+    expect(intro?.type === "semanticCard" ? intro.attrs.title : undefined).toBe("稳中提质");
+    expect(result.content.content.some((node) => node.type === "divider")).toBe(true);
+    expect(plan.languageId).toBe("crimson-editorial");
+    expect(plan.designName).toBe("纪律坐标");
   });
 });

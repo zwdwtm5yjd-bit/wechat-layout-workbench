@@ -77,6 +77,9 @@ importers:
       '@opentelemetry/sdk-node':
         specifier: 0.221.0
         version: 0.221.0(@opentelemetry/api@1.9.1)
+      '@wechat-layout/api-contracts':
+        specifier: workspace:*
+        version: link:../../packages/api-contracts
       '@wechat-layout/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -159,6 +162,9 @@ importers:
       '@tiptap/react':
         specifier: 3.29.2
         version: 3.29.2(@floating-ui/dom@1.8.0)(@tiptap/core@3.29.2(@tiptap/pm@3.29.2))(@tiptap/pm@3.29.2)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@wechat-layout/api-contracts':
+        specifier: workspace:*
+        version: link:../../packages/api-contracts
       '@wechat-layout/component-registry':
         specifier: workspace:*
         version: link:../../packages/component-registry

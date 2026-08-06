@@ -1,6 +1,7 @@
 "use client";
 
 import type { DocumentV1 } from "@wechat-layout/document-schema";
+import { useQuery } from "@tanstack/react-query";
 import type { RenderOutput } from "../lib/copy/client";
 import type { DocumentSaveSnapshot } from "../lib/documents/autosave";
 import {
@@ -9,6 +10,7 @@ import {
   type LayoutDesignMode,
   type LayoutPlan,
 } from "../lib/layout-planner";
+import { getAiLayoutStatus } from "../lib/ai-layout/client";
 import type { OfficialTheme } from "../lib/themes/client";
 import {
   CheckCircle2,
@@ -65,6 +67,12 @@ export function EditorDeliveryActions({
   const [layoutMode, setLayoutMode] = useState<LayoutDesignMode>("preset");
   const [styleBrief, setStyleBrief] = useState("");
   const [renderOutput, setRenderOutput] = useState<RenderOutput | null>(null);
+  const aiStatusQuery = useQuery({
+    queryKey: ["ai-layout-status"],
+    queryFn: getAiLayoutStatus,
+    staleTime: 60_000,
+  });
+  const aiAvailable = aiStatusQuery.data?.available === true;
   const analysis = useMemo(() => analyzeDocumentLayout(document), [document]);
   const layoutPlans = useMemo(
     () => createLayoutPlans(document, themes, { brief: styleBrief, mode: layoutMode }),
@@ -136,7 +144,7 @@ export function EditorDeliveryActions({
             type="button"
           >
             <LayoutTemplate aria-hidden="true" size={14} />
-            快速排版
+            智能排版
           </button>
           <button
             className="inline-flex h-9 items-center gap-2 rounded-control border border-line px-3 text-[11px] font-medium text-ink hover:bg-hover"
@@ -188,7 +196,7 @@ export function EditorDeliveryActions({
                   让内容决定排版
                 </Dialog.Title>
                 <Dialog.Description className="mt-1 text-[11px] text-muted">
-                  先识别文章类型、情绪和结构，再生成统一的视觉语言；原文保持不变。
+                  规则模式快速套用安全样式；AI 模式由服务端模型阅读全文后逐段设计，原文保持不变。
                 </Dialog.Description>
               </div>
               <Dialog.Close
@@ -234,9 +242,9 @@ export function EditorDeliveryActions({
             >
               {(
                 [
-                  ["preset", "智能推荐", "从 6 种设计语言中选择"],
-                  ["described", "描述风格", "说出你想要的视觉感觉"],
-                  ["original", "AI 原创", "为本文生成唯一方案"],
+                  ["preset", "快速规则", "不用模型，从 6 种安全设计语言中选择"],
+                  ["described", "AI 定制", "说出感觉，由模型逐段设计"],
+                  ["original", "AI 原创", "模型阅读全文后自主设计"],
                 ] as const
               ).map(([mode, label, description]) => (
                 <button
@@ -273,10 +281,19 @@ export function EditorDeliveryActions({
             ) : null}
             {layoutMode === "original" ? (
               <div className="mt-4 rounded-control border border-accent/20 bg-accent-soft p-4 text-[10px] leading-5 text-muted">
-                原创模式会使用当前文章的稳定内容指纹决定标题处理、金句位置、章节转场与主视觉。
-                同一篇文章重复生成保持一致，换一篇文章会得到不同方案。
+                模型会逐段决定哪些是标题、章节、导语、金句、数据卡和转场，再选择视觉语言。
+                不再使用内容指纹假装 AI，也不会插入占位图集。
               </div>
             ) : null}
+            {layoutMode === "preset" || aiAvailable ? null : (
+              <div className="mt-4 rounded-control border border-warning/25 bg-warning-soft p-4 text-[10px] leading-5 text-warning">
+                真实 AI 模型尚未连接，因此本次不会生成“假 AI”结果。服务器配置
+                AI_LAYOUT_API_KEY 后即可启用
+                {aiStatusQuery.data?.model === undefined
+                  ? "。"
+                  : ` ${aiStatusQuery.data.model}。`}
+              </div>
+            )}
             <div
               className={`mt-5 grid gap-3 ${layoutPlans.length === 1 ? "mx-auto max-w-xl" : "lg:grid-cols-3"}`}
             >
@@ -325,6 +342,7 @@ export function EditorDeliveryActions({
                         saveStatus !== "saved" ||
                         applyingPlanId !== null ||
                         plan.theme === null ||
+                        (layoutMode !== "preset" && !aiAvailable) ||
                         (layoutMode === "described" && styleBrief.trim().length < 3)
                       }
                       onClick={() => {
@@ -341,6 +359,8 @@ export function EditorDeliveryActions({
                       )}
                       {applying
                         ? "正在生成成稿…"
+                        : layoutMode !== "preset" && !aiAvailable
+                          ? "模型未连接"
                         : layoutMode === "original"
                           ? "生成并应用原创排版"
                           : layoutMode === "described"

@@ -1,5 +1,10 @@
 import type { VisualAssetStyle } from "@wechat-layout/component-registry";
 import type {
+  AiLayoutDecision,
+  AiLayoutDesignLanguageId,
+  AiLayoutTreatment,
+} from "@wechat-layout/api-contracts";
+import type {
   BlockNode,
   DividerNode,
   DocNode,
@@ -15,8 +20,7 @@ import type { OfficialTheme } from "./themes/client";
 
 export type LayoutDesignMode = "preset" | "described" | "original";
 export type LayoutPlanId = `${LayoutDesignMode}:${string}`;
-export type DesignLanguageId =
-  "minimal-blue" | "warm-paper" | "night-cyan" | "forest-green" | "crimson-editorial" | "ink-gold";
+export type DesignLanguageId = AiLayoutDesignLanguageId;
 export type ArticleType = "tutorial" | "list" | "opinion" | "interview" | "data" | "essay" | "case";
 export type ArticleEmotion = "calm" | "passionate" | "warm" | "authoritative" | "light";
 
@@ -477,6 +481,51 @@ export function createLayoutPlans(
   );
 }
 
+export function createLayoutPlanForLanguage(
+  document: DocumentV1,
+  themes: readonly OfficialTheme[],
+  languageId: DesignLanguageId,
+  options: { readonly brief?: string; readonly mode: LayoutDesignMode },
+): LayoutPlan {
+  const analysis = analyzeDocumentLayout(document);
+  const language = DESIGN_LANGUAGES.find((candidate) => candidate.id === languageId)!;
+  return planFor(
+    analysis,
+    themes,
+    language,
+    options.mode,
+    true,
+    options.brief?.trim() || null,
+    DESIGN_LANGUAGES.findIndex((candidate) => candidate.id === languageId),
+  );
+}
+
+export function layoutPlanFromAiDecision(
+  document: DocumentV1,
+  themes: readonly OfficialTheme[],
+  sourcePlan: LayoutPlan,
+  decision: AiLayoutDecision,
+): LayoutPlan {
+  const base = createLayoutPlanForLanguage(document, themes, decision.languageId, {
+    mode: sourcePlan.mode,
+    ...(sourcePlan.brief === null ? {} : { brief: sourcePlan.brief }),
+  });
+  return {
+    ...base,
+    id: `${sourcePlan.mode}:${decision.languageId}-ai-${String(base.articleGene.seed)}`,
+    name: decision.designName,
+    designName: decision.designName,
+    description: decision.concept,
+    reasoning: decision.concept,
+    highlights: [
+      `模型逐段判断 ${String(decision.blocks.length)} 个内容区块`,
+      `结构：标题、章节、导语、金句与数据卡按正文生成`,
+      "不生成占位图片或无关图集",
+      "微信安全样式与原文保护",
+    ],
+  };
+}
+
 function blockId(): string {
   const value =
     typeof globalThis.crypto?.randomUUID === "function"
@@ -677,12 +726,47 @@ function isGeneratedLayoutRole(role: string | undefined): boolean {
   return role?.startsWith("layout_plan_generated") === true;
 }
 
+function containsPendingImage(node: unknown): boolean {
+  if (typeof node !== "object" || node === null) return false;
+  const record = node as {
+    readonly attrs?: Readonly<Record<string, unknown>>;
+    readonly content?: readonly unknown[];
+  };
+  return (
+    record.attrs?.resourceId === "component_slot_image_pending" ||
+    record.content?.some(containsPendingImage) === true
+  );
+}
+
+function containsSourceBlock(node: unknown): boolean {
+  if (typeof node !== "object" || node === null) return false;
+  const record = node as {
+    readonly attrs?: Readonly<Record<string, unknown>>;
+    readonly content?: readonly unknown[];
+  };
+  return (
+    typeof record.attrs?.sourceBlockId === "string" ||
+    record.content?.some(containsSourceBlock) === true
+  );
+}
+
+function isUnresolvedVisualPlaceholder(node: DocNode["content"][number]): boolean {
+  return (
+    (node.type === "imageBlock" || node.type === "semanticCard") &&
+    containsPendingImage(node) &&
+    !containsSourceBlock(node)
+  );
+}
+
 function restoreOriginalBlocks(nodes: readonly DocNode["content"][number][]): DocNode["content"] {
   return nodes.flatMap((node): DocNode["content"] => {
     if (isGeneratedLayoutRole(node.attrs.semanticRole)) {
       if (node.type === "semanticCard" && node.content !== undefined) {
         return restoreOriginalBlocks(node.content);
       }
+      return [];
+    }
+    if (isUnresolvedVisualPlaceholder(node)) {
       return [];
     }
     return [unwrapGeneratedEmphasis(node)];
@@ -868,6 +952,7 @@ function introCard(
   paragraph: ParagraphNode | undefined,
   plan: LayoutPlan,
   characterCount: number,
+  copy?: AiLayoutDecision["hero"],
 ): SemanticCardNode {
   const component = LAYOUT_COMPONENTS[plan.languageId].hero;
   const readingMinutes = Math.max(1, Math.ceil(characterCount / 500));
@@ -883,19 +968,25 @@ function introCard(
       componentVersion: "1.0.0",
       componentVariantId: "default",
       compatibilityLevel: "safe",
-      eyebrow: `ARTICLE GUIDE \u00b7 ${plan.articleGene.articleTypeLabel}`,
-      footer: `${String(characterCount)} 字 \u00b7 约 ${String(readingMinutes)} 分钟 \u00b7 ${keywords}`,
+      eyebrow: copy?.eyebrow ?? `ARTICLE GUIDE \u00b7 ${plan.articleGene.articleTypeLabel}`,
+      footer:
+        copy?.footer ??
+        `${String(characterCount)} 字 \u00b7 约 ${String(readingMinutes)} 分钟 \u00b7 ${keywords}`,
       locked: false,
       semanticRole: "layout_plan_generated_intro",
       styleRef: `layout.${plan.languageId}.hero`,
-      title: plan.articleGene.summary,
+      title: copy?.title ?? plan.articleGene.summary,
       variant: component.variant,
     },
     ...(paragraph === undefined ? {} : { content: [paragraph] }),
   };
 }
 
-function dataCard(paragraph: ParagraphNode, plan: LayoutPlan): SemanticCardNode {
+function dataCard(
+  paragraph: ParagraphNode,
+  plan: LayoutPlan,
+  treatment: "callout" | "data" = "data",
+): SemanticCardNode {
   const component = LAYOUT_COMPONENTS[plan.languageId].notice;
   return {
     type: "semanticCard",
@@ -905,8 +996,8 @@ function dataCard(paragraph: ParagraphNode, plan: LayoutPlan): SemanticCardNode 
       componentVersion: "1.0.0",
       componentVariantId: "default",
       compatibilityLevel: "safe",
-      eyebrow: "DATA \u00b7 关键信息",
-      footer: "核心数据已保留原文表达",
+      eyebrow: treatment === "data" ? "DATA \u00b7 关键信息" : "FOCUS \u00b7 阅读提示",
+      footer: treatment === "data" ? "核心数据已保留原文表达" : "信息来自原文",
       locked: false,
       semanticRole: "layout_plan_generated_data",
       styleRef: `layout.${plan.languageId}.data`,
@@ -918,14 +1009,14 @@ function dataCard(paragraph: ParagraphNode, plan: LayoutPlan): SemanticCardNode 
         marginBottom: 24,
         marginTop: 24,
       },
-      title: "数据要点",
+      title: treatment === "data" ? "数据要点" : "重点提示",
       variant: component.variant,
     },
     content: [paragraph],
   };
 }
 
-function tailCard(plan: LayoutPlan): SemanticCardNode {
+function tailCard(plan: LayoutPlan, copy?: AiLayoutDecision["footer"]): SemanticCardNode {
   return {
     type: "semanticCard",
     attrs: {
@@ -935,7 +1026,7 @@ function tailCard(plan: LayoutPlan): SemanticCardNode {
       componentVariantId: "default",
       compatibilityLevel: "safe",
       eyebrow: "READ \u00b7 SHARE",
-      footer: "感谢阅读 \u00b7 愿好内容被更多人看见",
+      footer: copy?.text ?? "感谢阅读 \u00b7 愿好内容被更多人看见",
       locked: false,
       semanticRole: "layout_plan_generated_footer",
       styleRef: `layout.${plan.languageId}.footer`,
@@ -953,7 +1044,7 @@ function tailCard(plan: LayoutPlan): SemanticCardNode {
         paddingTop: 20,
         textAlign: "center",
       },
-      title: "\ud83d\udc4d 点赞 \u00b7 \ud83d\udc40 在看 \u00b7 \u2197 转发",
+      title: copy?.title ?? "\ud83d\udc4d 点赞 \u00b7 \ud83d\udc40 在看 \u00b7 \u2197 转发",
       variant: "checklist",
     },
   };
@@ -1037,6 +1128,94 @@ export function applyLayoutPlanToDocument(document: DocumentV1, plan: LayoutPlan
     );
   }
   result.push(tailCard(plan));
+
+  return {
+    ...structuredClone(document),
+    content: { type: "doc", content: result },
+    meta: { ...structuredClone(document.meta), updatedAt: new Date().toISOString() },
+  };
+}
+
+function paragraphAsHeading(paragraph: ParagraphNode, level: 1 | 2): HeadingNode {
+  const attributes = structuredClone(paragraph.attrs);
+  delete attributes.indentMode;
+  return {
+    type: "heading",
+    attrs: { ...attributes, level },
+    ...(paragraph.content === undefined ? {} : { content: structuredClone(paragraph.content) }),
+  };
+}
+
+function headingAtLevel(heading: HeadingNode, level: 1 | 2): HeadingNode {
+  return {
+    ...structuredClone(heading),
+    attrs: { ...structuredClone(heading.attrs), level },
+  };
+}
+
+function aiStructuralNode(
+  node: DocNode["content"][number],
+  treatment: AiLayoutTreatment,
+): DocNode["content"][number] {
+  if (treatment === "title") {
+    if (node.type === "paragraph") return paragraphAsHeading(node, 1);
+    if (node.type === "heading") return headingAtLevel(node, 1);
+  }
+  if (treatment === "section") {
+    if (node.type === "paragraph") return paragraphAsHeading(node, 2);
+    if (node.type === "heading") return headingAtLevel(node, 2);
+  }
+  return structuredClone(node);
+}
+
+export function applyAiLayoutDecisionToDocument(
+  document: DocumentV1,
+  plan: LayoutPlan,
+  decision: AiLayoutDecision,
+): DocumentV1 {
+  const analysis = analyzeDocumentLayout(document);
+  const decisions = new Map(decision.blocks.map((item) => [item.blockId, item.treatment]));
+  const dividerAfter = new Set(decision.dividerAfterBlockIds);
+  const originalBlocks = restoreOriginalBlocks(document.content.content);
+  let sectionNumber = 0;
+  const styledBlocks = originalBlocks.map((original) => {
+    const treatment = decisions.get(original.attrs.blockId) ?? "body";
+    const structural = aiStructuralNode(original, treatment);
+    if (structural.type === "heading" && structural.attrs.level === 2) sectionNumber += 1;
+    return componentizeBlock(structural, plan, sectionNumber);
+  }) as DocNode["content"];
+  const result: DocNode["content"] = [];
+  let leadInserted = false;
+
+  styledBlocks.forEach((node) => {
+    const treatment = decisions.get(node.attrs.blockId) ?? "body";
+    if (treatment === "lead" && node.type === "paragraph" && !leadInserted) {
+      result.push(introCard(node, plan, analysis.characterCount, decision.hero));
+      leadInserted = true;
+    } else if (treatment === "quote" && node.type === "paragraph") {
+      result.push(emphasisBlock(node, plan));
+    } else if (
+      (treatment === "data" || treatment === "callout") &&
+      node.type === "paragraph"
+    ) {
+      result.push(dataCard(node, plan, treatment));
+    } else {
+      result.push(node);
+    }
+    if (dividerAfter.has(node.attrs.blockId)) result.push(generatedDivider(plan));
+  });
+
+  if (!leadInserted) {
+    const titleIndex = result.findIndex(
+      (node) => node.type === "heading" && node.attrs.level === 1,
+    );
+    result.splice(
+      titleIndex < 0 ? 0 : titleIndex + 1,
+      0,
+      introCard(undefined, plan, analysis.characterCount, decision.hero),
+    );
+  }
+  result.push(tailCard(plan, decision.footer));
 
   return {
     ...structuredClone(document),

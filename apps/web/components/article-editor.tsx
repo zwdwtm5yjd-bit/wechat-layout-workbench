@@ -1085,8 +1085,8 @@ export function ArticleEditor({
           </button>
         </div>
       )}
-      <div className="grid min-h-[680px] xl:grid-cols-[320px_minmax(0,1fr)_300px]">
-        <aside className="border-b border-line bg-panel-muted xl:border-r xl:border-b-0">
+      <div className="grid min-h-[680px] xl:h-[calc(100vh-96px)] xl:min-h-0 xl:grid-cols-[320px_minmax(0,1fr)_300px]">
+        <aside className="border-b border-line bg-panel-muted xl:h-full xl:overflow-y-auto xl:border-r xl:border-b-0">
           <div className="grid grid-cols-4 gap-1 border-b border-line p-2">
             {(
               [
@@ -1751,7 +1751,7 @@ export function ArticleEditor({
         </aside>
 
         <div
-          className="min-w-0 bg-[#efefed]"
+          className="min-w-0 bg-[#efefed] xl:flex xl:min-h-0 xl:flex-col"
           data-preview-theme={visualTheme === undefined ? "default" : themePreviewKey(visualTheme)}
           style={
             {
@@ -1763,7 +1763,7 @@ export function ArticleEditor({
         >
           <EditorToolbar editable={editable} editor={editor} selection={selection} />
           <div
-            className="editor-canvas-scroll overflow-auto px-5 py-8 sm:px-8"
+            className="editor-canvas-scroll overflow-auto px-5 py-8 sm:px-8 xl:min-h-0 xl:flex-1"
             onDragLeave={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
                 setDropTargetId(null);
@@ -1814,7 +1814,7 @@ export function ArticleEditor({
           </div>
         </div>
 
-        <aside className="border-t border-line bg-panel xl:border-t-0 xl:border-l">
+        <aside className="border-t border-line bg-panel xl:h-full xl:overflow-y-auto xl:border-t-0 xl:border-l">
           <div className="border-b border-line px-4 py-3">
             <p className="text-[12px] font-semibold text-ink">区块属性</p>
             <p className="mt-0.5 text-[10px] text-faint">仅作用于当前选中区块</p>

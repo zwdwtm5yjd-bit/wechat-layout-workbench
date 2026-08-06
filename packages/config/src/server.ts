@@ -30,6 +30,13 @@ const booleanStringSchema = z.preprocess((value) => {
   return value;
 }, z.boolean());
 
+function emptyStringAsUndefined<T extends z.ZodType>(schema: T) {
+  return z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    schema.optional(),
+  );
+}
+
 function secretSchema(minimumLength: number) {
   return z
     .string({ error: "必须提供" })
@@ -89,6 +96,12 @@ export const serverEnvironmentSchema = z
     MAX_DOCX_FILE_BYTES: positiveIntegerSchema,
     MAX_IMAGE_FILE_BYTES: positiveIntegerSchema,
     MAX_BRAND_PACKAGE_BYTES: positiveIntegerSchema,
+    AI_LAYOUT_API_KEY: emptyStringAsUndefined(z.string().trim().min(1)),
+    AI_LAYOUT_BASE_URL: emptyStringAsUndefined(z.url()),
+    AI_LAYOUT_MODEL: emptyStringAsUndefined(z.string().trim().min(1).max(100)),
+    AI_LAYOUT_TIMEOUT_MS: emptyStringAsUndefined(
+      z.coerce.number().int().min(5_000).max(180_000),
+    ),
   })
   .superRefine((value, context) => {
     const secrets = [
@@ -240,6 +253,12 @@ export interface ServerConfiguration {
     imageFileBytes: number;
     brandPackageBytes: number;
   }>;
+  readonly aiLayout: Readonly<{
+    apiKey: SecretValue | null;
+    baseUrl: string;
+    model: string;
+    timeoutMs: number;
+  }>;
 }
 
 type EnvironmentInput = Record<string, string | undefined>;
@@ -363,6 +382,12 @@ export function parseServerEnvironment(input: EnvironmentInput): ServerConfigura
       docxFileBytes: value.MAX_DOCX_FILE_BYTES,
       imageFileBytes: value.MAX_IMAGE_FILE_BYTES,
       brandPackageBytes: value.MAX_BRAND_PACKAGE_BYTES,
+    }),
+    aiLayout: Object.freeze({
+      apiKey: value.AI_LAYOUT_API_KEY === undefined ? null : new SecretValue(value.AI_LAYOUT_API_KEY),
+      baseUrl: (value.AI_LAYOUT_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/u, ""),
+      model: value.AI_LAYOUT_MODEL ?? "gpt-5.6-sol",
+      timeoutMs: value.AI_LAYOUT_TIMEOUT_MS ?? 90_000,
     }),
   });
 }

@@ -23,7 +23,13 @@ import {
   type DocumentJson,
 } from "../lib/documents/client";
 import { IndexedDbDocumentDraftStore, type LocalDocumentDraft } from "../lib/documents/draft-store";
-import { applyLayoutPlanToDocument, type LayoutPlan } from "../lib/layout-planner";
+import { generateAiLayout } from "../lib/ai-layout/client";
+import {
+  applyAiLayoutDecisionToDocument,
+  applyLayoutPlanToDocument,
+  layoutPlanFromAiDecision,
+  type LayoutPlan,
+} from "../lib/layout-planner";
 import type { RestoreSnapshotResult } from "../lib/snapshots/client";
 import { applyTheme, listThemes, ThemeClientError, type OfficialTheme } from "../lib/themes/client";
 import { ArticleEditor } from "./article-editor";
@@ -257,30 +263,55 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
   };
 
   const handleApplyLayout = async (plan: LayoutPlan): Promise<void> => {
-    if (controller === null || applyingPlanId !== null || plan.theme === null) {
+    if (controller === null || applyingPlanId !== null) {
       return;
     }
     setEditorError(null);
     setApplyingPlanId(plan.id);
-    setApplyingThemeId(plan.theme.manifest.themeId);
     try {
       await controller.flushNow();
       const current = controller.getSnapshot();
       if (current.status !== "saved") {
         throw new Error(current.errorMessage ?? "请先等待当前文档保存完成");
       }
+      let resolvedPlan = plan;
+      let aiDecision = null;
+      if (plan.mode !== "preset") {
+        const currentDocument = await getArticleDocument(initial.articleId);
+        const generated = await generateAiLayout(initial.articleId, {
+          baseDocumentVersion: current.documentVersion,
+          mode: plan.mode,
+          preferredLanguageId: plan.languageId,
+          ...(plan.brief === null ? {} : { styleBrief: plan.brief }),
+        });
+        aiDecision = generated.decision;
+        resolvedPlan = layoutPlanFromAiDecision(
+          normalizeDocument(currentDocument.document),
+          themesQuery.data?.items ?? [],
+          plan,
+          aiDecision,
+        );
+      }
+      if (resolvedPlan.theme === null) {
+        throw new Error("尚未加载可用主题，请稍后重试");
+      }
+      setApplyingThemeId(resolvedPlan.theme.manifest.themeId);
       const themed = await applyTheme({
         articleId: initial.articleId,
         baseDocumentVersion: current.documentVersion,
-        theme: plan.theme,
+        theme: resolvedPlan.theme,
       });
       await controller.discardLocalDraft(themed.documentVersion, themed.appliedAt);
       const latest = await getArticleDocument(initial.articleId);
-      const plannedDocument = applyLayoutPlanToDocument(normalizeDocument(latest.document), plan);
+      const normalized = normalizeDocument(latest.document);
+      const plannedDocument =
+        aiDecision === null
+          ? applyLayoutPlanToDocument(normalized, resolvedPlan)
+          : applyAiLayoutDecisionToDocument(normalized, resolvedPlan, aiDecision);
       await controller.queue(
         plannedDocument as unknown as DocumentJson,
         initial.schemaVersion,
-        `layout.plan.${plan.id}`,
+        `${aiDecision === null ? "layout.rule" : "layout.ai"}.${resolvedPlan.id}`,
       );
       await controller.flushNow();
       const saved = controller.getSnapshot();
@@ -303,7 +334,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
       <CreationProgress
         current={
           activeDocument.content.content.some(
-            (node) => node.attrs.semanticRole === "layout_plan_generated",
+            (node) => node.attrs.semanticRole?.startsWith("layout_plan_generated") === true,
           )
             ? 4
             : 3

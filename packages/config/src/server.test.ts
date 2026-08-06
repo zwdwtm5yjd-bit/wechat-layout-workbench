@@ -44,6 +44,28 @@ describe("parseServerEnvironment", () => {
       maximumHtmlBytes: 5 * 1024 * 1024,
       maximumRedirects: 5,
     });
+    expect(configuration.aiLayout).toEqual({
+      apiKey: null,
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-5.6-sol",
+      timeoutMs: 90_000,
+    });
+  });
+
+  it("keeps the optional AI layout key redacted", () => {
+    const configuration = parseServerEnvironment({
+      ...validEnvironment,
+      AI_LAYOUT_API_KEY: "sk-test-ai-layout-secret",
+      AI_LAYOUT_BASE_URL: "https://example.com/v1/",
+      AI_LAYOUT_MODEL: "layout-model",
+    });
+
+    expect(configuration.aiLayout).toMatchObject({
+      baseUrl: "https://example.com/v1",
+      model: "layout-model",
+    });
+    expect(JSON.stringify(configuration)).not.toContain("sk-test-ai-layout-secret");
+    expect(revealSecret(configuration.aiLayout.apiKey!)).toBe("sk-test-ai-layout-secret");
   });
 
   it("reports missing critical keys without echoing another secret", () => {
