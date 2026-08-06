@@ -11,7 +11,7 @@ import {
   type DatabaseConnection,
 } from "@wechat-layout/database";
 import { DOCUMENT_SCHEMA_VERSION, validateDocument } from "@wechat-layout/document-schema";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { DATABASE_CONNECTION } from "../database/database.module.js";
 import {
@@ -676,7 +676,7 @@ export class PostgresImportRepository implements ImportRepository {
         and(
           eq(articles.id, articleId),
           eq(articles.ownerUserId, ownerUserId),
-          eq(articles.sourceType, "paste"),
+          inArray(articles.sourceType, ["paste", "docx", "web"]),
           isNull(articles.deletedAt),
         ),
       )
