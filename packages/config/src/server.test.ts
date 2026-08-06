@@ -48,6 +48,8 @@ describe("parseServerEnvironment", () => {
       apiKey: null,
       baseUrl: "https://api.openai.com/v1",
       model: "gpt-5.6-sol",
+      protocol: "responses",
+      provider: "openai-compatible",
       timeoutMs: 90_000,
     });
   });
@@ -58,11 +60,15 @@ describe("parseServerEnvironment", () => {
       AI_LAYOUT_API_KEY: "sk-test-ai-layout-secret",
       AI_LAYOUT_BASE_URL: "https://example.com/v1/",
       AI_LAYOUT_MODEL: "layout-model",
+      AI_LAYOUT_PROTOCOL: "chat-completions",
+      AI_LAYOUT_PROVIDER: "kimi-code",
     });
 
     expect(configuration.aiLayout).toMatchObject({
       baseUrl: "https://example.com/v1",
       model: "layout-model",
+      protocol: "chat-completions",
+      provider: "kimi-code",
     });
     expect(JSON.stringify(configuration)).not.toContain("sk-test-ai-layout-secret");
     expect(revealSecret(configuration.aiLayout.apiKey!)).toBe("sk-test-ai-layout-secret");

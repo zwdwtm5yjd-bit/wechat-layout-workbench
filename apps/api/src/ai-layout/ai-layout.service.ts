@@ -14,7 +14,11 @@ import { z } from "zod";
 
 import { ApiException } from "../common/http/api.exception.js";
 import { DocumentService } from "../documents/document.service.js";
-import { AI_LAYOUT_FETCH, AI_LAYOUT_OPTIONS, type AiLayoutRuntimeOptions } from "./ai-layout.constants.js";
+import {
+  AI_LAYOUT_FETCH,
+  AI_LAYOUT_OPTIONS,
+  type AiLayoutRuntimeOptions,
+} from "./ai-layout.constants.js";
 
 type Fetcher = typeof globalThis.fetch;
 type TopLevelBlock = DocNode["content"][number];
@@ -111,10 +115,12 @@ function originalTopLevelBlocks(document: DocumentV1): readonly TopLevelBlock[] 
   return document.content.content.flatMap((node): readonly TopLevelBlock[] => {
     if (node.attrs.semanticRole?.startsWith("layout_plan_generated") === true) {
       if (node.type === "semanticCard" && node.content !== undefined) {
-        return node.content.flatMap((child) => originalTopLevelBlocks({
-          ...document,
-          content: { type: "doc", content: [child] },
-        }));
+        return node.content.flatMap((child) =>
+          originalTopLevelBlocks({
+            ...document,
+            content: { type: "doc", content: [child] },
+          }),
+        );
       }
       return [];
     }
@@ -147,20 +153,54 @@ function outputText(payload: unknown): string | null {
   return null;
 }
 
+function chatCompletionText(payload: unknown): string | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const choices = (payload as { readonly choices?: unknown }).choices;
+  if (!Array.isArray(choices)) return null;
+  for (const choice of choices) {
+    if (typeof choice !== "object" || choice === null) continue;
+    const message = (choice as { readonly message?: unknown }).message;
+    if (typeof message !== "object" || message === null) continue;
+    const content = (message as { readonly content?: unknown }).content;
+    if (typeof content === "string") return content;
+    if (!Array.isArray(content)) continue;
+    const combined = content
+      .flatMap((part): readonly string[] => {
+        if (typeof part !== "object" || part === null) return [];
+        const text = (part as { readonly text?: unknown }).text;
+        return typeof text === "string" ? [text] : [];
+      })
+      .join("");
+    if (combined.length > 0) return combined;
+  }
+  return null;
+}
+
+function modelJsonText(serialized: string): string {
+  const trimmed = serialized.trim();
+  const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/iu.exec(trimmed);
+  return fenced?.[1] ?? trimmed;
+}
+
 function compatibleTreatment(node: TopLevelBlock, treatment: AiLayoutTreatment): AiLayoutTreatment {
   if (node.type === "paragraph") {
     const length = textFromNode(node).trim().length;
     if ((treatment === "title" || treatment === "section") && length > 80) return "body";
     return treatment === "image" || treatment === "list" ? "body" : treatment;
   }
-  if (node.type === "heading") return treatment === "title" || treatment === "section" ? treatment : "body";
+  if (node.type === "heading")
+    return treatment === "title" || treatment === "section" ? treatment : "body";
   if (node.type === "imageBlock") return treatment === "image" ? treatment : "body";
-  if (node.type === "bulletList" || node.type === "orderedList") return treatment === "list" ? treatment : "body";
+  if (node.type === "bulletList" || node.type === "orderedList")
+    return treatment === "list" ? treatment : "body";
   if (node.type === "blockquote") return treatment === "quote" ? treatment : "body";
   return "body";
 }
 
-function sanitizeDecision(raw: AiLayoutDecision, blocks: readonly TopLevelBlock[]): AiLayoutDecision {
+function sanitizeDecision(
+  raw: AiLayoutDecision,
+  blocks: readonly TopLevelBlock[],
+): AiLayoutDecision {
   const byId = new Map(blocks.map((node) => [node.attrs.blockId, node]));
   const submitted = new Map<string, AiLayoutBlockDecision>();
   let titleCount = 0;
@@ -200,6 +240,20 @@ function sanitizeDecision(raw: AiLayoutDecision, blocks: readonly TopLevelBlock[
 }
 
 function providerFailure(status: number): ApiException {
+  if (status === 401 || status === 403) {
+    return new ApiException(HttpStatus.BAD_GATEWAY, {
+      code: "AI_LAYOUT_PROVIDER_AUTH_FAILED",
+      message: "AI 排版模型凭据无效或已失效，请更新后重试",
+      retryable: false,
+    });
+  }
+  if (status === 402) {
+    return new ApiException(HttpStatus.BAD_GATEWAY, {
+      code: "AI_LAYOUT_PROVIDER_QUOTA_UNAVAILABLE",
+      message: "Kimi Code 会员权益或调用额度暂时不可用",
+      retryable: false,
+    });
+  }
   if (status === 429) {
     return new ApiException(HttpStatus.TOO_MANY_REQUESTS, {
       code: "AI_LAYOUT_RATE_LIMITED",
@@ -226,7 +280,7 @@ export class AiLayoutService {
     return {
       available: this.options.apiKey !== null,
       model: this.options.model,
-      provider: "openai-compatible",
+      provider: this.options.provider,
     };
   }
 
@@ -280,31 +334,58 @@ export class AiLayoutService {
       article: { articleId, blocks: outline },
     });
 
+    const endpoint =
+      this.options.protocol === "chat-completions"
+        ? `${this.options.baseUrl}/chat/completions`
+        : `${this.options.baseUrl}/responses`;
+    const requestBody =
+      this.options.protocol === "chat-completions"
+        ? {
+            model: this.options.model,
+            messages: [
+              {
+                role: "system",
+                content: [
+                  instructions,
+                  "只返回一个 JSON 对象，不要使用 Markdown 代码围栏，也不要输出解释文字。",
+                  `返回对象必须符合这个 JSON Schema：${JSON.stringify(responseJsonSchema)}`,
+                ].join("\n"),
+              },
+              { role: "user", content: userInput },
+            ],
+            response_format: { type: "json_object" },
+            reasoning_effort: "high",
+            max_tokens: 8_000,
+            stream: false,
+          }
+        : {
+            model: this.options.model,
+            instructions,
+            input: userInput,
+            reasoning: { effort: "medium" },
+            text: {
+              format: {
+                type: "json_schema",
+                name: "wechat_article_layout_decision",
+                strict: true,
+                schema: responseJsonSchema,
+              },
+              verbosity: "low",
+            },
+            max_output_tokens: 8_000,
+          };
+
     let response: Response;
     try {
-      response = await this.fetcher(`${this.options.baseUrl}/responses`, {
+      response = await this.fetcher(endpoint, {
         method: "POST",
         headers: {
           Accept: "application/json",
           Authorization: `Bearer ${this.options.apiKey}`,
           "Content-Type": "application/json",
+          "User-Agent": "WeChatLayout/1.0",
         },
-        body: JSON.stringify({
-          model: this.options.model,
-          instructions,
-          input: userInput,
-          reasoning: { effort: "medium" },
-          text: {
-            format: {
-              type: "json_schema",
-              name: "wechat_article_layout_decision",
-              strict: true,
-              schema: responseJsonSchema,
-            },
-            verbosity: "low",
-          },
-          max_output_tokens: 8_000,
-        }),
+        body: JSON.stringify(requestBody),
         signal: AbortSignal.timeout(this.options.timeoutMs),
       });
     } catch {
@@ -317,12 +398,15 @@ export class AiLayoutService {
 
     if (!response.ok) throw providerFailure(response.status);
     const payload = (await response.json()) as unknown;
-    const serialized = outputText(payload);
+    const serialized =
+      this.options.protocol === "chat-completions"
+        ? chatCompletionText(payload)
+        : outputText(payload);
     if (serialized === null) throw providerFailure(response.status);
 
     let parsed: unknown;
     try {
-      parsed = JSON.parse(serialized) as unknown;
+      parsed = JSON.parse(modelJsonText(serialized)) as unknown;
     } catch {
       throw providerFailure(response.status);
     }

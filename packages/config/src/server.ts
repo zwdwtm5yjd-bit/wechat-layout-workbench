@@ -99,9 +99,9 @@ export const serverEnvironmentSchema = z
     AI_LAYOUT_API_KEY: emptyStringAsUndefined(z.string().trim().min(1)),
     AI_LAYOUT_BASE_URL: emptyStringAsUndefined(z.url()),
     AI_LAYOUT_MODEL: emptyStringAsUndefined(z.string().trim().min(1).max(100)),
-    AI_LAYOUT_TIMEOUT_MS: emptyStringAsUndefined(
-      z.coerce.number().int().min(5_000).max(180_000),
-    ),
+    AI_LAYOUT_PROTOCOL: emptyStringAsUndefined(z.enum(["chat-completions", "responses"])),
+    AI_LAYOUT_PROVIDER: emptyStringAsUndefined(z.enum(["kimi-code", "openai-compatible"])),
+    AI_LAYOUT_TIMEOUT_MS: emptyStringAsUndefined(z.coerce.number().int().min(5_000).max(180_000)),
   })
   .superRefine((value, context) => {
     const secrets = [
@@ -257,6 +257,8 @@ export interface ServerConfiguration {
     apiKey: SecretValue | null;
     baseUrl: string;
     model: string;
+    protocol: "chat-completions" | "responses";
+    provider: "kimi-code" | "openai-compatible";
     timeoutMs: number;
   }>;
 }
@@ -384,9 +386,12 @@ export function parseServerEnvironment(input: EnvironmentInput): ServerConfigura
       brandPackageBytes: value.MAX_BRAND_PACKAGE_BYTES,
     }),
     aiLayout: Object.freeze({
-      apiKey: value.AI_LAYOUT_API_KEY === undefined ? null : new SecretValue(value.AI_LAYOUT_API_KEY),
+      apiKey:
+        value.AI_LAYOUT_API_KEY === undefined ? null : new SecretValue(value.AI_LAYOUT_API_KEY),
       baseUrl: (value.AI_LAYOUT_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/u, ""),
       model: value.AI_LAYOUT_MODEL ?? "gpt-5.6-sol",
+      protocol: value.AI_LAYOUT_PROTOCOL ?? "responses",
+      provider: value.AI_LAYOUT_PROVIDER ?? "openai-compatible",
       timeoutMs: value.AI_LAYOUT_TIMEOUT_MS ?? 90_000,
     }),
   });

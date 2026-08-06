@@ -5,5 +5,7 @@ export interface AiLayoutRuntimeOptions {
   readonly apiKey: string | null;
   readonly baseUrl: string;
   readonly model: string;
+  readonly protocol: "chat-completions" | "responses";
+  readonly provider: "kimi-code" | "openai-compatible";
   readonly timeoutMs: number;
 }

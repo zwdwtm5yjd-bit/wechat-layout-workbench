@@ -42,6 +42,8 @@ x-server-environment: &server-environment
   AI_LAYOUT_API_KEY: ${AI_LAYOUT_API_KEY:-}
   AI_LAYOUT_BASE_URL: ${AI_LAYOUT_BASE_URL:-https://api.openai.com/v1}
   AI_LAYOUT_MODEL: ${AI_LAYOUT_MODEL:-gpt-5.6-sol}
+  AI_LAYOUT_PROTOCOL: ${AI_LAYOUT_PROTOCOL:-responses}
+  AI_LAYOUT_PROVIDER: ${AI_LAYOUT_PROVIDER:-openai-compatible}
   AI_LAYOUT_TIMEOUT_MS: ${AI_LAYOUT_TIMEOUT_MS:-90000}
   WEB_PORT: 3000
   API_PORT: 3001

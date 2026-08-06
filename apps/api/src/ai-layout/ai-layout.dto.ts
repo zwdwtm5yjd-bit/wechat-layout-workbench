@@ -38,8 +38,8 @@ export class AiLayoutStatusDto {
   @ApiProperty({ type: String })
   model!: string;
 
-  @ApiProperty({ enum: ["openai-compatible"], type: String })
-  provider!: "openai-compatible";
+  @ApiProperty({ enum: ["kimi-code", "openai-compatible"], type: String })
+  provider!: "kimi-code" | "openai-compatible";
 }
 
 export class GenerateAiLayoutResponseDto extends AiLayoutStatusDto {

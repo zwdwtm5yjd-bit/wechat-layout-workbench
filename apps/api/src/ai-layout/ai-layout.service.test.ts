@@ -18,12 +18,18 @@ function documents(): DocumentService {
   } as unknown as DocumentService;
 }
 
-function options(apiKey: string | null): AiLayoutRuntimeOptions {
+function options(
+  apiKey: string | null,
+  overrides: Partial<AiLayoutRuntimeOptions> = {},
+): AiLayoutRuntimeOptions {
   return {
     apiKey,
     baseUrl: "https://api.example.test/v1",
     model: "layout-model",
+    protocol: "responses",
+    provider: "openai-compatible",
     timeoutMs: 10_000,
+    ...overrides,
   };
 }
 
@@ -65,9 +71,7 @@ describe("AiLayoutService", () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
-          output: [
-            { content: [{ type: "output_text", text: JSON.stringify(modelDecision) }] },
-          ],
+          output: [{ content: [{ type: "output_text", text: JSON.stringify(modelDecision) }] }],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       ),
@@ -89,5 +93,66 @@ describe("AiLayoutService", () => {
     expect(result.decision.languageId).toBe("crimson-editorial");
     expect(result.decision.blocks).toHaveLength(documentV1Fixture.content.content.length);
     expect(result.decision.dividerAfterBlockIds).toEqual(["block_paragraph"]);
+  });
+
+  it("uses Kimi-compatible chat completions and accepts fenced JSON safely", async () => {
+    const modelDecision = {
+      languageId: "warm-paper",
+      designName: "纸上脉络",
+      concept: "用杂志留白和少量信息锚点组织阅读节奏。",
+      hero: { eyebrow: "FIELD NOTES", title: "从内容长出结构", footer: "观察 · 提炼" },
+      footer: { title: "读到这里", text: "把关键判断带回工作中" },
+      dividerAfterBlockIds: ["block_paragraph"],
+      blocks: [
+        { blockId: "block_heading", treatment: "title", reason: "全文标题" },
+        { blockId: "block_paragraph", treatment: "callout", reason: "核心判断" },
+      ],
+    };
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: `\`\`\`json\n${JSON.stringify(modelDecision)}\n\`\`\``,
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    const service = new AiLayoutService(
+      options("kimi-secret", {
+        protocol: "chat-completions",
+        provider: "kimi-code",
+      }),
+      fetcher,
+      documents(),
+    );
+
+    const result = await service.generate(ownerUserId, articleId, {
+      baseDocumentVersion: 7,
+      mode: "original",
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://api.example.test/v1/chat/completions",
+      expect.objectContaining({ method: "POST" }),
+    );
+    const request = fetcher.mock.calls[0]?.[1] as RequestInit;
+    expect(request.headers).toMatchObject({
+      Authorization: "Bearer kimi-secret",
+      "User-Agent": "WeChatLayout/1.0",
+    });
+    expect(request.body).toBeTypeOf("string");
+    const requestBody = JSON.parse(String(request.body)) as {
+      messages: readonly { readonly content: string }[];
+      response_format: { readonly type: string };
+    };
+    expect(requestBody.response_format).toEqual({ type: "json_object" });
+    expect(requestBody.messages[0]?.content).toContain("JSON Schema");
+    expect(result.provider).toBe("kimi-code");
+    expect(result.decision.designName).toBe("纸上脉络");
   });
 });

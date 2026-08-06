@@ -52,7 +52,7 @@ export interface AiLayoutDecision {
 export interface AiLayoutStatus {
   readonly available: boolean;
   readonly model: string;
-  readonly provider: "openai-compatible";
+  readonly provider: "kimi-code" | "openai-compatible";
 }
 
 export interface GenerateAiLayoutInput {

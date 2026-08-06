@@ -19,6 +19,8 @@ import { AiLayoutService } from "./ai-layout.service.js";
           apiKey: configuration.apiKey === null ? null : revealSecret(configuration.apiKey),
           baseUrl: configuration.baseUrl,
           model: configuration.model,
+          protocol: configuration.protocol,
+          provider: configuration.provider,
           timeoutMs: configuration.timeoutMs,
         };
       },
