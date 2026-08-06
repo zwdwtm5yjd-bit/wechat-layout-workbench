@@ -31,6 +31,7 @@ export type InsertableBlockType =
   "paragraph" | "heading1" | "heading2" | "heading3" | "blockquote" | "divider";
 
 export type InlineMarkName = "bold" | "italic" | "underline" | "strike";
+export type InlineStyleMarkName = "textColor" | "backgroundColor" | "fontSize" | "fontFamily";
 
 export interface InsertRegisteredComponentInput {
   readonly componentId: string;
@@ -42,7 +43,7 @@ export interface InsertRegisteredComponentInput {
 export type InsertVisualAssetInput = Pick<
   OfficialVisualAsset,
   "effect" | "fallbackResourceId" | "id" | "motion" | "name" | "resourceId"
->;
+> & { readonly function?: OfficialVisualAsset["function"] };
 
 export function canUndo(editor: Editor): boolean {
   return editor.can().undo();
@@ -66,6 +67,19 @@ export function toggleInlineMark(editor: Editor, mark: InlineMarkName): boolean 
     .focus()
     .setMeta("transactionOrigin", EDITOR_TRANSACTION_ORIGIN.format)
     .toggleMark(mark)
+    .run();
+}
+
+export function setInlineMarkAttributes(
+  editor: Editor,
+  mark: InlineStyleMarkName,
+  attributes: Readonly<Record<string, unknown>>,
+): boolean {
+  return editor
+    .chain()
+    .focus()
+    .setMeta("transactionOrigin", EDITOR_TRANSACTION_ORIGIN.format)
+    .setMark(mark, attributes)
     .run();
 }
 
@@ -379,18 +393,59 @@ export function insertVisualAssetAfterSelection(
   }
   const block: JSONContent =
     asset.motion === "static"
-      ? {
-          type: "imageBlock",
-          attrs: {
-            alt: asset.name,
-            blockId: createBlockId(),
-            compatibilityLevel: "safe",
-            locked: false,
-            objectFit: "contain",
-            resourceId: asset.resourceId,
-            widthMode: "full",
-          },
-        }
+      ? asset.function === "frame" || asset.function === "ribbon"
+        ? {
+            type: "decorativeContainer",
+            attrs: {
+              blockId: createBlockId(),
+              compatibilityLevel: "conditional",
+              decorationType: asset.function,
+              locked: false,
+              minHeight: asset.function === "frame" ? 160 : 80,
+              resourceId: asset.resourceId,
+            },
+            content: [{ type: "text", text: "点击输入文字" }],
+          }
+        : {
+            type: "imageBlock",
+            attrs: {
+              alt: asset.name,
+              blockId: createBlockId(),
+              compatibilityLevel: "safe",
+              elementKind:
+                asset.function === "sticker" ||
+                asset.function === "corner" ||
+                asset.function === "badge"
+                  ? "sticker"
+                  : "image",
+              freePosition:
+                asset.function === "sticker" ||
+                asset.function === "corner" ||
+                asset.function === "badge",
+              horizontalAlign: "center",
+              layer: 1,
+              locked: false,
+              objectFit: "contain",
+              objectPositionX: 50,
+              objectPositionY: 50,
+              offsetX: 0,
+              offsetY: 0,
+              opacity: 1,
+              resourceId: asset.resourceId,
+              rotation: 0,
+              widthMode:
+                asset.function === "sticker" ||
+                asset.function === "corner" ||
+                asset.function === "badge"
+                  ? "percent"
+                  : "full",
+              ...(asset.function === "sticker" ||
+              asset.function === "corner" ||
+              asset.function === "badge"
+                ? { widthPercent: 24 }
+                : {}),
+            },
+          }
       : {
           type: "svgInteraction",
           attrs: {

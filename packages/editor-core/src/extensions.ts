@@ -24,6 +24,7 @@ export const BLOCK_NODE_NAMES = [
   "orderedList",
   "listItem",
   "imageBlock",
+  "decorativeContainer",
   "divider",
   "semanticCard",
   "brandFooter",
@@ -73,6 +74,7 @@ function styleOverridesToCss(value: unknown): string | undefined {
     ["textColor", "color"],
     ["backgroundColor", "background-color"],
     ["fontWeight", "font-weight"],
+    ["fontFamily", "font-family"],
     ["lineHeight", "line-height"],
     ["textAlign", "text-align"],
     ["borderStyle", "border-style"],
@@ -460,6 +462,16 @@ function createImageBlockExtension(
         widthPercent: ignoredAttribute,
         aspectRatio: ignoredAttribute,
         objectFit: ignoredAttribute,
+        objectPositionX: ignoredAttribute,
+        objectPositionY: ignoredAttribute,
+        horizontalAlign: ignoredAttribute,
+        offsetX: ignoredAttribute,
+        offsetY: ignoredAttribute,
+        rotation: ignoredAttribute,
+        layer: ignoredAttribute,
+        opacity: ignoredAttribute,
+        elementKind: ignoredAttribute,
+        freePosition: ignoredAttribute,
         watermarkId: ignoredAttribute,
       };
     },
@@ -481,7 +493,8 @@ function createImageBlockExtension(
     },
 
     addNodeView() {
-      return ({ node }) => {
+      return ({ editor, getPos, node }) => {
+        let currentNode = node;
         const dom = document.createElement("figure");
         dom.className = "editor-atom editor-image-block";
         dom.dataset.nodeType = "imageBlock";
@@ -492,6 +505,13 @@ function createImageBlockExtension(
         label.className = "editor-atom-label";
         const caption = document.createElement("figcaption");
         caption.className = "editor-image-caption";
+
+        const positionStyle = (attributes: Readonly<Record<string, unknown>>) => {
+          const offsetX = Number(attributes.offsetX ?? 0);
+          const offsetY = Number(attributes.offsetY ?? 0);
+          const rotation = Number(attributes.rotation ?? 0);
+          return `translate(${String(offsetX)}px, ${String(offsetY)}px) rotate(${String(rotation)}deg)`;
+        };
 
         const applyNode = (currentNode: typeof node) => {
           const resourceId = String(currentNode.attrs.resourceId ?? "");
@@ -506,8 +526,25 @@ function createImageBlockExtension(
               : widthMode === "original"
                 ? "fit-content"
                 : "100%";
-          dom.style.marginInline = widthMode === "full" ? "0" : "auto";
+          const horizontalAlign = String(currentNode.attrs.horizontalAlign ?? "center");
+          dom.style.marginLeft = horizontalAlign === "right" ? "auto" : "0";
+          dom.style.marginRight = horizontalAlign === "left" ? "auto" : "0";
+          if (horizontalAlign === "center") {
+            dom.style.marginLeft = "auto";
+            dom.style.marginRight = "auto";
+          }
+          dom.style.position = "relative";
+          dom.style.transform = positionStyle(currentNode.attrs);
+          dom.style.transformOrigin = "center";
+          dom.style.zIndex = String(currentNode.attrs.layer ?? 1);
+          dom.style.opacity = String(currentNode.attrs.opacity ?? 1);
+          dom.dataset.elementKind = String(currentNode.attrs.elementKind ?? "image");
+          dom.dataset.freePosition = currentNode.attrs.freePosition === true ? "true" : "false";
+          dom.style.cursor = currentNode.attrs.freePosition === true ? "move" : "default";
           image.style.objectFit = String(currentNode.attrs.objectFit ?? "contain");
+          image.style.objectPosition = `${String(currentNode.attrs.objectPositionX ?? 50)}% ${String(
+            currentNode.attrs.objectPositionY ?? 50,
+          )}%`;
           image.style.aspectRatio =
             typeof currentNode.attrs.aspectRatio === "string"
               ? currentNode.attrs.aspectRatio
@@ -529,12 +566,145 @@ function createImageBlockExtension(
           label.hidden = true;
         };
 
+        const onPointerDown = (event: PointerEvent) => {
+          if (event.button !== 0 || currentNode.attrs.freePosition !== true || !editor.isEditable) {
+            return;
+          }
+          event.preventDefault();
+          const startX = event.clientX;
+          const startY = event.clientY;
+          const initialX = Number(currentNode.attrs.offsetX ?? 0);
+          const initialY = Number(currentNode.attrs.offsetY ?? 0);
+          let nextX = initialX;
+          let nextY = initialY;
+          dom.classList.add("is-free-dragging");
+
+          const onPointerMove = (moveEvent: PointerEvent) => {
+            nextX = Math.max(
+              -600,
+              Math.min(600, Math.round(initialX + moveEvent.clientX - startX)),
+            );
+            nextY = Math.max(
+              -600,
+              Math.min(600, Math.round(initialY + moveEvent.clientY - startY)),
+            );
+            dom.style.transform = `translate(${String(nextX)}px, ${String(nextY)}px) rotate(${String(
+              currentNode.attrs.rotation ?? 0,
+            )}deg)`;
+          };
+          const onPointerUp = () => {
+            globalThis.removeEventListener("pointermove", onPointerMove);
+            globalThis.removeEventListener("pointerup", onPointerUp);
+            dom.classList.remove("is-free-dragging");
+            const pos = getPos();
+            if (typeof pos !== "number") return;
+            const liveNode = editor.state.doc.nodeAt(pos);
+            if (liveNode === null) return;
+            const transaction = editor.state.tr
+              .setNodeMarkup(pos, undefined, {
+                ...liveNode.attrs,
+                offsetX: nextX,
+                offsetY: nextY,
+              })
+              .setMeta("transactionOrigin", "editor.element.position");
+            editor.view.dispatch(transaction);
+            editor.commands.setNodeSelection(pos);
+          };
+
+          globalThis.addEventListener("pointermove", onPointerMove);
+          globalThis.addEventListener("pointerup", onPointerUp, { once: true });
+        };
+
         applyNode(node);
+        dom.addEventListener("pointerdown", onPointerDown);
         dom.append(image, label, caption);
         return {
           dom,
           update(updatedNode) {
             if (updatedNode.type.name !== "imageBlock") return false;
+            currentNode = updatedNode;
+            applyNode(updatedNode);
+            return true;
+          },
+          destroy() {
+            dom.removeEventListener("pointerdown", onPointerDown);
+          },
+        };
+      };
+    },
+  });
+}
+
+function createDecorativeContainerExtension(
+  resourceUrlResolver?: (resourceId: string) => string | undefined,
+) {
+  return Node.create({
+    name: "decorativeContainer",
+    group: "block",
+    content: "inline*",
+    defining: true,
+
+    addAttributes() {
+      return {
+        resourceId: {
+          default: "resource_pending",
+          renderHTML: (attributes) => ({ "data-resource-id": attributes.resourceId }),
+        },
+        decorationType: {
+          default: "frame",
+          renderHTML: (attributes) => ({ "data-decoration-type": attributes.decorationType }),
+        },
+        minHeight: ignoredAttribute,
+      };
+    },
+
+    parseHTML() {
+      return [{ tag: "section[data-node-type='decorativeContainer']" }];
+    },
+
+    renderHTML({ HTMLAttributes }) {
+      return [
+        "section",
+        mergeAttributes(HTMLAttributes, {
+          class: "editor-decorative-container",
+          "data-node-type": "decorativeContainer",
+        }),
+        0,
+      ];
+    },
+
+    addNodeView() {
+      return ({ node }) => {
+        const dom = document.createElement("section");
+        dom.className = "editor-decorative-container";
+        dom.dataset.nodeType = "decorativeContainer";
+        const contentDOM = document.createElement("div");
+        contentDOM.className = "editor-decorative-container__content";
+
+        const applyNode = (currentNode: typeof node) => {
+          const resourceId = String(currentNode.attrs.resourceId ?? "");
+          const path =
+            builtInVisualAssetPublicPath(resourceId) ?? resourceUrlResolver?.(resourceId);
+          const decorationType = String(currentNode.attrs.decorationType ?? "frame");
+          const customStyle = styleOverridesToCss(currentNode.attrs.styleOverrides);
+          if (customStyle === undefined) {
+            dom.removeAttribute("style");
+          } else {
+            dom.setAttribute("style", customStyle);
+          }
+          dom.dataset.resourceId = resourceId;
+          dom.dataset.decorationType = decorationType;
+          dom.style.minHeight = `${String(currentNode.attrs.minHeight ?? (decorationType === "ribbon" ? 80 : 160))}px`;
+          dom.style.backgroundImage = path === undefined ? "none" : `url(${path})`;
+        };
+
+        applyNode(node);
+        dom.append(contentDOM);
+        return {
+          contentDOM,
+          dom,
+          update(updatedNode) {
+            if (updatedNode.type.name !== "decorativeContainer") return false;
             applyNode(updatedNode);
             return true;
           },
@@ -947,6 +1117,31 @@ const FontSize = Mark.create({
   },
 });
 
+const FontFamily = Mark.create({
+  name: "fontFamily",
+
+  addAttributes() {
+    return {
+      family: {
+        default: null,
+        parseHTML: (element) => element.style.fontFamily || null,
+        renderHTML: (attributes) =>
+          typeof attributes.family === "string"
+            ? { style: `font-family: ${attributes.family}` }
+            : {},
+      },
+    };
+  },
+
+  parseHTML() {
+    return [{ style: "font-family" }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ["span", HTMLAttributes, 0];
+  },
+});
+
 const Link = Mark.create({
   name: "link",
   inclusive: false,
@@ -1019,6 +1214,7 @@ export function createDocumentExtensions(options: DocumentExtensionOptions = {})
     OrderedList,
     ListItem,
     createImageBlockExtension(options.resourceUrlResolver),
+    createDecorativeContainerExtension(options.resourceUrlResolver),
     Divider,
     createSemanticCardExtension(options.componentNodeViewResolver),
     BrandFooter,
@@ -1029,6 +1225,7 @@ export function createDocumentExtensions(options: DocumentExtensionOptions = {})
     colorMark("backgroundColor", "background-color"),
     Link,
     FontSize,
+    FontFamily,
     BlockAttributes,
     OriginalTextLock.configure({
       onBlocked: options.onTextMutationBlocked ?? (() => undefined),

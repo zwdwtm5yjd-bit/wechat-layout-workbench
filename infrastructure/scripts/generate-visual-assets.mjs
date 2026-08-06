@@ -119,6 +119,19 @@ function staticSvg(styleIndex, functionIndex, index) {
 </svg>\n`;
 }
 
+function stickerSvg(styleIndex, variantIndex, index) {
+  const palette = palettes[styleIndex];
+  const [, primary, deep, accent, white] = palette;
+  const variants = [
+    `<g transform="translate(240 240) rotate(${(styleIndex % 5) * 3 - 6})"><path d="M0-180 43-104 126-126 104-43 180 0 104 43 126 126 43 104 0 180-43 104-126 126-104 43-180 0-104-43-126-126-43-104Z" fill="${primary}" opacity=".92"/><circle r="108" fill="${white}" stroke="${deep}" stroke-width="10"/><path d="m-58 3 38 38 82-94" fill="none" stroke="${accent}" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/></g>`,
+    `<g fill="none" stroke-linecap="round"><path d="M80 322c68-98 133-150 218-174" stroke="${deep}" stroke-width="18"/><path d="M300 146c-46-86-112-74-122-12-8 51 67 115 122 151 55-36 130-100 122-151-10-62-76-74-122 12Z" fill="${primary}" stroke="${deep}" stroke-width="10"/><g stroke="${accent}" stroke-width="14"><path d="m78 92 12 42 42 12-42 12-12 42-12-42-42-12 42-12Z"/><path d="m390 300 9 31 31 9-31 9-9 31-9-31-31-9 31-9Z"/></g></g>`,
+    `<g transform="rotate(${styleIndex % 2 === 0 ? -8 : 8} 240 240)"><path d="M58 190h255v-76l122 126-122 126v-76H58Z" fill="${primary}" stroke="${deep}" stroke-width="12" stroke-linejoin="round"/><path d="M96 240h238" stroke="${white}" stroke-width="18" stroke-linecap="round"/><circle cx="405" cy="108" r="24" fill="${accent}"/><path d="m386 58 13-30m34 42 31-11" stroke="${accent}" stroke-width="10" stroke-linecap="round"/></g>`,
+  ];
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" role="img" aria-label="原创透明贴纸 ${serial(index)}">
+  ${variants[variantIndex]}
+</svg>\n`;
+}
+
 function dynamicBody(effect, palette) {
   const [, primary, deep, accent, white] = palette;
   const bodies = {
@@ -175,6 +188,18 @@ for (let styleIndex = 0; styleIndex < palettes.length; styleIndex += 1) {
       writeFile(
         path.join(outputRoot, "static", `static-${serial(index)}.svg`),
         staticSvg(styleIndex, functionIndex, index),
+        "utf8",
+      ),
+    );
+  }
+}
+for (let styleIndex = 0; styleIndex < palettes.length; styleIndex += 1) {
+  for (let variantIndex = 0; variantIndex < 3; variantIndex += 1) {
+    const index = 101 + styleIndex * 3 + variantIndex;
+    writes.push(
+      writeFile(
+        path.join(outputRoot, "static", `static-${serial(index)}.svg`),
+        stickerSvg(styleIndex, variantIndex, index),
         "utf8",
       ),
     );

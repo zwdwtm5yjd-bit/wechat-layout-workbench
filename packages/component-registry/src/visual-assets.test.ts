@@ -11,13 +11,16 @@ import {
 } from "./index.js";
 
 describe("official visual assets", () => {
-  it("ships 100 static and 50 dynamic original SVG assets with unique identities", () => {
-    expect(OFFICIAL_STATIC_VISUAL_ASSETS).toHaveLength(100);
+  it("ships 130 static and 50 dynamic original SVG assets with unique identities", () => {
+    expect(OFFICIAL_STATIC_VISUAL_ASSETS).toHaveLength(130);
     expect(OFFICIAL_DYNAMIC_VISUAL_ASSETS).toHaveLength(50);
-    expect(OFFICIAL_VISUAL_ASSETS).toHaveLength(150);
-    expect(new Set(OFFICIAL_VISUAL_ASSETS.map((asset) => asset.id)).size).toBe(150);
-    expect(new Set(OFFICIAL_VISUAL_ASSETS.map((asset) => asset.resourceId)).size).toBe(150);
-    expect(new Set(OFFICIAL_VISUAL_ASSETS.map((asset) => asset.previewPath)).size).toBe(150);
+    expect(OFFICIAL_VISUAL_ASSETS).toHaveLength(180);
+    expect(new Set(OFFICIAL_VISUAL_ASSETS.map((asset) => asset.id)).size).toBe(180);
+    expect(new Set(OFFICIAL_VISUAL_ASSETS.map((asset) => asset.resourceId)).size).toBe(180);
+    expect(new Set(OFFICIAL_VISUAL_ASSETS.map((asset) => asset.previewPath)).size).toBe(180);
+    expect(
+      OFFICIAL_STATIC_VISUAL_ASSETS.filter((asset) => asset.function === "sticker"),
+    ).toHaveLength(40);
   });
 
   it("covers every function, style and motion effect in the faceted taxonomy", () => {

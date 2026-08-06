@@ -417,6 +417,57 @@ a {
   background: #fff;
 }
 
+.editor-image-block[data-element-kind="sticker"] {
+  overflow: visible !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  transition:
+    transform 80ms linear,
+    box-shadow 120ms ease;
+}
+
+.editor-image-block[data-free-position="true"]:hover {
+  box-shadow: 0 0 0 2px rgb(79 70 229 / 24%);
+}
+
+.editor-image-block.is-free-dragging {
+  box-shadow: 0 10px 30px rgb(24 24 27 / 18%);
+  transition: none;
+  user-select: none;
+}
+
+.editor-decorative-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 120px;
+  padding: 36px 56px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+.editor-decorative-container[data-decoration-type="ribbon"] {
+  padding: 18px 72px;
+}
+
+.editor-decorative-container__content {
+  width: 100%;
+  min-width: 0;
+  color: inherit;
+  line-height: 1.65;
+  text-align: center;
+  outline: none;
+  overflow-wrap: anywhere;
+}
+
+.editor-decorative-container__content:empty::before {
+  color: rgb(113 113 122 / 72%);
+  content: "点击输入文字";
+  pointer-events: none;
+}
+
 .editor-visual-asset-caption {
   padding: 8px 12px 2px;
   color: var(--ui-text-primary);

@@ -64,6 +64,7 @@ export function blockText(node: BlockNode): string {
   switch (node.type) {
     case "paragraph":
     case "heading":
+    case "decorativeContainer":
       return inlineText(node.content);
     case "blockquote":
       return joinedText([

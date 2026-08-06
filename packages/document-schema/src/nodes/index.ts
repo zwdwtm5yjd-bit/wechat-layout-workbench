@@ -11,6 +11,7 @@ export const BLOCK_NODE_TYPES = [
   "orderedList",
   "listItem",
   "imageBlock",
+  "decorativeContainer",
   "divider",
   "semanticCard",
   "brandFooter",
@@ -29,6 +30,7 @@ export interface StyleOverrides {
   textColor?: string;
   backgroundColor?: string;
   fontSize?: number;
+  fontFamily?: string;
   fontWeight?: 300 | 400 | 500 | 600 | 700;
   lineHeight?: number;
   letterSpacing?: number;
@@ -149,12 +151,34 @@ export interface ImageBlockAttributes extends BlockAttributes {
   widthPercent?: number;
   aspectRatio?: string;
   objectFit?: "contain" | "cover" | "fill";
+  objectPositionX?: number;
+  objectPositionY?: number;
+  horizontalAlign?: "left" | "center" | "right";
+  offsetX?: number;
+  offsetY?: number;
+  rotation?: number;
+  layer?: number;
+  opacity?: number;
+  elementKind?: "image" | "sticker" | "decoration";
+  freePosition?: boolean;
   watermarkId?: string;
 }
 
 export interface ImageBlockNode {
   type: "imageBlock";
   attrs: ImageBlockAttributes;
+}
+
+export interface DecorativeContainerAttributes extends BlockAttributes {
+  resourceId: string;
+  decorationType: "frame" | "ribbon";
+  minHeight?: number;
+}
+
+export interface DecorativeContainerNode {
+  type: "decorativeContainer";
+  attrs: DecorativeContainerAttributes;
+  content?: InlineNode[];
 }
 
 export interface DividerAttributes extends BlockAttributes {
@@ -238,6 +262,7 @@ export type BlockNode =
   | OrderedListNode
   | ListItemNode
   | ImageBlockNode
+  | DecorativeContainerNode
   | DividerNode
   | SemanticCardNode
   | BrandFooterNode

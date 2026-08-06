@@ -133,7 +133,7 @@ function paddedIndex(index: number): string {
   return String(index).padStart(3, "0");
 }
 
-const STATIC_VISUAL_ASSETS: readonly OfficialVisualAsset[] = STATIC_STYLE_DEFINITIONS.flatMap(
+const BASE_STATIC_VISUAL_ASSETS: readonly OfficialVisualAsset[] = STATIC_STYLE_DEFINITIONS.flatMap(
   (definition, styleIndex) =>
     VISUAL_ASSET_FUNCTIONS.map((assetFunction, functionIndex) => {
       const index = styleIndex * VISUAL_ASSET_FUNCTIONS.length + functionIndex + 1;
@@ -155,6 +155,42 @@ const STATIC_VISUAL_ASSETS: readonly OfficialVisualAsset[] = STATIC_STYLE_DEFINI
       } satisfies OfficialVisualAsset;
     }),
 );
+
+const EXTRA_STICKER_NAMES = ["情绪印章", "手绘闪光", "重点箭头"] as const;
+
+const EXTRA_STICKER_VISUAL_ASSETS: readonly OfficialVisualAsset[] =
+  STATIC_STYLE_DEFINITIONS.flatMap((definition, styleIndex) =>
+    EXTRA_STICKER_NAMES.map((variantName, variantIndex) => {
+      const index = 101 + styleIndex * EXTRA_STICKER_NAMES.length + variantIndex;
+      const serial = paddedIndex(index);
+      const styleLabel = VISUAL_ASSET_STYLE_LABELS[definition.style];
+      return {
+        colors: definition.colors,
+        description: `${styleLabel}方向的原创${variantName}贴纸，透明背景，可缩放、拖动和叠放。`,
+        function: "sticker",
+        id: `visual_static_${serial}`,
+        motion: "static",
+        name: `${styleLabel} · ${variantName}`,
+        previewPath: `/visual-assets/library/static/static-${serial}.svg`,
+        resourceId: `builtin_visual_static_${serial}`,
+        scenes: definition.scenes,
+        style: definition.style,
+        tags: [
+          styleLabel,
+          variantName,
+          "贴纸",
+          "透明背景",
+          ...definition.scenes,
+          ...definition.colors,
+        ],
+      } satisfies OfficialVisualAsset;
+    }),
+  );
+
+const STATIC_VISUAL_ASSETS: readonly OfficialVisualAsset[] = [
+  ...BASE_STATIC_VISUAL_ASSETS,
+  ...EXTRA_STICKER_VISUAL_ASSETS,
+];
 
 const DYNAMIC_VISUAL_ASSETS: readonly OfficialVisualAsset[] = DYNAMIC_STYLE_DEFINITIONS.flatMap(
   (definition, styleIndex) =>

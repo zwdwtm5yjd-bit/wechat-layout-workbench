@@ -52,6 +52,9 @@ function inlineStyle(marks: readonly DocumentMark[] | undefined): {
       case "fontSize":
         style["font-size"] = `${String(mark.attrs.size)}px`;
         break;
+      case "fontFamily":
+        style["font-family"] = mark.attrs.family;
+        break;
       case "link":
         href = mark.attrs.href;
         break;
@@ -581,6 +584,7 @@ function imageRenderer(
       : node.attrs.widthMode === "original"
         ? "auto"
         : "100%";
+  const horizontalAlign = node.attrs.horizontalAlign;
   return htmlElement("section", {
     children: [
       htmlElement("img", {
@@ -594,6 +598,22 @@ function imageRenderer(
             height: "auto",
             "max-width": "100%",
             "object-fit": node.attrs.objectFit ?? "contain",
+            ...(node.attrs.objectPositionX === undefined && node.attrs.objectPositionY === undefined
+              ? {}
+              : {
+                  "object-position": `${String(node.attrs.objectPositionX ?? 50)}% ${String(
+                    node.attrs.objectPositionY ?? 50,
+                  )}%`,
+                }),
+            ...(node.attrs.opacity === undefined ? {} : { opacity: node.attrs.opacity }),
+            ...(horizontalAlign === undefined
+              ? {}
+              : {
+                  "margin-left":
+                    horizontalAlign === "right" || horizontalAlign === "center" ? "auto" : "0",
+                  "margin-right":
+                    horizontalAlign === "left" || horizontalAlign === "center" ? "auto" : "0",
+                }),
             width,
           },
           resolvedNodeStyle(node, context, path, "image.default"),
@@ -619,7 +639,51 @@ function imageRenderer(
       "box-sizing": "border-box",
       margin: "0",
       "max-width": "100%",
+      ...(node.attrs.offsetX === undefined &&
+      node.attrs.offsetY === undefined &&
+      node.attrs.rotation === undefined &&
+      node.attrs.layer === undefined
+        ? {}
+        : {
+            position: "relative",
+            transform: `translate(${String(node.attrs.offsetX ?? 0)}px, ${String(
+              node.attrs.offsetY ?? 0,
+            )}px) rotate(${String(node.attrs.rotation ?? 0)}deg)`,
+            "transform-origin": "center",
+            "z-index": node.attrs.layer ?? 1,
+          }),
     },
+  });
+}
+
+function decorativeContainerRenderer(
+  input: BlockNode,
+  context: WechatNodeRenderContext,
+  path: string,
+): SafeHtmlNode {
+  const node = expectNode(input, "decorativeContainer");
+  const resource = context.resolveResource(node.attrs.resourceId, path);
+  const isRibbon = node.attrs.decorationType === "ribbon";
+  return htmlElement("section", {
+    children: renderInline(node.content),
+    style: mergeStyles(
+      {
+        ...TEXT_WRAP_STYLE,
+        ...(resource === null ? {} : { "background-image": `url('${resource.url}')` }),
+        "background-position": "center",
+        "background-repeat": "no-repeat",
+        "background-size": "100% 100%",
+        "box-sizing": "border-box",
+        display: "block",
+        "font-size": `${String(context.tokens.typography.bodySize)}px`,
+        "line-height": context.tokens.typography.bodyLineHeight,
+        margin: "16px 0",
+        "min-height": `${String(node.attrs.minHeight ?? (isRibbon ? 80 : 160))}px`,
+        padding: isRibbon ? "24px 72px" : "48px 56px",
+        "text-align": "center",
+      },
+      context.styleFor(node, node.attrs.styleRef ?? "paragraph.default"),
+    ),
   });
 }
 
@@ -897,6 +961,7 @@ export function createDefaultNodeRendererRegistry(): WechatNodeRendererRegistry 
     .register("orderedList", orderedListRenderer)
     .register("listItem", listItemRenderer)
     .register("imageBlock", imageRenderer)
+    .register("decorativeContainer", decorativeContainerRenderer)
     .register("divider", dividerRenderer)
     .register("semanticCard", semanticCardRenderer)
     .register("brandFooter", brandFooterRenderer)

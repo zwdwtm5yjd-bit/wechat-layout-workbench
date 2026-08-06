@@ -83,6 +83,7 @@ function styleOverrides(value: StyleOverrides | undefined): ComponentStyleTokens
     ...(value.borderRadius === undefined ? {} : { borderRadius: value.borderRadius }),
     ...(value.borderStyle === undefined ? {} : { borderStyle: value.borderStyle }),
     ...(value.borderWidth === undefined ? {} : { borderWidth: value.borderWidth }),
+    ...(value.fontFamily === undefined ? {} : { fontFamily: value.fontFamily }),
     ...(value.fontSize === undefined ? {} : { fontSize: value.fontSize }),
     ...(value.fontWeight === undefined ? {} : { fontWeight: value.fontWeight }),
     ...(value.letterSpacing === undefined ? {} : { letterSpacing: value.letterSpacing }),

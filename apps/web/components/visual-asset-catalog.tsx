@@ -22,7 +22,7 @@ function AssetCard({ asset }: { readonly asset: OfficialVisualAsset }) {
       <div className="relative aspect-[5/2] overflow-hidden bg-[#f4f4f1]">
         <img
           alt={asset.name}
-          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+          className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]"
           loading="lazy"
           src={asset.previewPath}
         />
@@ -108,7 +108,7 @@ export function VisualAssetCatalog() {
             <h1 className="text-lg font-semibold text-ink">视觉素材中心</h1>
           </div>
           <p className="mt-1.5 max-w-2xl text-[11px] leading-5 text-muted">
-            100 个原创静态素材与 50
+            130 个原创静态素材与 50
             个原创动态素材。按形态、用途、风格、场景和色系组织；动态素材在编辑器播放，复制到微信时自动使用静态备用图。
           </p>
         </div>
@@ -132,7 +132,7 @@ export function VisualAssetCatalog() {
               onClick={() => resetSecondaryFilters(item)}
               type="button"
             >
-              {item === "static" ? "静态素材 · 100" : "动态素材 · 50"}
+              {item === "static" ? "静态素材 · 130" : "动态素材 · 50"}
             </button>
           ))}
         </div>

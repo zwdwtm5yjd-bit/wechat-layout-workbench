@@ -2,7 +2,10 @@
 
 import type { DocumentV1 } from "@wechat-layout/document-schema";
 import { documentV1Fixture } from "@wechat-layout/document-schema/fixtures";
-import { OFFICIAL_COMPONENT_ASSETS } from "@wechat-layout/component-registry";
+import {
+  OFFICIAL_COMPONENT_ASSETS,
+  OFFICIAL_STATIC_VISUAL_ASSETS,
+} from "@wechat-layout/component-registry";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   cleanup,
@@ -221,12 +224,69 @@ describe("ArticleEditor", () => {
     await screen.findByRole("textbox", { name: "文章编辑画布" });
     await user.click(screen.getByRole("tab", { name: "素材" }));
 
-    expect(screen.getByRole("button", { name: "静态素材 · 100" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "静态素材 · 130" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "动态素材 · 50" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "主视觉" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "边框" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "图集" })).not.toBeNull();
     expect(screen.getByRole("combobox", { name: "按视觉风格筛选素材" })).not.toBeNull();
+  });
+
+  it("offers text formatting and inserts editable frames plus draggable stickers", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    const frame = OFFICIAL_STATIC_VISUAL_ASSETS.find((asset) => asset.function === "frame")!;
+    const sticker = OFFICIAL_STATIC_VISUAL_ASSETS.find(
+      (asset) => asset.resourceId === "builtin_visual_static_101",
+    )!;
+
+    render(
+      <ArticleEditor
+        document={structuredClone(documentV1Fixture)}
+        editable
+        lockActionsEnabled
+        onChange={onChange}
+        onError={vi.fn()}
+        onLockChange={vi.fn().mockResolvedValue(true)}
+        sourceBlocks={[]}
+        textLocked={false}
+      />,
+    );
+
+    await screen.findByRole("textbox", { name: "文章编辑画布" });
+    expect(screen.getByRole("combobox", { name: "字体" })).not.toBeNull();
+    expect(screen.getByRole("combobox", { name: "字号" })).not.toBeNull();
+    expect(screen.getByLabelText("选择文字颜色")).not.toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "素材" }));
+    await user.click(screen.getByRole("button", { name: "边框" }));
+    await user.click(screen.getByRole("button", { name: new RegExp(frame.name, "u") }));
+    await waitFor(() => {
+      const latest = onChange.mock.lastCall?.[0] as DocumentV1;
+      expect(
+        latest.content.content.some(
+          (block) =>
+            block.type === "decorativeContainer" && block.attrs.resourceId === frame.resourceId,
+        ),
+      ).toBe(true);
+    });
+
+    await user.click(screen.getByRole("button", { name: "贴纸" }));
+    expect(screen.getByText("40 个结果")).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: new RegExp(sticker.name, "u") }));
+    await waitFor(() => {
+      const latest = onChange.mock.lastCall?.[0] as DocumentV1;
+      expect(
+        latest.content.content.some(
+          (block) =>
+            block.type === "imageBlock" &&
+            block.attrs.resourceId === sticker.resourceId &&
+            block.attrs.freePosition === true,
+        ),
+      ).toBe(true);
+    });
+    expect(screen.getByRole("button", { name: "可拖动" })).not.toBeNull();
+    expect(screen.getByText("可直接在画布中拖动；也可用下面的数值精确调整。")).not.toBeNull();
   });
 
   it("supports the duplicate-block shortcut and restores the emitted JSON after remount", async () => {

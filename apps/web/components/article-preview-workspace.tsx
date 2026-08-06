@@ -1,6 +1,7 @@
 "use client";
 
 import { normalizeDocument } from "@wechat-layout/editor-core";
+import { builtInVisualAssetPublicPath } from "@wechat-layout/component-registry";
 import type {
   BlockNode,
   DocumentMark,
@@ -50,6 +51,7 @@ function blockStyle(overrides?: StyleOverrides): CSSProperties | undefined {
     borderStyle: overrides.borderStyle,
     borderWidth: overrides.borderWidth,
     color: overrides.textColor,
+    fontFamily: overrides.fontFamily,
     fontSize: overrides.fontSize,
     fontWeight: overrides.fontWeight,
     letterSpacing: overrides.letterSpacing,
@@ -96,6 +98,13 @@ function applyMarks(content: ReactNode, marks: readonly DocumentMark[] | undefin
     if (mark.type === "fontSize") {
       return (
         <span key={index} style={{ fontSize: mark.attrs.size }}>
+          {value}
+        </span>
+      );
+    }
+    if (mark.type === "fontFamily") {
+      return (
+        <span key={index} style={{ fontFamily: mark.attrs.family }}>
           {value}
         </span>
       );
@@ -197,20 +206,77 @@ function PreviewBlock({ node }: { readonly node: BlockNode }) {
     return <hr className="my-8 border-0 border-t border-zinc-200" style={style} />;
   }
   if (node.type === "imageBlock") {
+    const source = builtInVisualAssetPublicPath(node.attrs.resourceId);
+    const width =
+      node.attrs.widthMode === "percent"
+        ? `${String(node.attrs.widthPercent ?? 80)}%`
+        : node.attrs.widthMode === "original"
+          ? "auto"
+          : "100%";
     return (
-      <figure className="my-7" style={style}>
-        <div className="grid aspect-video place-items-center rounded-md bg-zinc-100 text-zinc-400">
-          <span className="text-center text-xs">
-            <ImageIcon aria-hidden="true" className="mx-auto mb-2" size={22} />
-            图片资源 · {node.attrs.resourceId}
-          </span>
-        </div>
+      <figure
+        className="relative my-7"
+        style={{
+          ...style,
+          marginLeft:
+            node.attrs.horizontalAlign === "right" || node.attrs.horizontalAlign === "center"
+              ? "auto"
+              : 0,
+          marginRight:
+            node.attrs.horizontalAlign === "left" || node.attrs.horizontalAlign === "center"
+              ? "auto"
+              : 0,
+          opacity: node.attrs.opacity ?? 1,
+          transform: `translate(${String(node.attrs.offsetX ?? 0)}px, ${String(
+            node.attrs.offsetY ?? 0,
+          )}px) rotate(${String(node.attrs.rotation ?? 0)}deg)`,
+          width,
+          zIndex: node.attrs.layer ?? 1,
+        }}
+      >
+        {source === undefined ? (
+          <div className="grid aspect-video place-items-center rounded-md bg-zinc-100 text-zinc-400">
+            <span className="text-center text-xs">
+              <ImageIcon aria-hidden="true" className="mx-auto mb-2" size={22} />
+              图片资源 · {node.attrs.resourceId}
+            </span>
+          </div>
+        ) : (
+          <img
+            alt={node.attrs.alt ?? ""}
+            className="block h-auto max-w-full"
+            src={source}
+            style={{
+              objectFit: node.attrs.objectFit ?? "contain",
+              objectPosition: `${String(node.attrs.objectPositionX ?? 50)}% ${String(
+                node.attrs.objectPositionY ?? 50,
+              )}%`,
+              width: "100%",
+            }}
+          />
+        )}
         {node.attrs.caption === undefined ? null : (
           <figcaption className="mt-2 text-center text-xs text-zinc-500">
             {node.attrs.caption}
           </figcaption>
         )}
       </figure>
+    );
+  }
+  if (node.type === "decorativeContainer") {
+    const source = builtInVisualAssetPublicPath(node.attrs.resourceId);
+    return (
+      <section
+        className="my-6 flex items-center justify-center bg-center bg-no-repeat px-14 py-10 text-center"
+        style={{
+          ...style,
+          backgroundImage: source === undefined ? undefined : `url(${source})`,
+          backgroundSize: "100% 100%",
+          minHeight: node.attrs.minHeight ?? (node.attrs.decorationType === "ribbon" ? 80 : 160),
+        }}
+      >
+        <InlineContent nodes={node.content} />
+      </section>
     );
   }
   if (node.type === "semanticCard") {

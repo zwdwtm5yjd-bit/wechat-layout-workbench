@@ -22,6 +22,15 @@ const colorSchema = {
   pattern: "^#[0-9A-Fa-f]{6}$",
 } as const;
 
+const fontFamilyValues = [
+  'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  '"PingFang SC", "Microsoft YaHei", sans-serif',
+  '"Songti SC", "SimSun", serif',
+  '"Kaiti SC", "KaiTi", serif',
+  "Arial, Helvetica, sans-serif",
+  'Georgia, "Times New Roman", serif',
+] as const;
+
 const blockAttributeProperties = {
   blockId: identifierSchema,
   sourceBlockId: identifierSchema,
@@ -183,6 +192,7 @@ const semanticCardContentRefs = [
 
 const rootBlockRefs = [
   ...semanticCardContentRefs,
+  "#/$defs/decorativeContainerNode",
   "#/$defs/semanticCardNode",
   "#/$defs/brandFooterNode",
   "#/$defs/svgInteractionNode",
@@ -223,6 +233,9 @@ export const documentSchemaV1JsonSchema = {
         type: "number",
         minimum: 10,
         maximum: 48,
+      },
+      fontFamily: {
+        enum: fontFamilyValues,
       },
       fontWeight: {
         enum: [300, 400, 500, 600, 700],
@@ -371,6 +384,22 @@ export const documentSchemaV1JsonSchema = {
                 },
               },
               ["size"],
+            ),
+          },
+          ["type", "attrs"],
+        ),
+        strictObject(
+          {
+            type: {
+              const: "fontFamily",
+            },
+            attrs: strictObject(
+              {
+                family: {
+                  enum: fontFamilyValues,
+                },
+              },
+              ["family"],
             ),
           },
           ["type", "attrs"],
@@ -552,11 +581,73 @@ export const documentSchemaV1JsonSchema = {
           objectFit: {
             enum: ["contain", "cover", "fill"],
           },
+          objectPositionX: {
+            type: "number",
+            minimum: 0,
+            maximum: 100,
+          },
+          objectPositionY: {
+            type: "number",
+            minimum: 0,
+            maximum: 100,
+          },
+          horizontalAlign: {
+            enum: ["left", "center", "right"],
+          },
+          offsetX: {
+            type: "number",
+            minimum: -600,
+            maximum: 600,
+          },
+          offsetY: {
+            type: "number",
+            minimum: -600,
+            maximum: 600,
+          },
+          rotation: {
+            type: "number",
+            minimum: -180,
+            maximum: 180,
+          },
+          layer: {
+            type: "integer",
+            minimum: 0,
+            maximum: 20,
+          },
+          opacity: {
+            type: "number",
+            minimum: 0.1,
+            maximum: 1,
+          },
+          elementKind: {
+            enum: ["image", "sticker", "decoration"],
+          },
+          freePosition: {
+            type: "boolean",
+          },
           watermarkId: identifierSchema,
         },
         ["resourceId"],
         true,
       ),
+    ),
+    decorativeContainerNode: optionalContentNodeSchema(
+      "decorativeContainer",
+      blockAttributes(
+        {
+          resourceId: identifierSchema,
+          decorationType: {
+            enum: ["frame", "ribbon"],
+          },
+          minHeight: {
+            type: "number",
+            minimum: 48,
+            maximum: 480,
+          },
+        },
+        ["resourceId", "decorationType"],
+      ),
+      ["#/$defs/textNode", "#/$defs/hardBreakNode"],
     ),
     dividerNode: nodeSchema(
       "divider",

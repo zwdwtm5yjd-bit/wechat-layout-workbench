@@ -4,6 +4,9 @@ export const WECHAT_STYLE_PROPERTIES = [
   "background",
   "background-color",
   "background-image",
+  "background-position",
+  "background-repeat",
+  "background-size",
   "border",
   "border-bottom",
   "border-color",
@@ -31,8 +34,10 @@ export const WECHAT_STYLE_PROPERTIES = [
   "margin-top",
   "max-height",
   "max-width",
+  "min-height",
   "min-width",
   "object-fit",
+  "object-position",
   "opacity",
   "overflow",
   "overflow-wrap",
@@ -44,10 +49,13 @@ export const WECHAT_STYLE_PROPERTIES = [
   "position",
   "text-align",
   "text-decoration",
+  "transform",
+  "transform-origin",
   "vertical-align",
   "white-space",
   "width",
   "word-break",
+  "z-index",
 ] as const;
 
 export type WechatStyleProperty = (typeof WECHAT_STYLE_PROPERTIES)[number];
@@ -70,11 +78,22 @@ const DANGEROUS_VALUE_PATTERN =
   /[;{}<>\\]|(?:url|expression|javascript|@import|behavior|var)\s*\(/i;
 const VALUE_PATTERN = /^[#%(),.'" A-Za-z0-9_+\-/]*$/;
 
-function validValue(value: WechatStyleValue): string | null {
+function validValue(property: string, value: WechatStyleValue): string | null {
   if (typeof value === "number") {
     return Number.isFinite(value) ? String(value) : null;
   }
   const normalized = value.trim().replace(/\s+/g, " ");
+  if (property === "background-image" && normalized.startsWith("url(")) {
+    const imageUrl = /^url\('([^']+)'\)$/u.exec(normalized)?.[1];
+    if (imageUrl === undefined || /[;{}<>\\\s]/u.test(imageUrl)) {
+      return null;
+    }
+    try {
+      return new URL(imageUrl).protocol === "https:" ? normalized : null;
+    } catch {
+      return null;
+    }
+  }
   if (
     normalized.length === 0 ||
     normalized.length > 512 ||
@@ -111,7 +130,7 @@ export function serializeInlineStyles(
       warnings.push({ message: "CSS 属性不在白名单中", property });
       continue;
     }
-    const value = validValue(rawValue);
+    const value = validValue(property, rawValue);
     if (value === null) {
       warnings.push({ message: "CSS 值不安全或格式不合法", property });
       continue;

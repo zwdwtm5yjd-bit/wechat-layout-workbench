@@ -7,6 +7,7 @@ export const MARK_TYPES = [
   "backgroundColor",
   "link",
   "fontSize",
+  "fontFamily",
 ] as const;
 
 export type MarkType = (typeof MARK_TYPES)[number];
@@ -56,6 +57,13 @@ export interface FontSizeMark {
   };
 }
 
+export interface FontFamilyMark {
+  type: "fontFamily";
+  attrs: {
+    family: string;
+  };
+}
+
 export type DocumentMark =
   | BoldMark
   | ItalicMark
@@ -64,4 +72,5 @@ export type DocumentMark =
   | TextColorMark
   | BackgroundColorMark
   | LinkMark
-  | FontSizeMark;
+  | FontSizeMark
+  | FontFamilyMark;

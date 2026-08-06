@@ -38,6 +38,7 @@ function visitBlock(node: BlockNode, path: string, blocks: BlockEntry[], texts: 
   switch (node.type) {
     case "paragraph":
     case "heading":
+    case "decorativeContainer":
       visitInlineNodes(node.content, `${path}/content`, texts);
       return;
     case "blockquote":

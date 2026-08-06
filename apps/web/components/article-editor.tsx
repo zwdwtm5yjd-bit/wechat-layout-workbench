@@ -19,6 +19,7 @@ import {
   moveBlockToIndex,
   redo,
   selectBlock,
+  setInlineMarkAttributes,
   setTextBlockType,
   toggleInlineMark,
   undo,
@@ -138,6 +139,13 @@ const EDITOR_ASSET_FUNCTIONS = [
   { id: "sticker", label: "贴纸" },
 ] as const;
 
+const STATIC_ASSET_COUNT = OFFICIAL_VISUAL_ASSETS.filter(
+  (asset) => asset.motion === "static",
+).length;
+const DYNAMIC_ASSET_COUNT = OFFICIAL_VISUAL_ASSETS.filter(
+  (asset) => asset.motion === "dynamic",
+).length;
+
 function EditorComponentThumbnail({ component }: { readonly component: ComponentPreview }) {
   const { layoutKey, sample } = component.asset.preview;
   if (layoutKey === "visual" && sample.assetPath !== undefined) {
@@ -247,6 +255,7 @@ const nodeLabels: Readonly<Record<string, string>> = {
   bulletList: "无序列表",
   orderedList: "有序列表",
   imageBlock: "图片",
+  decorativeContainer: "文字装饰容器",
   divider: "分割线",
   semanticCard: "语义卡片",
   brandFooter: "品牌页脚",
@@ -276,6 +285,66 @@ const alignmentOptions: ReadonlyArray<{
   { alignment: "right", icon: AlignRight, label: "右对齐" },
   { alignment: "justify", icon: AlignJustify, label: "两端对齐" },
 ];
+
+const fontFamilyOptions = [
+  {
+    label: "系统默认",
+    value: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
+  { label: "苹方 / 微软雅黑", value: '"PingFang SC", "Microsoft YaHei", sans-serif' },
+  { label: "宋体", value: '"Songti SC", "SimSun", serif' },
+  { label: "楷体", value: '"Kaiti SC", "KaiTi", serif' },
+  { label: "Arial", value: "Arial, Helvetica, sans-serif" },
+  { label: "Georgia", value: 'Georgia, "Times New Roman", serif' },
+] as const;
+
+const fontSizeOptions = [12, 14, 15, 16, 17, 18, 20, 22, 24, 28, 32, 36, 40, 48] as const;
+
+function applyTextStyle(
+  editor: Editor,
+  selection: EditorSelectionSnapshot | null,
+  style: "textColor" | "fontSize" | "fontFamily",
+  value: string | number,
+): boolean {
+  if (!editor.state.selection.empty) {
+    return setInlineMarkAttributes(
+      editor,
+      style,
+      style === "textColor"
+        ? { color: value }
+        : style === "fontSize"
+          ? { size: value }
+          : { family: value },
+    );
+  }
+  if (selection === null) return false;
+  const overrides = selection.attributes.styleOverrides as Record<string, unknown> | undefined;
+  return updateBlockAttributes(editor, selection.blockId, {
+    styleOverrides: {
+      ...overrides,
+      [style]: value,
+    },
+  });
+}
+
+function currentTextStyle(
+  editor: Editor,
+  selection: EditorSelectionSnapshot | null,
+  style: "textColor" | "fontSize" | "fontFamily",
+  fallback: string | number,
+): string | number {
+  const markAttributes = editor.getAttributes(style) as Record<string, unknown>;
+  const markValue =
+    style === "textColor"
+      ? markAttributes.color
+      : style === "fontSize"
+        ? markAttributes.size
+        : markAttributes.family;
+  if (typeof markValue === "string" || typeof markValue === "number") return markValue;
+  const overrides = selection?.attributes.styleOverrides as Record<string, unknown> | undefined;
+  const blockValue = overrides?.[style];
+  return typeof blockValue === "string" || typeof blockValue === "number" ? blockValue : fallback;
+}
 
 const componentAttributeFields: Readonly<
   Record<
@@ -351,6 +420,12 @@ function EditorToolbar({
   const selectedType = selection?.type;
   const headingLevel = selectedType === "heading" ? selection?.attributes.level : undefined;
   const canChangeTextBlock = selectedType === "paragraph" || selectedType === "heading";
+  const canFormatText = editor.state.selection.$from.parent.isTextblock;
+  const activeFontFamily = String(
+    currentTextStyle(editor, selection, "fontFamily", fontFamilyOptions[0].value),
+  );
+  const activeFontSize = Number(currentTextStyle(editor, selection, "fontSize", 16));
+  const activeTextColor = String(currentTextStyle(editor, selection, "textColor", "#18181b"));
   const setTextBlock = (type: "paragraph" | "heading", level?: 1 | 2 | 3) => {
     if (selection !== null) {
       setTextBlockType(editor, selection.blockId, type, level);
@@ -377,6 +452,61 @@ function EditorToolbar({
       >
         <Redo2 aria-hidden="true" size={15} />
       </ToolbarButton>
+      <span aria-hidden="true" className="mx-1 h-5 w-px bg-line" />
+      <select
+        aria-label="字体"
+        className="h-8 max-w-32 rounded-md border border-line bg-panel px-2 text-[10px] text-ink outline-none focus:border-accent disabled:opacity-35"
+        disabled={!editable || !canFormatText}
+        onChange={(event) =>
+          applyTextStyle(editor, selection, "fontFamily", event.currentTarget.value)
+        }
+        title="字体"
+        value={activeFontFamily}
+      >
+        {fontFamilyOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="字号"
+        className="h-8 w-[66px] rounded-md border border-line bg-panel px-2 text-[10px] text-ink outline-none focus:border-accent disabled:opacity-35"
+        disabled={!editable || !canFormatText}
+        onChange={(event) =>
+          applyTextStyle(editor, selection, "fontSize", Number(event.currentTarget.value))
+        }
+        title="字号"
+        value={activeFontSize}
+      >
+        {fontSizeOptions.map((size) => (
+          <option key={size} value={size}>
+            {size}px
+          </option>
+        ))}
+      </select>
+      <label
+        aria-label="文字颜色"
+        className="grid size-8 cursor-pointer place-items-center rounded-md text-muted hover:bg-hover"
+        title="文字颜色"
+      >
+        <Palette aria-hidden="true" size={15} />
+        <span
+          aria-hidden="true"
+          className="mt-[-3px] h-0.5 w-4 rounded-full"
+          style={{ backgroundColor: activeTextColor }}
+        />
+        <input
+          aria-label="选择文字颜色"
+          className="sr-only"
+          disabled={!editable || !canFormatText}
+          onChange={(event) =>
+            applyTextStyle(editor, selection, "textColor", event.currentTarget.value)
+          }
+          type="color"
+          value={/^#[0-9a-f]{6}$/iu.test(activeTextColor) ? activeTextColor : "#18181b"}
+        />
+      </label>
       <span aria-hidden="true" className="mx-1 h-5 w-px bg-line" />
       <ToolbarButton
         active={selectedType === "paragraph"}
@@ -1350,7 +1480,9 @@ export function ArticleEditor({
                         }}
                         type="button"
                       >
-                        {motion === "static" ? "静态素材 · 100" : "动态素材 · 50"}
+                        {motion === "static"
+                          ? `静态素材 · ${String(STATIC_ASSET_COUNT)}`
+                          : `动态素材 · ${String(DYNAMIC_ASSET_COUNT)}`}
                       </button>
                     ))}
                   </div>
@@ -1438,6 +1570,17 @@ export function ArticleEditor({
                             >
                               {asset.motion === "dynamic" ? "动态" : "静态"}
                             </span>
+                            {asset.function === "frame" || asset.function === "ribbon" ? (
+                              <span className="absolute right-1.5 bottom-1.5 rounded-full bg-emerald-600/90 px-1.5 py-0.5 text-[7px] font-semibold text-white">
+                                可输入文字
+                              </span>
+                            ) : asset.function === "sticker" ||
+                              asset.function === "corner" ||
+                              asset.function === "badge" ? (
+                              <span className="absolute right-1.5 bottom-1.5 rounded-full bg-indigo-600/90 px-1.5 py-0.5 text-[7px] font-semibold text-white">
+                                可拖动
+                              </span>
+                            ) : null}
                           </span>
                           <span className="block border-t border-line px-2 py-2">
                             <span className="block truncate text-[9px] font-semibold text-ink">
@@ -1717,6 +1860,122 @@ export function ArticleEditor({
                 </div>
               </div>
 
+              {!(["imageBlock", "divider", "svgInteraction"] as const).includes(
+                selection.type as "imageBlock" | "divider" | "svgInteraction",
+              ) ? (
+                <div className="rounded-control border border-accent/20 bg-accent-soft/45 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold text-ink">文字格式</p>
+                    <span className="text-[8px] text-faint">
+                      {editor.state.selection.empty ? "当前区块" : "已选文字"}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-[1fr_76px] gap-2">
+                    <label className="block">
+                      <span className="mb-1 block text-[8px] text-faint">字体</span>
+                      <select
+                        aria-label="属性栏字体"
+                        className="h-8 w-full rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
+                        disabled={!editable || (textLocked && selection.locked)}
+                        onChange={(event) =>
+                          applyTextStyle(editor, selection, "fontFamily", event.currentTarget.value)
+                        }
+                        value={String(
+                          currentTextStyle(
+                            editor,
+                            selection,
+                            "fontFamily",
+                            fontFamilyOptions[0].value,
+                          ),
+                        )}
+                      >
+                        {fontFamilyOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-[8px] text-faint">字号</span>
+                      <select
+                        aria-label="属性栏字号"
+                        className="h-8 w-full rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
+                        disabled={!editable || (textLocked && selection.locked)}
+                        onChange={(event) =>
+                          applyTextStyle(
+                            editor,
+                            selection,
+                            "fontSize",
+                            Number(event.currentTarget.value),
+                          )
+                        }
+                        value={Number(currentTextStyle(editor, selection, "fontSize", 16))}
+                      >
+                        {fontSizeOptions.map((size) => (
+                          <option key={size} value={size}>
+                            {size}px
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-3 grid grid-cols-[76px_1fr] items-end gap-2">
+                    <label className="block">
+                      <span className="mb-1 block text-[8px] text-faint">文字颜色</span>
+                      <input
+                        aria-label="属性栏文字颜色"
+                        className="h-8 w-full cursor-pointer rounded-md border border-line bg-panel p-1"
+                        disabled={!editable || (textLocked && selection.locked)}
+                        onChange={(event) =>
+                          applyTextStyle(editor, selection, "textColor", event.currentTarget.value)
+                        }
+                        type="color"
+                        value={String(currentTextStyle(editor, selection, "textColor", "#18181b"))}
+                      />
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(
+                        [
+                          ["lineHeight", "行高", 1, 3, 1.8, 0.1],
+                          ["letterSpacing", "字距", -2, 10, 0, 0.5],
+                        ] as const
+                      ).map(([attribute, label, min, max, fallback, step]) => {
+                        const overrides = selection.attributes.styleOverrides as
+                          Record<string, unknown> | undefined;
+                        const current = overrides?.[attribute];
+                        const value = typeof current === "number" ? current : fallback;
+                        return (
+                          <label className="block" key={attribute}>
+                            <span className="mb-1 flex justify-between text-[8px] text-faint">
+                              {label}
+                              <span>{value}</span>
+                            </span>
+                            <input
+                              className="h-8 w-full accent-indigo-600"
+                              disabled={!editable || (textLocked && selection.locked)}
+                              max={max}
+                              min={min}
+                              onChange={(event) =>
+                                updateBlockAttributes(editor, selection.blockId, {
+                                  styleOverrides: {
+                                    ...overrides,
+                                    [attribute]: Number(event.currentTarget.value),
+                                  },
+                                })
+                              }
+                              step={step}
+                              type="range"
+                              value={value}
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               {(typeof selection.attributes.componentId === "string" ||
                 selection.type === "imageBlock") &&
               (componentAttributeFields[selection.type]?.length ?? 0) > 0 ? (
@@ -1792,7 +2051,7 @@ export function ArticleEditor({
                           className="mt-2 w-full accent-indigo-600"
                           disabled={!editable}
                           max={100}
-                          min={30}
+                          min={selection.attributes.elementKind === "sticker" ? 8 : 20}
                           onChange={(event) =>
                             updateBlockAttributes(editor, selection.blockId, {
                               widthPercent: Number(event.currentTarget.value),
@@ -1803,6 +2062,120 @@ export function ArticleEditor({
                           value={Number(selection.attributes.widthPercent ?? 80)}
                         />
                       </label>
+                    ) : null}
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] font-medium text-ink">位置与层级</p>
+                      <button
+                        aria-pressed={selection.attributes.freePosition === true}
+                        className={`rounded-md px-2 py-1 text-[8px] font-medium ${
+                          selection.attributes.freePosition === true
+                            ? "bg-accent text-white"
+                            : "border border-line bg-panel text-muted"
+                        }`}
+                        disabled={!editable}
+                        onClick={() =>
+                          updateBlockAttributes(editor, selection.blockId, {
+                            freePosition: selection.attributes.freePosition !== true,
+                          })
+                        }
+                        type="button"
+                      >
+                        {selection.attributes.freePosition === true ? "可拖动" : "开启自由移动"}
+                      </button>
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-1">
+                      {(
+                        [
+                          ["left", "靠左"],
+                          ["center", "居中"],
+                          ["right", "靠右"],
+                        ] as const
+                      ).map(([value, label]) => (
+                        <button
+                          aria-pressed={
+                            selection.attributes.horizontalAlign === value ||
+                            (selection.attributes.horizontalAlign === undefined &&
+                              value === "center")
+                          }
+                          className={`h-8 rounded-md border text-[9px] ${
+                            selection.attributes.horizontalAlign === value ||
+                            (selection.attributes.horizontalAlign === undefined &&
+                              value === "center")
+                              ? "border-accent bg-accent-soft text-accent"
+                              : "border-line bg-panel text-muted"
+                          }`}
+                          disabled={!editable}
+                          key={value}
+                          onClick={() =>
+                            updateBlockAttributes(editor, selection.blockId, {
+                              horizontalAlign: value,
+                            })
+                          }
+                          type="button"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {selection.attributes.freePosition === true ? (
+                      <div className="mt-3 space-y-3 rounded-md border border-accent/15 bg-panel p-2.5">
+                        <p className="text-[8px] leading-4 text-accent">
+                          可直接在画布中拖动；也可用下面的数值精确调整。
+                        </p>
+                        {(
+                          [
+                            ["offsetX", "左右", -300, 300, 0, 1, "px"],
+                            ["offsetY", "上下", -300, 300, 0, 1, "px"],
+                            ["rotation", "旋转", -180, 180, 0, 1, "°"],
+                            ["layer", "层级", 0, 20, 1, 1, ""],
+                          ] as const
+                        ).map(([attribute, label, min, max, fallback, step, unit]) => {
+                          const current = selection.attributes[attribute];
+                          const value = typeof current === "number" ? current : fallback;
+                          return (
+                            <label className="block" key={attribute}>
+                              <span className="flex justify-between text-[8px] text-faint">
+                                {label}
+                                <span>
+                                  {value}
+                                  {unit}
+                                </span>
+                              </span>
+                              <input
+                                className="mt-1 w-full accent-indigo-600"
+                                disabled={!editable}
+                                max={max}
+                                min={min}
+                                onChange={(event) =>
+                                  updateBlockAttributes(editor, selection.blockId, {
+                                    [attribute]: Number(event.currentTarget.value),
+                                  })
+                                }
+                                step={step}
+                                type="range"
+                                value={value}
+                              />
+                            </label>
+                          );
+                        })}
+                        <button
+                          className="h-7 w-full rounded-md border border-line text-[8px] text-muted hover:bg-hover"
+                          disabled={!editable}
+                          onClick={() =>
+                            updateBlockAttributes(editor, selection.blockId, {
+                              layer: 1,
+                              offsetX: 0,
+                              offsetY: 0,
+                              rotation: 0,
+                            })
+                          }
+                          type="button"
+                        >
+                          重置位置
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                   <div>
@@ -1833,6 +2206,61 @@ export function ArticleEditor({
                         </button>
                       ))}
                     </div>
+                    {selection.attributes.objectFit === "cover" ? (
+                      <div className="mt-3 space-y-2 rounded-md border border-line bg-panel p-2.5">
+                        <p className="text-[8px] text-faint">裁切焦点</p>
+                        {(
+                          [
+                            ["objectPositionX", "左右焦点"],
+                            ["objectPositionY", "上下焦点"],
+                          ] as const
+                        ).map(([attribute, label]) => {
+                          const current = selection.attributes[attribute];
+                          const value = typeof current === "number" ? current : 50;
+                          return (
+                            <label className="block" key={attribute}>
+                              <span className="flex justify-between text-[8px] text-faint">
+                                {label}
+                                <span>{value}%</span>
+                              </span>
+                              <input
+                                className="mt-1 w-full accent-indigo-600"
+                                disabled={!editable}
+                                max={100}
+                                min={0}
+                                onChange={(event) =>
+                                  updateBlockAttributes(editor, selection.blockId, {
+                                    [attribute]: Number(event.currentTarget.value),
+                                  })
+                                }
+                                type="range"
+                                value={value}
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                    <label className="mt-3 block">
+                      <span className="flex justify-between text-[8px] text-faint">
+                        透明度
+                        <span>{Math.round(Number(selection.attributes.opacity ?? 1) * 100)}%</span>
+                      </span>
+                      <input
+                        className="mt-1 w-full accent-indigo-600"
+                        disabled={!editable}
+                        max={1}
+                        min={0.1}
+                        onChange={(event) =>
+                          updateBlockAttributes(editor, selection.blockId, {
+                            opacity: Number(event.currentTarget.value),
+                          })
+                        }
+                        step={0.05}
+                        type="range"
+                        value={Number(selection.attributes.opacity ?? 1)}
+                      />
+                    </label>
                   </div>
                   <button
                     className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-accent/25 bg-panel text-[9px] font-medium text-accent hover:bg-hover"

@@ -102,7 +102,30 @@ export const documentV1Fixture = {
                   size: 16,
                 },
               },
+              {
+                type: "fontFamily",
+                attrs: {
+                  family: '"PingFang SC", "Microsoft YaHei", sans-serif',
+                },
+              },
             ],
+          },
+        ],
+      },
+      {
+        type: "decorativeContainer",
+        attrs: {
+          blockId: "block_decorative_container",
+          locked: false,
+          compatibilityLevel: "conditional",
+          resourceId: "builtin_visual_static_005",
+          decorationType: "frame",
+          minHeight: 160,
+        },
+        content: [
+          {
+            type: "text",
+            text: "可编辑装饰容器",
           },
         ],
       },
