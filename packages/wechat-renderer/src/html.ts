@@ -19,7 +19,9 @@ export type WechatHtmlTag = (typeof WECHAT_HTML_TAGS)[number];
 
 export interface SafeHtmlAttributes {
   readonly alt?: string;
+  readonly draggable?: false;
   readonly href?: string;
+  readonly leaf?: true;
   readonly src?: string;
   readonly start?: number;
   readonly title?: string;
@@ -73,6 +75,7 @@ function serializeAttributes(
   mode: WechatOutputMode,
   path: string,
   warnings: HtmlPolicyWarning[],
+  forceLeaf = false,
 ): string {
   const attributes: Record<string, string> = {};
   const source = element.attributes ?? {};
@@ -82,6 +85,9 @@ function serializeAttributes(
   }
   if (typeof source.title === "string") {
     attributes.title = source.title;
+  }
+  if (element.tag === "span" && (source.leaf === true || forceLeaf)) {
+    attributes.leaf = "";
   }
   if (element.tag === "ol" && Number.isInteger(source.start) && Number(source.start) >= 1) {
     attributes.start = String(source.start);
@@ -102,8 +108,19 @@ function serializeAttributes(
       warnings.push({ message: result.reason, path: `${path}/attributes/src` });
     }
   }
-  if (element.style !== undefined) {
-    const result = serializeInlineStyles(element.style, mode);
+  if (element.tag === "img") {
+    attributes.draggable = "false";
+  }
+  if (element.tag !== "br") {
+    const requiredStyle: WechatStyleMap = {
+      ...(element.style ?? {}),
+      "box-sizing": "border-box",
+      "max-width": "100% !important",
+      ...(element.tag === "span"
+        ? { "overflow-wrap": "anywhere", "word-break": "break-word" }
+        : {}),
+    };
+    const result = serializeInlineStyles(requiredStyle, mode);
     if (result.css !== "") {
       attributes.style = result.css;
     }
@@ -126,9 +143,11 @@ function serializeNode(
   mode: WechatOutputMode,
   path: string,
   warnings: HtmlPolicyWarning[],
+  insideLeaf = false,
 ): string {
   if (typeof node === "string") {
-    return escapeHtml(node);
+    const escaped = escapeHtml(node);
+    return insideLeaf || node.trim() === "" ? escaped : `<span leaf="">${escaped}</span>`;
   }
   if (!ALLOWED_TAGS.has(node.tag)) {
     warnings.push({ message: `HTML 标签 “${String(node.tag)}” 不在白名单中`, path });
@@ -139,13 +158,23 @@ function serializeNode(
       .join("");
   }
 
-  const attributes = serializeAttributes(node, mode, path, warnings);
+  const forceLeaf =
+    node.tag === "span" &&
+    (node.children?.length ?? 0) > 0 &&
+    node.children?.every((child) => typeof child === "string") === true;
+  const attributes = serializeAttributes(node, mode, path, warnings, forceLeaf);
   if (VOID_TAGS.has(node.tag)) {
     return `<${node.tag}${attributes}>`;
   }
   const children = (node.children ?? [])
     .map((child, index) =>
-      serializeNode(child, mode, `${path}/children/${String(index)}`, warnings),
+      serializeNode(
+        child,
+        mode,
+        `${path}/children/${String(index)}`,
+        warnings,
+        insideLeaf || forceLeaf || node.attributes?.leaf === true,
+      ),
     )
     .join("");
   return `<${node.tag}${attributes}>${children}</${node.tag}>`;

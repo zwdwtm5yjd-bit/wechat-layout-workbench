@@ -34,13 +34,13 @@ const renderOutput = {
   status: "ready" as const,
   outputMode: "standard" as const,
   rendererVersion: "1.0.0",
-  compatibilityRuleVersion: "1.0.0",
+  compatibilityRuleVersion: "1.1.0",
   outputHash: `sha256:${"a".repeat(64)}`,
   canCopy: true,
   compatibilityReport: {
     canCopy: true,
     issues: [],
-    ruleVersion: "1.0.0",
+    ruleVersion: "1.1.0",
     score: 100,
     status: "passed" as const,
     summary: {

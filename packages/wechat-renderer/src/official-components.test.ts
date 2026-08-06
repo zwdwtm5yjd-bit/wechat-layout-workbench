@@ -92,7 +92,7 @@ function nearestWrappingElement(html: string, text: string): HtmlElement {
   const wrappingIndex = path.findLastIndex((element) => {
     const style = styleMap(element);
     return (
-      style["max-width"] === "100%" &&
+      style["max-width"]?.startsWith("100%") === true &&
       style["overflow-wrap"] === "anywhere" &&
       style["word-break"] === "break-word"
     );

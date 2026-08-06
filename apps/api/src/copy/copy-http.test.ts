@@ -277,7 +277,7 @@ describe("wechat copy HTTP contract", () => {
       canCopy: true,
       outputMode: "standard",
       rendererVersion: "1.0.0",
-      compatibilityRuleVersion: "1.0.0",
+      compatibilityRuleVersion: "1.1.0",
     });
     const renderOutputId = rendered.body.data.id as string;
     const payload = await supertest(server)

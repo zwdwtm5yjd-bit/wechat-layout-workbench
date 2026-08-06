@@ -60,12 +60,30 @@ describe("AiLayoutService", () => {
       languageId: "crimson-editorial",
       designName: "纪律坐标",
       concept: "以克制的编辑标记突出体系化表达。",
-      hero: { eyebrow: "INSPECTION REPORT", title: "稳中提质", footer: "体系化 · 标准化" },
-      footer: { title: "回看重点", text: "让监督成果落到行动" },
+      rhythm: "compact",
+      variantSeed: 2187,
+      visualIntensity: "restrained",
+      dividerComponentId: "cmp_divider_ornament_center_003",
+      hero: {
+        componentId: "cmp_gov_red_gold_banner_001",
+        eyebrow: "INSPECTION REPORT",
+        title: "稳中提质",
+        footer: "体系化 · 标准化",
+      },
+      footer: {
+        componentId: "cmp_notice_checklist_action_005",
+        title: "回看重点",
+        text: "让监督成果落到行动",
+      },
       dividerAfterBlockIds: ["block_paragraph", "unknown"],
       blocks: [
-        { blockId: "block_heading", treatment: "title", reason: "全文标题" },
-        { blockId: "block_paragraph", treatment: "lead", reason: "开篇导语" },
+        {
+          blockId: "block_heading",
+          componentId: "cmp_head_level1_numbered_002",
+          treatment: "title",
+          reason: "全文标题",
+        },
+        { blockId: "block_paragraph", componentId: null, treatment: "lead", reason: "开篇导语" },
       ],
     };
     const fetcher = vi.fn().mockResolvedValue(
@@ -100,12 +118,35 @@ describe("AiLayoutService", () => {
       languageId: "warm-paper",
       designName: "纸上脉络",
       concept: "用杂志留白和少量信息锚点组织阅读节奏。",
-      hero: { eyebrow: "FIELD NOTES", title: "从内容长出结构", footer: "观察 · 提炼" },
-      footer: { title: "读到这里", text: "把关键判断带回工作中" },
+      rhythm: "airy",
+      variantSeed: 7301,
+      visualIntensity: "balanced",
+      dividerComponentId: "cmp_divider_ornament_dots_004",
+      hero: {
+        componentId: "cmp_intro_autumn_persimmon_001",
+        eyebrow: "FIELD NOTES",
+        title: "从内容长出结构",
+        footer: "观察 · 提炼",
+      },
+      footer: {
+        componentId: "cmp_notice_story_intro_006",
+        title: "读到这里",
+        text: "把关键判断带回工作中",
+      },
       dividerAfterBlockIds: ["block_paragraph"],
       blocks: [
-        { blockId: "block_heading", treatment: "title", reason: "全文标题" },
-        { blockId: "block_paragraph", treatment: "callout", reason: "核心判断" },
+        {
+          blockId: "block_heading",
+          componentId: "cmp_head_level1_frame_006",
+          treatment: "title",
+          reason: "全文标题",
+        },
+        {
+          blockId: "block_paragraph",
+          componentId: "cmp_notice_story_intro_006",
+          treatment: "callout",
+          reason: "核心判断",
+        },
       ],
     };
     const fetcher = vi.fn().mockResolvedValue(

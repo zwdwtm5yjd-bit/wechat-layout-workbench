@@ -1,7 +1,18 @@
 import {
+  AI_LAYOUT_COMPONENT_IDS,
   AI_LAYOUT_DESIGN_LANGUAGE_IDS,
+  AI_LAYOUT_DIVIDER_COMPONENT_IDS,
+  AI_LAYOUT_HEADING1_COMPONENT_IDS,
+  AI_LAYOUT_HEADING2_COMPONENT_IDS,
+  AI_LAYOUT_HERO_COMPONENT_IDS,
+  AI_LAYOUT_IMAGE_COMPONENT_IDS,
+  AI_LAYOUT_NOTICE_COMPONENT_IDS,
+  AI_LAYOUT_QUOTE_COMPONENT_IDS,
+  AI_LAYOUT_RHYTHMS,
   AI_LAYOUT_TREATMENTS,
+  AI_LAYOUT_VISUAL_INTENSITIES,
   type AiLayoutBlockDecision,
+  type AiLayoutComponentId,
   type AiLayoutDecision,
   type AiLayoutStatus,
   type AiLayoutTreatment,
@@ -25,6 +36,7 @@ type TopLevelBlock = DocNode["content"][number];
 
 const blockDecisionSchema = z.strictObject({
   blockId: z.string().min(1).max(160),
+  componentId: z.enum(AI_LAYOUT_COMPONENT_IDS).nullable(),
   reason: z.string().min(1).max(120),
   treatment: z.enum(AI_LAYOUT_TREATMENTS),
 });
@@ -33,17 +45,23 @@ const decisionSchema = z.strictObject({
   blocks: z.array(blockDecisionSchema).max(160),
   concept: z.string().min(2).max(240),
   designName: z.string().min(2).max(50),
+  dividerComponentId: z.enum(AI_LAYOUT_DIVIDER_COMPONENT_IDS),
   dividerAfterBlockIds: z.array(z.string().min(1).max(160)).max(8),
   footer: z.strictObject({
+    componentId: z.enum(AI_LAYOUT_NOTICE_COMPONENT_IDS),
     text: z.string().min(1).max(80),
     title: z.string().min(1).max(40),
   }),
   hero: z.strictObject({
+    componentId: z.enum(AI_LAYOUT_HERO_COMPONENT_IDS),
     eyebrow: z.string().min(1).max(36),
     footer: z.string().min(1).max(80),
     title: z.string().min(1).max(56),
   }),
   languageId: z.enum(AI_LAYOUT_DESIGN_LANGUAGE_IDS),
+  rhythm: z.enum(AI_LAYOUT_RHYTHMS),
+  variantSeed: z.number().int().min(0).max(9_999),
+  visualIntensity: z.enum(AI_LAYOUT_VISUAL_INTENSITIES),
 });
 
 const responseJsonSchema = {
@@ -53,10 +71,14 @@ const responseJsonSchema = {
     "blocks",
     "concept",
     "designName",
+    "dividerComponentId",
     "dividerAfterBlockIds",
     "footer",
     "hero",
     "languageId",
+    "rhythm",
+    "variantSeed",
+    "visualIntensity",
   ],
   properties: {
     blocks: {
@@ -65,9 +87,12 @@ const responseJsonSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["blockId", "reason", "treatment"],
+        required: ["blockId", "componentId", "reason", "treatment"],
         properties: {
           blockId: { type: "string", minLength: 1, maxLength: 160 },
+          componentId: {
+            anyOf: [{ type: "string", enum: AI_LAYOUT_COMPONENT_IDS }, { type: "null" }],
+          },
           reason: { type: "string", minLength: 1, maxLength: 120 },
           treatment: { type: "string", enum: AI_LAYOUT_TREATMENTS },
         },
@@ -75,6 +100,7 @@ const responseJsonSchema = {
     },
     concept: { type: "string", minLength: 2, maxLength: 240 },
     designName: { type: "string", minLength: 2, maxLength: 50 },
+    dividerComponentId: { type: "string", enum: AI_LAYOUT_DIVIDER_COMPONENT_IDS },
     dividerAfterBlockIds: {
       type: "array",
       maxItems: 8,
@@ -83,8 +109,9 @@ const responseJsonSchema = {
     footer: {
       type: "object",
       additionalProperties: false,
-      required: ["text", "title"],
+      required: ["componentId", "text", "title"],
       properties: {
+        componentId: { type: "string", enum: AI_LAYOUT_NOTICE_COMPONENT_IDS },
         text: { type: "string", minLength: 1, maxLength: 80 },
         title: { type: "string", minLength: 1, maxLength: 40 },
       },
@@ -92,16 +119,39 @@ const responseJsonSchema = {
     hero: {
       type: "object",
       additionalProperties: false,
-      required: ["eyebrow", "footer", "title"],
+      required: ["componentId", "eyebrow", "footer", "title"],
       properties: {
+        componentId: { type: "string", enum: AI_LAYOUT_HERO_COMPONENT_IDS },
         eyebrow: { type: "string", minLength: 1, maxLength: 36 },
         footer: { type: "string", minLength: 1, maxLength: 80 },
         title: { type: "string", minLength: 1, maxLength: 56 },
       },
     },
     languageId: { type: "string", enum: AI_LAYOUT_DESIGN_LANGUAGE_IDS },
+    rhythm: { type: "string", enum: AI_LAYOUT_RHYTHMS },
+    variantSeed: { type: "integer", minimum: 0, maximum: 9_999 },
+    visualIntensity: { type: "string", enum: AI_LAYOUT_VISUAL_INTENSITIES },
   },
 } as const;
+
+const componentIdsByTreatment: Readonly<
+  Partial<Record<AiLayoutTreatment, ReadonlySet<AiLayoutComponentId>>>
+> = {
+  title: new Set(AI_LAYOUT_HEADING1_COMPONENT_IDS),
+  section: new Set(AI_LAYOUT_HEADING2_COMPONENT_IDS),
+  quote: new Set(AI_LAYOUT_QUOTE_COMPONENT_IDS),
+  data: new Set(AI_LAYOUT_NOTICE_COMPONENT_IDS),
+  callout: new Set(AI_LAYOUT_NOTICE_COMPONENT_IDS),
+  image: new Set(AI_LAYOUT_IMAGE_COMPONENT_IDS),
+};
+
+function compatibleComponentId(
+  treatment: AiLayoutTreatment,
+  componentId: AiLayoutComponentId | null,
+): AiLayoutComponentId | null {
+  if (componentId === null) return null;
+  return componentIdsByTreatment[treatment]?.has(componentId) === true ? componentId : null;
+}
 
 function textFromNode(node: unknown): string {
   if (typeof node !== "object" || node === null) return "";
@@ -220,7 +270,11 @@ function sanitizeDecision(
     if (treatment === "lead") leadCount += 1;
     if (treatment === "quote") quoteCount += 1;
     if (treatment === "data" || treatment === "callout") calloutCount += 1;
-    submitted.set(decision.blockId, { ...decision, treatment });
+    submitted.set(decision.blockId, {
+      ...decision,
+      componentId: compatibleComponentId(treatment, decision.componentId),
+      treatment,
+    });
   }
 
   return {
@@ -229,6 +283,7 @@ function sanitizeDecision(
       (node): AiLayoutBlockDecision =>
         submitted.get(node.attrs.blockId) ?? {
           blockId: node.attrs.blockId,
+          componentId: node.type === "imageBlock" ? AI_LAYOUT_IMAGE_COMPONENT_IDS[0] : null,
           reason: "保留为连续正文",
           treatment: node.type === "imageBlock" ? "image" : "body",
         },
@@ -323,6 +378,16 @@ export class AiLayoutService {
       "特殊模块要克制，连续正文仍是主体。不要生成占位图片、空图集、无关装饰或固定套话。",
       "hero 与 footer 文案可以概括文章气质，但不能新增事实。dividerAfterBlockIds 只放在真正的章节转折后。",
       "六种视觉语言：minimal-blue 理性极简；warm-paper 人文杂志；night-cyan 科技数据；forest-green 自然留白；crimson-editorial 政务编辑；ink-gold 经典深读。",
+      "你还要为每个特殊区块选择具体 componentId，这些选择会真正改变排版，不要总是选每类的第一个。body/list/lead 的 componentId 必须为 null。",
+      `一级标题候选：${AI_LAYOUT_HEADING1_COMPONENT_IDS.join("、")}。`,
+      `二级标题候选：${AI_LAYOUT_HEADING2_COMPONENT_IDS.join("、")}。`,
+      `引用/金句候选：${AI_LAYOUT_QUOTE_COMPONENT_IDS.join("、")}。`,
+      `数据/提示候选：${AI_LAYOUT_NOTICE_COMPONENT_IDS.join("、")}。`,
+      `图片候选：${AI_LAYOUT_IMAGE_COMPONENT_IDS.join("、")}。`,
+      `章节分隔候选：${AI_LAYOUT_DIVIDER_COMPONENT_IDS.join("、")}。`,
+      `导读首屏候选：${AI_LAYOUT_HERO_COMPONENT_IDS.join("、")}。`,
+      "rhythm 决定全文呼吸感：compact 紧凑、balanced 均衡、airy 舒展。visualIntensity 决定装饰强度：restrained 克制、balanced 均衡、bold 鲜明。",
+      "variantSeed 是 0–9999 的整数，同一文章重新生成时要主动变化它，并换一组合理的组件组合。",
       "每一个提供的 blockId 必须且只能在 blocks 中出现一次。输出必须严格符合 JSON Schema。",
     ].join("\n");
     const userInput = JSON.stringify({
@@ -330,6 +395,7 @@ export class AiLayoutService {
         mode: input.mode,
         preferredLanguageId: preferred,
         styleBrief: brief,
+        variationCue: Math.floor(Math.random() * 10_000),
       },
       article: { articleId, blocks: outline },
     });

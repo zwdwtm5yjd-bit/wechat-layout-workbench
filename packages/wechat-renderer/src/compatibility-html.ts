@@ -4,6 +4,7 @@ import {
   htmlElement,
   serializeSafeHtml,
   WECHAT_HTML_TAGS,
+  type SafeHtmlAttributes,
   type SafeHtmlNode,
   type WechatHtmlTag,
 } from "./html.js";
@@ -54,8 +55,9 @@ const DANGEROUS_TAGS = new Set([
 const GLOBAL_ATTRIBUTES = new Set(["style", "title"]);
 const TAG_ATTRIBUTES = new Map<string, ReadonlySet<string>>([
   ["a", new Set(["href"])],
-  ["img", new Set(["alt", "src"])],
+  ["img", new Set(["alt", "draggable", "src"])],
   ["ol", new Set(["start"])],
+  ["span", new Set(["leaf"])],
 ]);
 const URL_BEARING_ATTRIBUTES = new Set([
   "action",
@@ -120,7 +122,10 @@ function widthOverflow(value: string | undefined, allowAuto = false): boolean {
   if (value === undefined) {
     return false;
   }
-  const normalized = value.trim().toLowerCase();
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/\s*!important$/u, "");
   if (allowAuto && normalized === "auto") {
     return false;
   }
@@ -225,6 +230,15 @@ function inspectImage(
       createCompatibilityIssue({
         code: "IMAGE_ALT_MISSING",
         path: `${path}/attributes/alt`,
+        source: "output",
+      }),
+    );
+  }
+  if (attribute(element, "draggable") !== "false") {
+    issues.push(
+      createCompatibilityIssue({
+        code: "IMAGE_DRAGGABLE_MISSING",
+        path: `${path}/attributes/draggable`,
         source: "output",
       }),
     );
@@ -357,6 +371,18 @@ function inspectElement(
   element.childNodes.forEach((child, index) => {
     if (isElement(child)) {
       inspectElement(child, `${path}/children/${String(index)}`, mode, issues);
+    } else if (
+      isTextNode(child) &&
+      child.value.trim() !== "" &&
+      !(tag === "span" && attribute(element, "leaf") !== undefined)
+    ) {
+      issues.push(
+        createCompatibilityIssue({
+          code: "HTML_TEXT_LEAF_MISSING",
+          path: `${path}/children/${String(index)}`,
+          source: "output",
+        }),
+      );
     }
   });
 }
@@ -375,16 +401,7 @@ export function inspectHtmlCompatibility(
   return issues;
 }
 
-function safeAttributes(
-  element: HtmlElement,
-  tag: WechatHtmlTag,
-): {
-  readonly alt?: string;
-  readonly href?: string;
-  readonly src?: string;
-  readonly start?: number;
-  readonly title?: string;
-} {
+function safeAttributes(element: HtmlElement, tag: WechatHtmlTag): SafeHtmlAttributes {
   const title = attribute(element, "title");
   if (tag === "a") {
     const href = attribute(element, "href");
@@ -398,6 +415,7 @@ function safeAttributes(
     const src = attribute(element, "src");
     return {
       ...(alt === undefined ? {} : { alt }),
+      draggable: false,
       ...(src === undefined ? {} : { src }),
       ...(title === undefined ? {} : { title }),
     };
@@ -406,6 +424,12 @@ function safeAttributes(
     const startValue = Number(attribute(element, "start"));
     return {
       ...(Number.isInteger(startValue) && startValue >= 1 ? { start: startValue } : {}),
+      ...(title === undefined ? {} : { title }),
+    };
+  }
+  if (tag === "span") {
+    return {
+      ...(attribute(element, "leaf") === undefined ? {} : { leaf: true }),
       ...(title === undefined ? {} : { title }),
     };
   }

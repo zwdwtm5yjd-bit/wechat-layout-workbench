@@ -120,7 +120,7 @@ describe("微信输出安全边界", () => {
     );
 
     expect(result.html).toBe(
-      '<p style="color:#1D2939;">&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;</p>保留正文<a>不安全链接</a>',
+      '<p style="box-sizing:border-box;color:#1D2939;max-width:100%!important;"><span leaf="">&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;</span></p><span leaf="">保留正文</span><a style="box-sizing:border-box;max-width:100%!important;"><span leaf="">不安全链接</span></a>',
     );
     expect(result.html).not.toContain("<script");
     expect(result.html).not.toContain("http://");

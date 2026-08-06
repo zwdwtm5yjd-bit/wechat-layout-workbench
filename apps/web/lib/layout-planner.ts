@@ -1,8 +1,11 @@
 import type { VisualAssetStyle } from "@wechat-layout/component-registry";
 import type {
+  AiLayoutComponentId,
   AiLayoutDecision,
   AiLayoutDesignLanguageId,
+  AiLayoutRhythm,
   AiLayoutTreatment,
+  AiLayoutVisualIntensity,
 } from "@wechat-layout/api-contracts";
 import type {
   BlockNode,
@@ -62,10 +65,12 @@ export interface LayoutPlan {
   readonly name: string;
   readonly reasoning: string;
   readonly recommended: boolean;
+  readonly rhythm: AiLayoutRhythm;
   readonly theme: OfficialTheme | null;
   readonly themeName: string;
   readonly tone: string;
   readonly visualVariant: 0 | 1 | 2;
+  readonly visualIntensity: AiLayoutVisualIntensity;
 }
 
 interface DesignLanguageDefinition {
@@ -454,9 +459,11 @@ function planFor(
     imageNeed: analysis.missingImageCount,
     brief: quotedBrief === "" ? null : quotedBrief,
     recommended,
+    rhythm: gene.density,
     theme,
     themeName: theme?.manifest.name ?? language.themeNames[0] ?? language.name,
     visualVariant,
+    visualIntensity: mode === "preset" ? "restrained" : "balanced",
   };
 }
 
@@ -519,10 +526,14 @@ export function layoutPlanFromAiDecision(
     reasoning: decision.concept,
     highlights: [
       `模型逐段判断 ${String(decision.blocks.length)} 个内容区块`,
-      `结构：标题、章节、导语、金句与数据卡按正文生成`,
+      `组件：按内容选择首屏、标题、金句、图片与数据卡`,
+      `节奏：${decision.rhythm} · 视觉强度：${decision.visualIntensity}`,
       "不生成占位图片或无关图集",
       "微信安全样式与原文保护",
     ],
+    rhythm: decision.rhythm,
+    visualIntensity: decision.visualIntensity,
+    visualVariant: (decision.variantSeed % 3) as 0 | 1 | 2,
   };
 }
 
@@ -549,26 +560,47 @@ function languageRhythm(plan: LayoutPlan): {
   readonly lineHeight: number;
   readonly radius: number;
 } {
-  switch (plan.languageId) {
-    case "forest-green":
-      return { bodyGap: 22, headingGap: 40, lineHeight: 1.9, radius: 6 };
-    case "ink-gold":
-      return { bodyGap: 20, headingGap: 36, lineHeight: 1.9, radius: 4 };
-    case "warm-paper":
-      return { bodyGap: 18, headingGap: 34, lineHeight: 1.85, radius: 4 };
-    case "night-cyan":
-      return { bodyGap: 18, headingGap: 32, lineHeight: 1.85, radius: 8 };
-    case "crimson-editorial":
-      return { bodyGap: 16, headingGap: 32, lineHeight: 1.85, radius: 3 };
-    default:
-      return { bodyGap: 18, headingGap: 32, lineHeight: 1.85, radius: 6 };
+  const base = (() => {
+    switch (plan.languageId) {
+      case "forest-green":
+        return { bodyGap: 22, headingGap: 40, lineHeight: 1.9, radius: 6 };
+      case "ink-gold":
+        return { bodyGap: 20, headingGap: 36, lineHeight: 1.9, radius: 4 };
+      case "warm-paper":
+        return { bodyGap: 18, headingGap: 34, lineHeight: 1.85, radius: 4 };
+      case "night-cyan":
+        return { bodyGap: 18, headingGap: 32, lineHeight: 1.85, radius: 8 };
+      case "crimson-editorial":
+        return { bodyGap: 16, headingGap: 32, lineHeight: 1.85, radius: 3 };
+      default:
+        return { bodyGap: 18, headingGap: 32, lineHeight: 1.85, radius: 6 };
+    }
+  })();
+  if (plan.rhythm === "compact") {
+    return {
+      ...base,
+      bodyGap: Math.max(12, base.bodyGap - 4),
+      headingGap: Math.max(24, base.headingGap - 6),
+      lineHeight: Math.max(1.7, base.lineHeight - 0.1),
+    };
   }
+  if (plan.rhythm === "airy") {
+    return {
+      ...base,
+      bodyGap: base.bodyGap + 5,
+      headingGap: base.headingGap + 8,
+      lineHeight: base.lineHeight + 0.08,
+    };
+  }
+  return base;
 }
 
 function planStyle(node: BlockNode, plan: LayoutPlan): StyleOverrides {
   const [accent, surface, title] = plan.accentColors;
   const rhythm = languageRhythm(plan);
   const body = BODY_COLORS[plan.languageId];
+  const expressive = plan.visualIntensity === "bold";
+  const restrained = plan.visualIntensity === "restrained";
   if (node.type === "heading") {
     const levelOne = node.attrs.level === 1;
     const quietHeading = plan.languageId === "forest-green" || plan.languageId === "ink-gold";
@@ -579,8 +611,18 @@ function planStyle(node: BlockNode, plan: LayoutPlan): StyleOverrides {
       borderColor: levelOne ? surface : accent,
       borderRadius: levelOne ? 0 : rhythm.radius,
       borderStyle: "solid",
-      borderWidth: levelOne || quietHeading ? 0 : 1,
-      fontSize: levelOne ? 26 : node.attrs.level === 2 ? 20 : 17,
+      borderWidth: levelOne || quietHeading ? 0 : expressive ? 2 : 1,
+      fontSize: levelOne
+        ? expressive
+          ? 29
+          : restrained
+            ? 24
+            : 26
+        : node.attrs.level === 2
+          ? expressive
+            ? 21
+            : 20
+          : 17,
       fontWeight: plan.languageId === "forest-green" ? 500 : levelOne ? 700 : 600,
       letterSpacing: plan.languageId === "ink-gold" ? 0.5 : 0.3,
       lineHeight: levelOne ? 1.4 : 1.5,
@@ -613,7 +655,7 @@ function planStyle(node: BlockNode, plan: LayoutPlan): StyleOverrides {
       borderColor: accent,
       borderRadius: rhythm.radius,
       borderStyle: "solid",
-      borderWidth: plan.languageId === "forest-green" ? 1 : 2,
+      borderWidth: plan.languageId === "forest-green" ? 1 : expressive ? 3 : restrained ? 1 : 2,
       marginBottom: 24,
       marginTop: 24,
       paddingBottom: 16,
@@ -629,7 +671,7 @@ function planStyle(node: BlockNode, plan: LayoutPlan): StyleOverrides {
       borderColor: accent,
       borderRadius: rhythm.radius,
       borderStyle: "solid",
-      borderWidth: plan.visualVariant === 0 ? 1 : 0,
+      borderWidth: plan.visualVariant === 0 ? (expressive ? 2 : 1) : 0,
       lineHeight: rhythm.lineHeight,
       marginBottom: 24,
       paddingBottom: plan.visualVariant === 0 ? 14 : 0,
@@ -644,7 +686,7 @@ function planStyle(node: BlockNode, plan: LayoutPlan): StyleOverrides {
       borderColor: plan.languageId === "forest-green" ? surface : accent,
       borderRadius: rhythm.radius,
       borderStyle: "solid",
-      borderWidth: plan.languageId === "forest-green" ? 0 : 1,
+      borderWidth: plan.languageId === "forest-green" ? 0 : expressive ? 2 : 1,
       marginBottom: 24,
       marginTop: 20,
     };
@@ -656,7 +698,7 @@ function planStyle(node: BlockNode, plan: LayoutPlan): StyleOverrides {
 }
 
 interface LayoutComponentSet {
-  readonly divider: { readonly id: string; readonly variant: "dashed" | "ornament" };
+  readonly divider: { readonly id: string; readonly variant: string };
   readonly heading1: { readonly id: string; readonly variant: string };
   readonly heading2: { readonly id: string; readonly variant: string };
   readonly hero: { readonly id: string; readonly variant: string };
@@ -721,6 +763,131 @@ const LAYOUT_COMPONENTS: Readonly<Record<DesignLanguageId, LayoutComponentSet>> 
     divider: { id: "cmp_divider_ornament_dots_004", variant: "ornament" },
   },
 };
+
+const COMPONENT_VARIANTS: Readonly<
+  Record<AiLayoutComponentId, { readonly id: AiLayoutComponentId; readonly variant: string }>
+> = {
+  cmp_head_level1_leftbar_001: { id: "cmp_head_level1_leftbar_001", variant: "leftbar" },
+  cmp_head_level1_numbered_002: { id: "cmp_head_level1_numbered_002", variant: "numbered" },
+  cmp_head_level1_underlined_003: {
+    id: "cmp_head_level1_underlined_003",
+    variant: "underlined",
+  },
+  cmp_head_level1_centered_004: { id: "cmp_head_level1_centered_004", variant: "centered" },
+  cmp_head_level1_ribbon_005: { id: "cmp_head_level1_ribbon_005", variant: "ribbon" },
+  cmp_head_level1_frame_006: { id: "cmp_head_level1_frame_006", variant: "framed" },
+  cmp_head_mist_mountains_007: {
+    id: "cmp_head_mist_mountains_007",
+    variant: "mist_mountain_heading",
+  },
+  cmp_head_level2_dot_001: { id: "cmp_head_level2_dot_001", variant: "dot" },
+  cmp_head_level2_leftbar_002: { id: "cmp_head_level2_leftbar_002", variant: "leftbar" },
+  cmp_head_level2_underlined_003: {
+    id: "cmp_head_level2_underlined_003",
+    variant: "underlined",
+  },
+  cmp_head_level2_plain_004: { id: "cmp_head_level2_plain_004", variant: "plain" },
+  cmp_head_level2_pill_005: { id: "cmp_head_level2_pill_005", variant: "pill" },
+  cmp_head_level2_marker_006: { id: "cmp_head_level2_marker_006", variant: "marker" },
+  cmp_head_cloud_scroll_008: {
+    id: "cmp_head_cloud_scroll_008",
+    variant: "cloud_scroll_heading",
+  },
+  cmp_quote_standard_leftline_001: {
+    id: "cmp_quote_standard_leftline_001",
+    variant: "leftline",
+  },
+  cmp_quote_citation_marks_002: {
+    id: "cmp_quote_citation_marks_002",
+    variant: "quotation",
+  },
+  cmp_quote_conclusion_card_003: {
+    id: "cmp_quote_conclusion_card_003",
+    variant: "conclusion",
+  },
+  cmp_quote_document_source_004: {
+    id: "cmp_quote_document_source_004",
+    variant: "document",
+  },
+  cmp_quote_postcard_warm_005: {
+    id: "cmp_quote_postcard_warm_005",
+    variant: "postcard",
+  },
+  cmp_quote_highlight_center_006: {
+    id: "cmp_quote_highlight_center_006",
+    variant: "highlight",
+  },
+  cmp_notice_info_blue_001: { id: "cmp_notice_info_blue_001", variant: "info" },
+  cmp_notice_success_green_002: { id: "cmp_notice_success_green_002", variant: "success" },
+  cmp_notice_warning_amber_003: { id: "cmp_notice_warning_amber_003", variant: "warning" },
+  cmp_notice_risk_red_004: { id: "cmp_notice_risk_red_004", variant: "risk" },
+  cmp_notice_checklist_action_005: {
+    id: "cmp_notice_checklist_action_005",
+    variant: "checklist",
+  },
+  cmp_notice_story_intro_006: { id: "cmp_notice_story_intro_006", variant: "story" },
+  cmp_image_fullwidth_clean_001: {
+    id: "cmp_image_fullwidth_clean_001",
+    variant: "fullwidth",
+  },
+  cmp_image_rounded_caption_002: {
+    id: "cmp_image_rounded_caption_002",
+    variant: "rounded_caption",
+  },
+  cmp_image_border_documentary_003: {
+    id: "cmp_image_border_documentary_003",
+    variant: "documentary",
+  },
+  cmp_image_centered_numbered_004: {
+    id: "cmp_image_centered_numbered_004",
+    variant: "centered_numbered",
+  },
+  cmp_image_polaroid_caption_005: {
+    id: "cmp_image_polaroid_caption_005",
+    variant: "polaroid",
+  },
+  cmp_divider_solid_clean_001: { id: "cmp_divider_solid_clean_001", variant: "solid" },
+  cmp_divider_dashed_subtle_002: {
+    id: "cmp_divider_dashed_subtle_002",
+    variant: "dashed",
+  },
+  cmp_divider_ornament_center_003: {
+    id: "cmp_divider_ornament_center_003",
+    variant: "ornament",
+  },
+  cmp_divider_ornament_dots_004: {
+    id: "cmp_divider_ornament_dots_004",
+    variant: "ornament",
+  },
+  cmp_hero_ink_mountain_001: {
+    id: "cmp_hero_ink_mountain_001",
+    variant: "ink_mountain_hero",
+  },
+  cmp_intro_autumn_persimmon_001: {
+    id: "cmp_intro_autumn_persimmon_001",
+    variant: "autumn_persimmon_intro",
+  },
+  cmp_intro_bamboo_note_002: { id: "cmp_intro_bamboo_note_002", variant: "bamboo_note" },
+  cmp_gov_red_gold_banner_001: {
+    id: "cmp_gov_red_gold_banner_001",
+    variant: "civic_red_banner",
+  },
+  cmp_tech_orbit_hero_001: { id: "cmp_tech_orbit_hero_001", variant: "tech_orbit_hero" },
+  cmp_intro_leaf_story_003: { id: "cmp_intro_leaf_story_003", variant: "leaf_story_intro" },
+  cmp_hero_festival_lantern_002: {
+    id: "cmp_hero_festival_lantern_002",
+    variant: "festival_lantern_hero",
+  },
+};
+
+function selectedComponent(
+  componentId: AiLayoutComponentId | null | undefined,
+  fallback: { readonly id: string; readonly variant: string },
+): { readonly id: string; readonly variant: string } {
+  return componentId === null || componentId === undefined
+    ? fallback
+    : COMPONENT_VARIANTS[componentId];
+}
 
 function isGeneratedLayoutRole(role: string | undefined): boolean {
   return role?.startsWith("layout_plan_generated") === true;
@@ -819,8 +986,12 @@ function emphasisCandidates(blocks: readonly DocNode["content"][number][]): Read
   return new Set(scored);
 }
 
-function emphasisBlock(node: ParagraphNode, plan: LayoutPlan): DocNode["content"][number] {
-  const component = LAYOUT_COMPONENTS[plan.languageId].quote;
+function emphasisBlock(
+  node: ParagraphNode,
+  plan: LayoutPlan,
+  componentId?: AiLayoutComponentId | null,
+): DocNode["content"][number] {
+  const component = selectedComponent(componentId, LAYOUT_COMPONENTS[plan.languageId].quote);
   return {
     type: "blockquote",
     attrs: {
@@ -852,6 +1023,7 @@ function componentizeBlock(
   node: DocNode["content"][number],
   plan: LayoutPlan,
   sectionNumber: number,
+  componentId?: AiLayoutComponentId | null,
 ): DocNode["content"][number] {
   const components = LAYOUT_COMPONENTS[plan.languageId];
   const baseAttrs = {
@@ -863,7 +1035,10 @@ function componentizeBlock(
     },
   };
   if (node.type === "heading") {
-    const component = node.attrs.level === 1 ? components.heading1 : components.heading2;
+    const component = selectedComponent(
+      componentId,
+      node.attrs.level === 1 ? components.heading1 : components.heading2,
+    );
     const shouldNumber =
       node.attrs.level === 2 &&
       component.variant === "marker" &&
@@ -880,25 +1055,26 @@ function componentizeBlock(
     } as HeadingNode;
   }
   if (node.type === "blockquote") {
+    const component = selectedComponent(componentId, components.quote);
     return {
       ...structuredClone(node),
       attrs: {
         ...baseAttrs,
-        componentId: components.quote.id,
+        componentId: component.id,
         componentVersion: "1.0.0",
         componentVariantId: "default",
-        variant: components.quote.variant,
-        showQuotes:
-          components.quote.variant === "quotation" || components.quote.variant === "postcard",
+        variant: component.variant,
+        showQuotes: component.variant === "quotation" || component.variant === "postcard",
       },
     };
   }
   if (node.type === "imageBlock") {
+    const component = selectedComponent(componentId, components.image);
     return {
       ...structuredClone(node),
       attrs: {
         ...baseAttrs,
-        componentId: components.image.id,
+        componentId: component.id,
         componentVersion: "1.0.0",
         componentVariantId: "default",
         horizontalAlign: node.attrs.horizontalAlign ?? "center",
@@ -921,8 +1097,14 @@ function componentizeBlock(
   return { ...structuredClone(node), attrs: baseAttrs } as DocNode["content"][number];
 }
 
-function generatedDivider(plan: LayoutPlan): DividerNode {
-  const component = LAYOUT_COMPONENTS[plan.languageId].divider;
+function generatedDivider(plan: LayoutPlan, componentId?: AiLayoutComponentId | null): DividerNode {
+  const component = selectedComponent(componentId, LAYOUT_COMPONENTS[plan.languageId].divider);
+  const variant =
+    component.variant === "solid" ||
+    component.variant === "dashed" ||
+    component.variant === "dotted"
+      ? component.variant
+      : "ornament";
   return {
     type: "divider",
     attrs: {
@@ -932,7 +1114,7 @@ function generatedDivider(plan: LayoutPlan): DividerNode {
       componentVersion: "1.0.0",
       componentVariantId: "default",
       compatibilityLevel: "safe",
-      ...(component.variant === "ornament" ? { icon: "\u2022  \u2022  \u2022" } : {}),
+      ...(variant === "ornament" ? { icon: "\u2022  \u2022  \u2022" } : {}),
       locked: false,
       semanticRole: "layout_plan_generated_divider",
       spacingAfter: 28,
@@ -942,8 +1124,8 @@ function generatedDivider(plan: LayoutPlan): DividerNode {
         { type: "divider", attrs: { blockId: "preview", locked: false } },
         plan,
       ),
-      variant: component.variant,
-      widthPercent: component.variant === "ornament" ? 28 : 68,
+      variant,
+      widthPercent: variant === "ornament" ? 28 : 68,
     },
   };
 }
@@ -954,7 +1136,7 @@ function introCard(
   characterCount: number,
   copy?: AiLayoutDecision["hero"],
 ): SemanticCardNode {
-  const component = LAYOUT_COMPONENTS[plan.languageId].hero;
+  const component = selectedComponent(copy?.componentId, LAYOUT_COMPONENTS[plan.languageId].hero);
   const readingMinutes = Math.max(1, Math.ceil(characterCount / 500));
   const keywords =
     plan.articleGene.keywords.length > 0
@@ -986,8 +1168,9 @@ function dataCard(
   paragraph: ParagraphNode,
   plan: LayoutPlan,
   treatment: "callout" | "data" = "data",
+  componentId?: AiLayoutComponentId | null,
 ): SemanticCardNode {
-  const component = LAYOUT_COMPONENTS[plan.languageId].notice;
+  const component = selectedComponent(componentId, LAYOUT_COMPONENTS[plan.languageId].notice);
   return {
     type: "semanticCard",
     attrs: {
@@ -1017,11 +1200,15 @@ function dataCard(
 }
 
 function tailCard(plan: LayoutPlan, copy?: AiLayoutDecision["footer"]): SemanticCardNode {
+  const component = selectedComponent(
+    copy?.componentId,
+    COMPONENT_VARIANTS.cmp_notice_checklist_action_005,
+  );
   return {
     type: "semanticCard",
     attrs: {
       blockId: blockId(),
-      componentId: "cmp_notice_checklist_action_005",
+      componentId: component.id,
       componentVersion: "1.0.0",
       componentVariantId: "default",
       compatibilityLevel: "safe",
@@ -1045,7 +1232,7 @@ function tailCard(plan: LayoutPlan, copy?: AiLayoutDecision["footer"]): Semantic
         textAlign: "center",
       },
       title: copy?.title ?? "\ud83d\udc4d 点赞 \u00b7 \ud83d\udc40 在看 \u00b7 \u2197 转发",
-      variant: "checklist",
+      variant: component.variant,
     },
   };
 }
@@ -1174,35 +1361,36 @@ export function applyAiLayoutDecisionToDocument(
   decision: AiLayoutDecision,
 ): DocumentV1 {
   const analysis = analyzeDocumentLayout(document);
-  const decisions = new Map(decision.blocks.map((item) => [item.blockId, item.treatment]));
+  const decisions = new Map(decision.blocks.map((item) => [item.blockId, item]));
   const dividerAfter = new Set(decision.dividerAfterBlockIds);
   const originalBlocks = restoreOriginalBlocks(document.content.content);
   let sectionNumber = 0;
   const styledBlocks = originalBlocks.map((original) => {
-    const treatment = decisions.get(original.attrs.blockId) ?? "body";
+    const blockDecision = decisions.get(original.attrs.blockId);
+    const treatment = blockDecision?.treatment ?? "body";
     const structural = aiStructuralNode(original, treatment);
     if (structural.type === "heading" && structural.attrs.level === 2) sectionNumber += 1;
-    return componentizeBlock(structural, plan, sectionNumber);
+    return componentizeBlock(structural, plan, sectionNumber, blockDecision?.componentId);
   }) as DocNode["content"];
   const result: DocNode["content"] = [];
   let leadInserted = false;
 
   styledBlocks.forEach((node) => {
-    const treatment = decisions.get(node.attrs.blockId) ?? "body";
+    const blockDecision = decisions.get(node.attrs.blockId);
+    const treatment = blockDecision?.treatment ?? "body";
     if (treatment === "lead" && node.type === "paragraph" && !leadInserted) {
       result.push(introCard(node, plan, analysis.characterCount, decision.hero));
       leadInserted = true;
     } else if (treatment === "quote" && node.type === "paragraph") {
-      result.push(emphasisBlock(node, plan));
-    } else if (
-      (treatment === "data" || treatment === "callout") &&
-      node.type === "paragraph"
-    ) {
-      result.push(dataCard(node, plan, treatment));
+      result.push(emphasisBlock(node, plan, blockDecision?.componentId));
+    } else if ((treatment === "data" || treatment === "callout") && node.type === "paragraph") {
+      result.push(dataCard(node, plan, treatment, blockDecision?.componentId));
     } else {
       result.push(node);
     }
-    if (dividerAfter.has(node.attrs.blockId)) result.push(generatedDivider(plan));
+    if (dividerAfter.has(node.attrs.blockId)) {
+      result.push(generatedDivider(plan, decision.dividerComponentId));
+    }
   });
 
   if (!leadInserted) {

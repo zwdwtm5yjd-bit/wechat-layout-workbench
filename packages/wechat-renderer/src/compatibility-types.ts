@@ -20,11 +20,13 @@ export type CompatibilityIssueSource = "document" | "output" | "renderer";
 
 export type CompatibilityFixAction =
   | "clamp_image_width"
+  | "ensure_image_draggable"
   | "filter_inline_style"
   | "remove_dangerous_element"
   | "remove_unsafe_attribute"
   | "remove_unsafe_link"
-  | "unwrap_unsupported_element";
+  | "unwrap_unsupported_element"
+  | "wrap_text_leaf";
 
 export type CompatibilityIssueCode =
   | "COMPONENT_UNAVAILABLE"
@@ -34,10 +36,12 @@ export type CompatibilityIssueCode =
   | "DOCUMENT_INVALID"
   | "HTML_DANGEROUS_TAG"
   | "HTML_EVENT_ATTRIBUTE"
+  | "HTML_TEXT_LEAF_MISSING"
   | "HTML_UNSUPPORTED_ATTRIBUTE"
   | "HTML_UNSUPPORTED_TAG"
   | "HTML_URL_ATTRIBUTE_UNSAFE"
   | "IMAGE_ALT_MISSING"
+  | "IMAGE_DRAGGABLE_MISSING"
   | "IMAGE_MAX_WIDTH_MISSING"
   | "IMAGE_SOURCE_MISSING"
   | "IMAGE_URL_INVALID"

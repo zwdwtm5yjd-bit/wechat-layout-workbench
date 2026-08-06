@@ -95,11 +95,26 @@ describe("layout planner", () => {
       languageId: "crimson-editorial",
       designName: "纪律坐标",
       concept: "以报告式章节和克制的数据提示组织阅读。",
-      hero: { eyebrow: "INSPECTION REPORT", title: "稳中提质", footer: "体系化 · 标准化" },
-      footer: { title: "回看重点", text: "让监督成果落到行动" },
+      rhythm: "compact",
+      variantSeed: 812,
+      visualIntensity: "bold",
+      dividerComponentId: "cmp_divider_dashed_subtle_002",
+      hero: {
+        componentId: "cmp_gov_red_gold_banner_001",
+        eyebrow: "INSPECTION REPORT",
+        title: "稳中提质",
+        footer: "体系化 · 标准化",
+      },
+      footer: {
+        componentId: "cmp_notice_risk_red_004",
+        title: "回看重点",
+        text: "让监督成果落到行动",
+      },
       dividerAfterBlockIds: ["block_paragraph"],
       blocks: document.content.content.map((node) => ({
         blockId: node.attrs.blockId,
+        componentId:
+          node.type === "imageBlock" ? ("cmp_image_centered_numbered_004" as const) : null,
         reason: "测试决策",
         treatment:
           node.attrs.blockId === "block_paragraph"
@@ -113,9 +128,9 @@ describe("layout planner", () => {
     const result = applyAiLayoutDecisionToDocument(document, plan, decision);
 
     expect(() => parseDocument(result)).not.toThrow();
-    expect(result.content.content.some((node) => node.attrs.blockId === "block_empty_gallery")).toBe(
-      false,
-    );
+    expect(
+      result.content.content.some((node) => node.attrs.blockId === "block_empty_gallery"),
+    ).toBe(false);
     const intro = result.content.content.find(
       (node) => node.attrs.semanticRole === "layout_plan_generated_intro",
     );
@@ -123,5 +138,11 @@ describe("layout planner", () => {
     expect(result.content.content.some((node) => node.type === "divider")).toBe(true);
     expect(plan.languageId).toBe("crimson-editorial");
     expect(plan.designName).toBe("纪律坐标");
+    expect(plan.rhythm).toBe("compact");
+    expect(plan.visualIntensity).toBe("bold");
+    expect(intro?.attrs.componentId).toBe("cmp_gov_red_gold_banner_001");
+    expect(result.content.content.find((node) => node.type === "divider")?.attrs.componentId).toBe(
+      "cmp_divider_dashed_subtle_002",
+    );
   });
 });

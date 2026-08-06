@@ -83,6 +83,12 @@ function validValue(property: string, value: WechatStyleValue): string | null {
     return Number.isFinite(value) ? String(value) : null;
   }
   const normalized = value.trim().replace(/\s+/g, " ");
+  if (
+    property === "max-width" &&
+    normalized.toLowerCase().replace(/\s/gu, "") === "100%!important"
+  ) {
+    return "100%!important";
+  }
   if (property === "background-image" && normalized.startsWith("url(")) {
     const imageUrl = /^url\('([^']+)'\)$/u.exec(normalized)?.[1];
     if (imageUrl === undefined || /[;{}<>\\\s]/u.test(imageUrl)) {

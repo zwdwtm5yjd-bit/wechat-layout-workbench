@@ -67,6 +67,16 @@ const RULE_DEFINITIONS = [
     title: "包含未验证 HTML 属性",
   },
   {
+    autoFixAction: "wrap_text_leaf",
+    category: "html",
+    code: "HTML_TEXT_LEAF_MISSING",
+    description: "可编辑文字应放在带 leaf 标记的 span 中，避免复制到微信后样式丢失。",
+    penalty: 3,
+    ruleId: "wechat.html.text-leaf",
+    severity: "warning",
+    title: "文字缺少叶子节点标记",
+  },
+  {
     autoFixAction: "remove_unsafe_attribute",
     category: "url",
     code: "HTML_URL_ATTRIBUTE_UNSAFE",
@@ -163,6 +173,16 @@ const RULE_DEFINITIONS = [
     ruleId: "wechat.image.alt-text",
     severity: "suggestion",
     title: "图片缺少替代文字",
+  },
+  {
+    autoFixAction: "ensure_image_draggable",
+    category: "image",
+    code: "IMAGE_DRAGGABLE_MISSING",
+    description: "图片应固定为 draggable=false，避免复制和编辑时出现意外拖拽行为。",
+    penalty: 2,
+    ruleId: "wechat.image.not-draggable",
+    severity: "suggestion",
+    title: "图片未关闭拖拽",
   },
   {
     category: "svg",

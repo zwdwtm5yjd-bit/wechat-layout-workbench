@@ -124,10 +124,12 @@ describe("WechatCompatibilityEngine", () => {
         "CSS_POSITION_UNSAFE",
         "HTML_DANGEROUS_TAG",
         "HTML_EVENT_ATTRIBUTE",
+        "HTML_TEXT_LEAF_MISSING",
         "HTML_UNSUPPORTED_ATTRIBUTE",
         "HTML_UNSUPPORTED_TAG",
         "HTML_URL_ATTRIBUTE_UNSAFE",
         "IMAGE_ALT_MISSING",
+        "IMAGE_DRAGGABLE_MISSING",
         "IMAGE_MAX_WIDTH_MISSING",
         "IMAGE_SOURCE_MISSING",
         "IMAGE_WIDTH_OVERFLOW",
@@ -137,7 +139,7 @@ describe("WechatCompatibilityEngine", () => {
     expect(report.canCopy).toBe(false);
     expect(report.status).toBe("failed");
     expect(report.score).toBe(0);
-    expect(report.ruleVersion).toBe("1.0.0");
+    expect(report.ruleVersion).toBe("1.1.0");
     expect(report.summary.critical).toBeGreaterThan(0);
   });
 

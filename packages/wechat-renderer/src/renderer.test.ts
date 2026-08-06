@@ -220,7 +220,7 @@ describe("WechatHtmlRenderer", () => {
     expect(Object.isFrozen(result)).toBe(true);
     expect(result.manifest).toEqual({
       componentVersions: [],
-      compatibilityRuleVersion: "1.0.0",
+      compatibilityRuleVersion: "1.1.0",
       documentSchemaVersion: "1.0.0",
       rendererVersion: WECHAT_RENDERER_VERSION,
       resourceIds: ["resource_image", "resource_svg_fallback"],
@@ -233,7 +233,9 @@ describe("WechatHtmlRenderer", () => {
     expect(result.html).toContain("<ul");
     expect(result.html).toContain('<ol start="3"');
     expect(result.html).toContain("list-style-type:none");
-    expect(result.html).toMatch(/三、 <\/span><span style="display:inline;">保留原始编号/);
+    expect(result.html).toMatch(
+      /三、 <\/span><span leaf="" style="[^"]*display:inline[^"]*">保留原始编号/u,
+    );
     expect(result.html).toContain('src="https://cdn.example.com/article/image.png"');
     expect(result.html).toContain("图片说明");
     expect(result.html).toContain('src="https://cdn.example.com/article/svg-fallback.png"');
@@ -272,7 +274,7 @@ describe("WechatHtmlRenderer", () => {
     });
 
     expect(result.html).toMatchInlineSnapshot(
-      `"<section style="background-color:#FFFFFF;box-sizing:border-box;color:#1D2939;font-family:-apple-system, BlinkMacSystemFont, &#39;Segoe UI&#39;, &#39;PingFang SC&#39;, &#39;Hiragino Sans GB&#39;, &#39;Microsoft YaHei&#39;, sans-serif;margin:0;max-width:100%;padding:16px;word-break:break-word;"><section style="box-sizing:border-box;color:#1D2939;font-size:22px;font-weight:700;line-height:1.45;margin:28px 0 14px;margin-bottom:14px;margin-top:28px;max-width:100%;overflow-wrap:anywhere;word-break:break-word;"><span style="display:inline;">快照标题</span></section><p style="box-sizing:border-box;color:#1D2939;font-family:-apple-system, BlinkMacSystemFont, &#39;Segoe UI&#39;, &#39;PingFang SC&#39;, &#39;Hiragino Sans GB&#39;, &#39;Microsoft YaHei&#39;, sans-serif;font-size:16px;font-weight:400;letter-spacing:0.3px;line-height:1.8;margin:0 0 16px;margin-bottom:16px;max-width:100%;overflow-wrap:anywhere;text-align:justify;word-break:break-word;">稳定正文</p><section style="box-sizing:border-box;margin:0;max-width:100%;"><img alt="快照图" src="https://cdn.example.com/snapshot.png" style="border-color:#EAECF0;border-radius:8px;box-shadow:none;display:block;height:auto;margin-bottom:16px;margin-top:16px;max-width:100%;object-fit:contain;width:100%;"></section></section>"`,
+      `"<section style="background-color:#FFFFFF;box-sizing:border-box;color:#1D2939;font-family:-apple-system, BlinkMacSystemFont, &#39;Segoe UI&#39;, &#39;PingFang SC&#39;, &#39;Hiragino Sans GB&#39;, &#39;Microsoft YaHei&#39;, sans-serif;margin:0;max-width:100%!important;padding:16px;word-break:break-word;"><section style="box-sizing:border-box;color:#1D2939;font-size:22px;font-weight:700;line-height:1.45;margin:28px 0 14px;margin-bottom:14px;margin-top:28px;max-width:100%!important;overflow-wrap:anywhere;word-break:break-word;"><span leaf="" style="box-sizing:border-box;display:inline;max-width:100%!important;overflow-wrap:anywhere;word-break:break-word;">快照标题</span></section><p style="box-sizing:border-box;color:#1D2939;font-family:-apple-system, BlinkMacSystemFont, &#39;Segoe UI&#39;, &#39;PingFang SC&#39;, &#39;Hiragino Sans GB&#39;, &#39;Microsoft YaHei&#39;, sans-serif;font-size:16px;font-weight:400;letter-spacing:0.3px;line-height:1.8;margin:0 0 16px;margin-bottom:16px;max-width:100%!important;overflow-wrap:anywhere;text-align:justify;word-break:break-word;"><span leaf="">稳定正文</span></p><section style="box-sizing:border-box;margin:0;max-width:100%!important;"><img alt="快照图" draggable="false" src="https://cdn.example.com/snapshot.png" style="border-color:#EAECF0;border-radius:8px;box-shadow:none;box-sizing:border-box;display:block;height:auto;margin-bottom:16px;margin-top:16px;max-width:100%!important;object-fit:contain;width:100%;"></section></section>"`,
     );
   });
 
