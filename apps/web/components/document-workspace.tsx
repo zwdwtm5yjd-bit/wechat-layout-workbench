@@ -31,6 +31,7 @@ import {
   layoutPlanFromAiDecision,
   type LayoutPlan,
 } from "../lib/layout-planner";
+import { layoutTransactionOrigin } from "../lib/layout-transaction";
 import { assertValidPlannedLayout } from "../lib/layout-validation";
 import { createManualSnapshot, type RestoreSnapshotResult } from "../lib/snapshots/client";
 import { applyTheme, listThemes, ThemeClientError, type OfficialTheme } from "../lib/themes/client";
@@ -346,17 +347,19 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
         schemaVersion: currentDocument.schemaVersion,
         document: plannedDocument as unknown as DocumentJson,
         lastTransactionId: transactionId,
-        transactionOrigin: `${aiDecision === null ? "layout.rule" : "layout.ai"}.${resolvedPlan.id}`,
+        transactionOrigin: layoutTransactionOrigin(aiDecision === null ? "rule" : "ai"),
         appearance: {
           paletteId: resolvedPlan.theme.manifest.defaultPaletteId,
           themeId: resolvedPlan.theme.manifest.themeId,
           themeVersion: resolvedPlan.theme.manifest.version,
         },
       });
-      await controller.discardLocalDraft(saved.documentVersion, saved.lastSavedAt);
-      setActiveDocument(plannedDocument);
-      setLastTransactionId(saved.lastTransactionId);
-      setAppliedLayoutOutcome(layoutOutcome(plannedDocument));
+      const persisted = await getArticleDocument(initial.articleId);
+      const persistedDocument = normalizeDocument(persisted.document);
+      await controller.discardLocalDraft(persisted.documentVersion, persisted.lastSavedAt);
+      setActiveDocument(persistedDocument);
+      setLastTransactionId(persisted.lastTransactionId ?? saved.lastTransactionId);
+      setAppliedLayoutOutcome(layoutOutcome(persistedDocument));
     } catch (error) {
       setEditorError(error instanceof Error ? error.message : "成稿方案应用失败，请稍后重试");
       throw error;
