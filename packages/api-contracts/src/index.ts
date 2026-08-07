@@ -22,6 +22,23 @@ export type AiLayoutRhythm = (typeof AI_LAYOUT_RHYTHMS)[number];
 export const AI_LAYOUT_VISUAL_INTENSITIES = ["restrained", "balanced", "bold"] as const;
 export type AiLayoutVisualIntensity = (typeof AI_LAYOUT_VISUAL_INTENSITIES)[number];
 
+export const AI_LAYOUT_TITLE_ALIGNS = ["left", "center"] as const;
+export type AiLayoutTitleAlign = (typeof AI_LAYOUT_TITLE_ALIGNS)[number];
+
+export interface AiLayoutDesignTokens {
+  readonly accentColor: string;
+  readonly bodyFontSize: number;
+  readonly bodyLineHeight: number;
+  readonly cardRadius: number;
+  readonly mutedColor: string;
+  readonly primaryColor: string;
+  readonly sectionSpacing: number;
+  readonly surfaceAltColor: string;
+  readonly surfaceColor: string;
+  readonly textColor: string;
+  readonly titleAlign: AiLayoutTitleAlign;
+}
+
 export const AI_LAYOUT_HEADING1_COMPONENT_IDS = [
   "cmp_head_level1_leftbar_001",
   "cmp_head_level1_numbered_002",
@@ -121,6 +138,7 @@ export interface AiLayoutBlockDecision {
 export interface AiLayoutDecision {
   readonly blocks: readonly AiLayoutBlockDecision[];
   readonly concept: string;
+  readonly designTokens: AiLayoutDesignTokens;
   readonly designName: string;
   readonly dividerComponentId: (typeof AI_LAYOUT_DIVIDER_COMPONENT_IDS)[number];
   readonly dividerAfterBlockIds: readonly string[];

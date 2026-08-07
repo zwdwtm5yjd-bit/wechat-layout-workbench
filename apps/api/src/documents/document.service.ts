@@ -1,5 +1,6 @@
 import { HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { isUuidV7 } from "@wechat-layout/database";
+import { getOfficialTheme } from "@wechat-layout/design-tokens";
 import {
   DOCUMENT_SCHEMA_VERSION,
   validateDocument,
@@ -151,6 +152,24 @@ export class DocumentService {
         },
       ]);
     }
+    if (body.appearance !== undefined) {
+      const theme = getOfficialTheme(body.appearance.themeId, body.appearance.themeVersion);
+      const fields: { readonly path: string; readonly message: string }[] = [];
+      if (theme === null) {
+        fields.push({ path: "appearance.themeId", message: "主题或版本不存在" });
+      } else if (!theme.manifest.supportedPalettes.includes(body.appearance.paletteId)) {
+        fields.push({ path: "appearance.paletteId", message: "配色不属于当前主题" });
+      }
+      if (validation.data.themeId !== body.appearance.themeId) {
+        fields.push({ path: "document.themeId", message: "必须与本次外观主题一致" });
+      }
+      if (validation.data.themeVersion !== body.appearance.themeVersion) {
+        fields.push({ path: "document.themeVersion", message: "必须与本次外观版本一致" });
+      }
+      if (fields.length > 0) {
+        throw invalidRequest(fields);
+      }
+    }
 
     const current = await this.repository.findCurrent(ownerUserId, articleId);
     if (current === null) {
@@ -202,6 +221,7 @@ export class DocumentService {
       transactionOrigin: body.transactionOrigin,
       statistics: statisticsForDocument(validation.data),
       context,
+      ...(body.appearance === undefined ? {} : { appearance: body.appearance }),
     });
 
     if (result.kind === "not_found") {

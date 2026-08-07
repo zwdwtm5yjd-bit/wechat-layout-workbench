@@ -7,6 +7,19 @@ import { AiLayoutService } from "./ai-layout.service.js";
 
 const articleId = "0198f8e1-7a01-7000-8000-000000000301";
 const ownerUserId = "0198f8e1-7a01-7000-8000-000000000302";
+const designTokens = {
+  accentColor: "#D29A54",
+  bodyFontSize: 15,
+  bodyLineHeight: 1.85,
+  cardRadius: 8,
+  mutedColor: "#756A64",
+  primaryColor: "#B4232C",
+  sectionSpacing: 42,
+  surfaceAltColor: "#FEF2F2",
+  surfaceColor: "#FFFFFF",
+  textColor: "#2A221F",
+  titleAlign: "center",
+} as const;
 
 function documents(): DocumentService {
   return {
@@ -66,6 +79,7 @@ describe("AiLayoutService", () => {
       languageId: "crimson-editorial",
       designName: "纪律坐标",
       concept: "以克制的编辑标记突出体系化表达。",
+      designTokens,
       rhythm: "compact",
       variantSeed: 2187,
       visualIntensity: "restrained",
@@ -124,6 +138,7 @@ describe("AiLayoutService", () => {
       languageId: "warm-paper",
       designName: "纸上脉络",
       concept: "用杂志留白和少量信息锚点组织阅读节奏。",
+      designTokens,
       rhythm: "airy",
       variantSeed: 7301,
       visualIntensity: "balanced",
@@ -215,6 +230,7 @@ describe("AiLayoutService", () => {
       languageId: "minimal-blue",
       designName: "清晰路径",
       concept: "用稳定结构组织全文。",
+      designTokens,
       rhythm: "balanced",
       variantSeed: 1098,
       visualIntensity: "restrained",

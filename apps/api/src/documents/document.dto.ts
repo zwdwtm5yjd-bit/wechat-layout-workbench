@@ -1,9 +1,35 @@
 import { Type } from "class-transformer";
-import { IsIn, IsInt, IsObject, IsString, IsUUID, Length, Matches, Min } from "class-validator";
-import { ApiProperty } from "@nestjs/swagger";
+import {
+  IsIn,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+  Matches,
+  Min,
+  ValidateNested,
+} from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { DOCUMENT_SCHEMA_VERSION } from "@wechat-layout/document-schema";
 
 import { ApiMetaOpenApiModel } from "../common/http/openapi-models.js";
+
+export class SaveDocumentAppearanceDto {
+  @ApiProperty({ format: "uuid", type: String })
+  @IsUUID("7")
+  themeId!: string;
+
+  @ApiProperty({ example: "1.0.0", type: String })
+  @IsString()
+  @Matches(/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/)
+  themeVersion!: string;
+
+  @ApiProperty({ format: "uuid", type: String })
+  @IsUUID("7")
+  paletteId!: string;
+}
 
 export class SaveArticleDocumentDto {
   @ApiProperty({ minimum: 1, type: Number })
@@ -34,6 +60,12 @@ export class SaveArticleDocumentDto {
   @Length(1, 100)
   @Matches(/^[a-z][a-z0-9_.-]*$/)
   transactionOrigin!: string;
+
+  @ApiPropertyOptional({ type: () => SaveDocumentAppearanceDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SaveDocumentAppearanceDto)
+  appearance?: SaveDocumentAppearanceDto;
 }
 
 export class ArticleDocumentSourceBlockDto {

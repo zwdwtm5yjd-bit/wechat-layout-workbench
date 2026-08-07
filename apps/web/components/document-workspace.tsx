@@ -31,7 +31,8 @@ import {
   layoutPlanFromAiDecision,
   type LayoutPlan,
 } from "../lib/layout-planner";
-import type { RestoreSnapshotResult } from "../lib/snapshots/client";
+import { assertValidPlannedLayout } from "../lib/layout-validation";
+import { createManualSnapshot, type RestoreSnapshotResult } from "../lib/snapshots/client";
 import { applyTheme, listThemes, ThemeClientError, type OfficialTheme } from "../lib/themes/client";
 import { ArticleEditor } from "./article-editor";
 import { CreationProgress } from "./creation-progress";
@@ -41,6 +42,24 @@ import { SnapshotPanel } from "./snapshot-panel";
 
 function errorMessage(error: unknown): string {
   return error instanceof DocumentClientError ? error.message : "文档读取失败，请稍后重试";
+}
+
+function layoutOutcome(document: DocumentV1): string {
+  const blocks = document.content.content;
+  const countRole = (role: string) =>
+    blocks.filter((node) => node.attrs.semanticRole === role).length;
+  const sectionCount = blocks.filter(
+    (node) => node.type === "heading" && node.attrs.level === 2,
+  ).length;
+  return [
+    `首屏 ${String(countRole("layout_plan_generated_intro"))}`,
+    `章节 ${String(sectionCount)}`,
+    `导航 ${String(countRole("layout_plan_generated_overview"))}`,
+    `金句 ${String(countRole("layout_plan_emphasis"))}`,
+    `数据/提示 ${String(countRole("layout_plan_generated_data"))}`,
+    `分隔 ${String(countRole("layout_plan_generated_divider"))}`,
+    `尾卡 ${String(countRole("layout_plan_generated_footer"))}`,
+  ].join(" · ");
 }
 
 export function DocumentWorkspace({ articleId }: { readonly articleId: string }) {
@@ -97,6 +116,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
   const [lastTransactionId, setLastTransactionId] = useState(initial.lastTransactionId);
   const [applyingThemeId, setApplyingThemeId] = useState<string | null>(null);
   const [applyingPlanId, setApplyingPlanId] = useState<string | null>(null);
+  const [appliedLayoutOutcome, setAppliedLayoutOutcome] = useState<string | null>(null);
   const themesQuery = useQuery({
     queryKey: ["themes"],
     queryFn: () => listThemes(),
@@ -278,12 +298,16 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
       if (current.status !== "saved") {
         throw new Error(current.errorMessage ?? "请先等待当前文档保存完成");
       }
+      const currentDocument = await getArticleDocument(initial.articleId);
+      if (currentDocument.documentVersion !== current.documentVersion) {
+        throw new Error("文章版本已更新，请刷新后重试");
+      }
+      const sourceDocument = normalizeDocument(currentDocument.document);
       let resolvedPlan = plan;
       let aiDecision = null;
       if (plan.mode !== "preset") {
-        const currentDocument = await getArticleDocument(initial.articleId);
         const generated = await generateAiLayout(initial.articleId, {
-          baseDocumentVersion: current.documentVersion,
+          baseDocumentVersion: currentDocument.documentVersion,
           mode: plan.mode,
           preferredLanguageId: plan.languageId,
           providerId,
@@ -291,7 +315,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
         });
         aiDecision = generated.decision;
         resolvedPlan = layoutPlanFromAiDecision(
-          normalizeDocument(currentDocument.document),
+          sourceDocument,
           themesQuery.data?.items ?? [],
           plan,
           aiDecision,
@@ -301,30 +325,38 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
         throw new Error("尚未加载可用主题，请稍后重试");
       }
       setApplyingThemeId(resolvedPlan.theme.manifest.themeId);
-      const themed = await applyTheme({
-        articleId: initial.articleId,
-        baseDocumentVersion: current.documentVersion,
-        theme: resolvedPlan.theme,
-      });
-      await controller.discardLocalDraft(themed.documentVersion, themed.appliedAt);
-      const latest = await getArticleDocument(initial.articleId);
-      const normalized = normalizeDocument(latest.document);
+      const themedSource: DocumentV1 = {
+        ...structuredClone(sourceDocument),
+        themeId: resolvedPlan.theme.manifest.themeId,
+        themeVersion: resolvedPlan.theme.manifest.version,
+      };
       const plannedDocument =
         aiDecision === null
-          ? applyLayoutPlanToDocument(normalized, resolvedPlan)
-          : applyAiLayoutDecisionToDocument(normalized, resolvedPlan, aiDecision);
-      await controller.queue(
-        plannedDocument as unknown as DocumentJson,
-        initial.schemaVersion,
-        `${aiDecision === null ? "layout.rule" : "layout.ai"}.${resolvedPlan.id}`,
+          ? applyLayoutPlanToDocument(themedSource, resolvedPlan)
+          : applyAiLayoutDecisionToDocument(themedSource, resolvedPlan, aiDecision);
+      assertValidPlannedLayout(sourceDocument, plannedDocument);
+      await createManualSnapshot(
+        initial.articleId,
+        `应用成稿“${resolvedPlan.designName}”前自动创建`,
       );
-      await controller.flushNow();
-      const saved = controller.getSnapshot();
-      if (saved.status !== "saved") {
-        throw new Error(saved.errorMessage ?? "成稿方案尚未保存，请稍后重试");
-      }
+      const transactionId = globalThis.crypto.randomUUID();
+      const saved = await saveArticleDocument({
+        articleId: initial.articleId,
+        baseVersion: currentDocument.documentVersion,
+        schemaVersion: currentDocument.schemaVersion,
+        document: plannedDocument as unknown as DocumentJson,
+        lastTransactionId: transactionId,
+        transactionOrigin: `${aiDecision === null ? "layout.rule" : "layout.ai"}.${resolvedPlan.id}`,
+        appearance: {
+          paletteId: resolvedPlan.theme.manifest.defaultPaletteId,
+          themeId: resolvedPlan.theme.manifest.themeId,
+          themeVersion: resolvedPlan.theme.manifest.version,
+        },
+      });
+      await controller.discardLocalDraft(saved.documentVersion, saved.lastSavedAt);
       setActiveDocument(plannedDocument);
-      setLastTransactionId(themed.lastTransactionId);
+      setLastTransactionId(saved.lastTransactionId);
+      setAppliedLayoutOutcome(layoutOutcome(plannedDocument));
     } catch (error) {
       setEditorError(error instanceof Error ? error.message : "成稿方案应用失败，请稍后重试");
       throw error;
@@ -406,6 +438,15 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
       {editorError === null ? null : (
         <section className="rounded-control border border-danger/20 bg-danger-soft p-4 text-[12px] text-danger">
           编辑器暂未保存本次变更：{editorError}
+        </section>
+      )}
+
+      {appliedLayoutOutcome === null ? null : (
+        <section className="rounded-control border border-success/20 bg-success-soft p-4 text-[12px] text-success">
+          <p className="font-semibold">AI 成稿已整体保存</p>
+          <p className="mt-1 leading-5">
+            {appliedLayoutOutcome}。主题与排版已作为同一个版本落地，不会再只剩下基础色块。
+          </p>
         </section>
       )}
 

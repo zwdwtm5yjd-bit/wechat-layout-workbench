@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { APP_GUARD, NestFactory } from "@nestjs/core";
 import { createUuidV7 } from "@wechat-layout/database";
+import { OFFICIAL_THEME_IDS, OFFICIAL_THEME_PALETTE_IDS } from "@wechat-layout/design-tokens";
 import type { DocumentV1 } from "@wechat-layout/document-schema";
 import { documentV1Fixture } from "@wechat-layout/document-schema/fixtures";
 import supertest from "supertest";
@@ -28,6 +29,7 @@ import type {
   ArticleDocumentRecord,
   ArticleDocumentRepository,
   DocumentStatistics,
+  DocumentAppearance,
   SaveArticleDocumentInput,
   SaveArticleDocumentResult,
 } from "./document.types.js";
@@ -131,6 +133,7 @@ class InMemoryDocumentRepository implements ArticleDocumentRepository {
   };
 
   lastStatistics: DocumentStatistics | null = null;
+  lastAppearance: DocumentAppearance | null = null;
   invalidReferences: readonly DocumentResourceReference[] = [];
 
   findCurrent(ownerId: string, requestedArticleId: string) {
@@ -168,6 +171,7 @@ class InMemoryDocumentRepository implements ArticleDocumentRepository {
 
     const savedAt = new Date(this.record.lastSavedAt.getTime() + 1000);
     this.lastStatistics = input.statistics;
+    this.lastAppearance = input.appearance ?? null;
     this.record = {
       ...this.record,
       schemaVersion: input.schemaVersion,
@@ -269,6 +273,8 @@ describe("document HTTP flow", () => {
         marginBottom: 28,
       };
     }
+    document.themeId = OFFICIAL_THEME_IDS.aiCrimsonEditorial;
+    document.themeVersion = "1.0.0";
     const saved = await supertest(application.getHttpServer())
       .put(`/api/v1/articles/${articleId}/document`)
       .set("x-csrf-token", "test-csrf-token")
@@ -279,6 +285,11 @@ describe("document HTTP flow", () => {
         document,
         lastTransactionId: firstTransactionId,
         transactionOrigin: "user_style_change",
+        appearance: {
+          paletteId: OFFICIAL_THEME_PALETTE_IDS.aiCrimsonEditorial,
+          themeId: OFFICIAL_THEME_IDS.aiCrimsonEditorial,
+          themeVersion: "1.0.0",
+        },
       })
       .expect(200);
 
@@ -299,6 +310,11 @@ describe("document HTTP flow", () => {
       svgCount: 1,
     });
     expect(repository.lastStatistics?.currentTextHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(repository.lastAppearance).toEqual({
+      paletteId: OFFICIAL_THEME_PALETTE_IDS.aiCrimsonEditorial,
+      themeId: OFFICIAL_THEME_IDS.aiCrimsonEditorial,
+      themeVersion: "1.0.0",
+    });
   });
 
   it("returns 409 to a stale tab without overwriting the winner", async () => {

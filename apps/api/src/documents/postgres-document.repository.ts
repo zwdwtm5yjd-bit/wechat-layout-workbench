@@ -264,6 +264,13 @@ export class PostgresDocumentRepository implements ArticleDocumentRepository {
           imageCount: input.statistics.imageCount,
           svgCount: input.statistics.svgCount,
           currentSnapshotId: null,
+          ...(input.appearance === undefined
+            ? {}
+            : {
+                paletteId: input.appearance.paletteId,
+                themeId: input.appearance.themeId,
+                themeVersion: input.appearance.themeVersion,
+              }),
           updatedAt: now,
         })
         .where(and(eq(articles.id, input.articleId), eq(articles.ownerUserId, input.ownerUserId)));
@@ -290,6 +297,7 @@ export class PostgresDocumentRepository implements ArticleDocumentRepository {
         metadataJson: {
           lastTransactionId: input.lastTransactionId,
           transactionOrigin: input.transactionOrigin,
+          ...(input.appearance === undefined ? {} : { appearance: input.appearance }),
         },
       });
 

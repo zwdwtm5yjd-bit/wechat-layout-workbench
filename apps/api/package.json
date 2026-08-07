@@ -25,6 +25,7 @@
     "@opentelemetry/exporter-trace-otlp-proto": "0.221.0",
     "@opentelemetry/sdk-node": "0.221.0",
     "@wechat-layout/config": "workspace:*",
+    "@wechat-layout/component-registry": "workspace:*",
     "@wechat-layout/database": "workspace:*",
     "@wechat-layout/design-tokens": "workspace:*",
     "@wechat-layout/document-schema": "workspace:*",

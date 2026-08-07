@@ -9,18 +9,22 @@ import {
   AI_LAYOUT_NOTICE_COMPONENT_IDS,
   AI_LAYOUT_QUOTE_COMPONENT_IDS,
   AI_LAYOUT_RHYTHMS,
+  AI_LAYOUT_TITLE_ALIGNS,
   AI_LAYOUT_TREATMENTS,
   AI_LAYOUT_VISUAL_INTENSITIES,
   type AiLayoutBlockDecision,
   type AiLayoutComponentId,
   type AiLayoutConcreteProviderId,
   type AiLayoutDecision,
+  type AiLayoutDesignLanguageId,
+  type AiLayoutDesignTokens,
   type AiLayoutProviderId,
   type AiLayoutStatus,
   type AiLayoutTreatment,
   type GenerateAiLayoutInput,
   type GenerateAiLayoutResult,
 } from "@wechat-layout/api-contracts";
+import { OFFICIAL_COMPONENT_ASSETS } from "@wechat-layout/component-registry";
 import { HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { parseDocument, type DocNode, type DocumentV1 } from "@wechat-layout/document-schema";
 import { z } from "zod";
@@ -37,6 +41,22 @@ import {
 type Fetcher = typeof globalThis.fetch;
 type TopLevelBlock = DocNode["content"][number];
 
+const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/u);
+
+const designTokensSchema = z.strictObject({
+  accentColor: hexColor,
+  bodyFontSize: z.number().int().min(14).max(16),
+  bodyLineHeight: z.number().min(1.75).max(2),
+  cardRadius: z.number().int().min(0).max(24),
+  mutedColor: hexColor,
+  primaryColor: hexColor,
+  sectionSpacing: z.number().int().min(28).max(56),
+  surfaceAltColor: hexColor,
+  surfaceColor: hexColor,
+  textColor: hexColor,
+  titleAlign: z.enum(AI_LAYOUT_TITLE_ALIGNS),
+});
+
 const blockDecisionSchema = z.strictObject({
   blockId: z.string().min(1).max(160),
   componentId: z.enum(AI_LAYOUT_COMPONENT_IDS).nullable(),
@@ -47,6 +67,7 @@ const blockDecisionSchema = z.strictObject({
 const decisionSchema = z.strictObject({
   blocks: z.array(blockDecisionSchema).max(160),
   concept: z.string().min(2).max(240),
+  designTokens: designTokensSchema,
   designName: z.string().min(2).max(50),
   dividerComponentId: z.enum(AI_LAYOUT_DIVIDER_COMPONENT_IDS),
   dividerAfterBlockIds: z.array(z.string().min(1).max(160)).max(8),
@@ -73,6 +94,7 @@ const responseJsonSchema = {
   required: [
     "blocks",
     "concept",
+    "designTokens",
     "designName",
     "dividerComponentId",
     "dividerAfterBlockIds",
@@ -102,6 +124,36 @@ const responseJsonSchema = {
       },
     },
     concept: { type: "string", minLength: 2, maxLength: 240 },
+    designTokens: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "accentColor",
+        "bodyFontSize",
+        "bodyLineHeight",
+        "cardRadius",
+        "mutedColor",
+        "primaryColor",
+        "sectionSpacing",
+        "surfaceAltColor",
+        "surfaceColor",
+        "textColor",
+        "titleAlign",
+      ],
+      properties: {
+        accentColor: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+        bodyFontSize: { type: "integer", minimum: 14, maximum: 16 },
+        bodyLineHeight: { type: "number", minimum: 1.75, maximum: 2 },
+        cardRadius: { type: "integer", minimum: 0, maximum: 24 },
+        mutedColor: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+        primaryColor: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+        sectionSpacing: { type: "integer", minimum: 28, maximum: 56 },
+        surfaceAltColor: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+        surfaceColor: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+        textColor: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+        titleAlign: { type: "string", enum: AI_LAYOUT_TITLE_ALIGNS },
+      },
+    },
     designName: { type: "string", minLength: 2, maxLength: 50 },
     dividerComponentId: { type: "string", enum: AI_LAYOUT_DIVIDER_COMPONENT_IDS },
     dividerAfterBlockIds: {
@@ -147,6 +199,238 @@ const componentIdsByTreatment: Readonly<
   callout: new Set(AI_LAYOUT_NOTICE_COMPONENT_IDS),
   image: new Set(AI_LAYOUT_IMAGE_COMPONENT_IDS),
 };
+
+const defaultDesignTokens: Readonly<Record<AiLayoutDesignLanguageId, AiLayoutDesignTokens>> = {
+  "minimal-blue": {
+    accentColor: "#5B7CFA",
+    bodyFontSize: 14,
+    bodyLineHeight: 1.85,
+    cardRadius: 8,
+    mutedColor: "#667085",
+    primaryColor: "#3157D5",
+    sectionSpacing: 36,
+    surfaceAltColor: "#F3F6FF",
+    surfaceColor: "#FFFFFF",
+    textColor: "#273142",
+    titleAlign: "left",
+  },
+  "warm-paper": {
+    accentColor: "#B86B43",
+    bodyFontSize: 15,
+    bodyLineHeight: 1.9,
+    cardRadius: 6,
+    mutedColor: "#7B6B61",
+    primaryColor: "#8C4B2F",
+    sectionSpacing: 40,
+    surfaceAltColor: "#F7F0E7",
+    surfaceColor: "#FFFDF8",
+    textColor: "#3F332C",
+    titleAlign: "center",
+  },
+  "night-cyan": {
+    accentColor: "#F5C95B",
+    bodyFontSize: 14,
+    bodyLineHeight: 1.82,
+    cardRadius: 10,
+    mutedColor: "#9FB8C4",
+    primaryColor: "#18B7C9",
+    sectionSpacing: 34,
+    surfaceAltColor: "#153B4A",
+    surfaceColor: "#0C2732",
+    textColor: "#F1F7F9",
+    titleAlign: "left",
+  },
+  "forest-green": {
+    accentColor: "#A26E3D",
+    bodyFontSize: 15,
+    bodyLineHeight: 1.92,
+    cardRadius: 4,
+    mutedColor: "#647266",
+    primaryColor: "#315A46",
+    sectionSpacing: 44,
+    surfaceAltColor: "#EEF3EC",
+    surfaceColor: "#FBFCF8",
+    textColor: "#334139",
+    titleAlign: "center",
+  },
+  "crimson-editorial": {
+    accentColor: "#D29A54",
+    bodyFontSize: 15,
+    bodyLineHeight: 1.85,
+    cardRadius: 6,
+    mutedColor: "#756A64",
+    primaryColor: "#B4232C",
+    sectionSpacing: 42,
+    surfaceAltColor: "#FEF2F2",
+    surfaceColor: "#FFFFFF",
+    textColor: "#2A221F",
+    titleAlign: "center",
+  },
+  "ink-gold": {
+    accentColor: "#D0A45D",
+    bodyFontSize: 15,
+    bodyLineHeight: 1.92,
+    cardRadius: 3,
+    mutedColor: "#A6A09A",
+    primaryColor: "#A9813E",
+    sectionSpacing: 40,
+    surfaceAltColor: "#262626",
+    surfaceColor: "#171717",
+    textColor: "#F2EFE9",
+    titleAlign: "center",
+  },
+};
+
+function channelLuminance(channel: number): number {
+  const normalized = channel / 255;
+  return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+}
+
+function luminance(color: string): number {
+  const value = color.slice(1);
+  const red = Number.parseInt(value.slice(0, 2), 16);
+  const green = Number.parseInt(value.slice(2, 4), 16);
+  const blue = Number.parseInt(value.slice(4, 6), 16);
+  return (
+    0.2126 * channelLuminance(red) +
+    0.7152 * channelLuminance(green) +
+    0.0722 * channelLuminance(blue)
+  );
+}
+
+function contrastRatio(first: string, second: string): number {
+  const light = Math.max(luminance(first), luminance(second));
+  const dark = Math.min(luminance(first), luminance(second));
+  return (light + 0.05) / (dark + 0.05);
+}
+
+function accessibleDesignTokens(
+  tokens: AiLayoutDesignTokens,
+  languageId: AiLayoutDesignLanguageId,
+): AiLayoutDesignTokens {
+  const fallback = defaultDesignTokens[languageId];
+  return {
+    ...tokens,
+    mutedColor:
+      contrastRatio(tokens.mutedColor, tokens.surfaceColor) >= 3
+        ? tokens.mutedColor.toUpperCase()
+        : fallback.mutedColor,
+    textColor:
+      contrastRatio(tokens.textColor, tokens.surfaceColor) >= 4.5
+        ? tokens.textColor.toUpperCase()
+        : fallback.textColor,
+    accentColor: tokens.accentColor.toUpperCase(),
+    primaryColor: tokens.primaryColor.toUpperCase(),
+    surfaceAltColor: tokens.surfaceAltColor.toUpperCase(),
+    surfaceColor: tokens.surfaceColor.toUpperCase(),
+  };
+}
+
+function promotedDecision(
+  decision: AiLayoutBlockDecision,
+  treatment: AiLayoutTreatment,
+): AiLayoutBlockDecision {
+  return {
+    ...decision,
+    componentId: compatibleComponentId(treatment, decision.componentId),
+    reason: `${decision.reason}；由结构保障器补足完整阅读路径`.slice(0, 120),
+    treatment,
+  };
+}
+
+function headingSignal(text: string): boolean {
+  return /^(?:[一二三四五六七八九十]+[、.．]|[（(]?[一二三四五六七八九十0-9]+[）).、])/u.test(text);
+}
+
+function ensureVisibleStructure(
+  decisions: readonly AiLayoutBlockDecision[],
+  blocks: readonly TopLevelBlock[],
+): readonly AiLayoutBlockDecision[] {
+  const normalized = decisions.map((decision) => ({ ...decision }));
+  const blockIndex = new Map(blocks.map((node, index) => [node.attrs.blockId, index]));
+  const decisionFor = (index: number) => normalized[index];
+  const textAt = (index: number) => textFromNode(blocks[index]).replaceAll(/\s+/gu, " ").trim();
+
+  if (!normalized.some((decision) => decision.treatment === "title")) {
+    const index = blocks.findIndex(
+      (node, candidateIndex) =>
+        node.type === "paragraph" &&
+        node.attrs.semanticRole !== "unresolved_image" &&
+        textAt(candidateIndex).length > 3 &&
+        textAt(candidateIndex).length <= 60,
+    );
+    const decision = decisionFor(index);
+    if (decision !== undefined) normalized[index] = promotedDecision(decision, "title");
+  }
+
+  if (blocks.length >= 8) {
+    const sectionCount = normalized.filter((decision) => decision.treatment === "section").length;
+    if (sectionCount < 2) {
+      const candidates = blocks
+        .map((node, index) => ({ index, node, text: textAt(index) }))
+        .filter(
+          ({ index, node, text }) =>
+            node.type === "paragraph" &&
+            text.length >= 4 &&
+            text.length <= 80 &&
+            headingSignal(text) &&
+            decisionFor(index)?.treatment !== "title",
+        )
+        .slice(0, 4);
+      for (const { index } of candidates) {
+        const decision = decisionFor(index);
+        if (decision === undefined) continue;
+        normalized[index] = promotedDecision(decision, "section");
+      }
+    }
+  }
+
+  if (!normalized.some((decision) => decision.treatment === "lead")) {
+    const index = blocks.findIndex((node, candidateIndex) => {
+      const treatment = decisionFor(candidateIndex)?.treatment;
+      const text = textAt(candidateIndex);
+      return (
+        node.type === "paragraph" &&
+        node.attrs.semanticRole !== "unresolved_image" &&
+        treatment !== "title" &&
+        treatment !== "section" &&
+        text.length >= 12 &&
+        text.length <= 180
+      );
+    });
+    const decision = decisionFor(index);
+    if (decision !== undefined) normalized[index] = promotedDecision(decision, "lead");
+  }
+
+  if (!normalized.some((decision) => decision.treatment === "data")) {
+    const index = blocks.findIndex((node, candidateIndex) => {
+      if (node.type !== "paragraph") return false;
+      const text = textAt(candidateIndex);
+      const numbers = text.match(/\d+(?:\.\d+)?(?:%|万|亿|倍|年|个|项|人|件)?/gu) ?? [];
+      return text.length >= 18 && text.length <= 420 && numbers.length >= 2;
+    });
+    const decision = decisionFor(index);
+    if (decision !== undefined && decision.treatment === "body") {
+      normalized[index] = promotedDecision(decision, "data");
+    }
+  }
+
+  return normalized.toSorted(
+    (left, right) =>
+      (blockIndex.get(left.blockId) ?? Number.MAX_SAFE_INTEGER) -
+      (blockIndex.get(right.blockId) ?? Number.MAX_SAFE_INTEGER),
+  );
+}
+
+const componentCatalog = OFFICIAL_COMPONENT_ASSETS.filter((asset) =>
+  (AI_LAYOUT_COMPONENT_IDS as readonly string[]).includes(asset.manifest.componentId),
+).map((asset) => ({
+  description: asset.preview.description,
+  id: asset.manifest.componentId,
+  layout: asset.preview.layoutKey,
+  name: asset.preview.name,
+  sample: asset.preview.sample,
+}));
 
 function compatibleComponentId(
   treatment: AiLayoutTreatment,
@@ -280,17 +564,20 @@ function sanitizeDecision(
     });
   }
 
+  const normalizedBlocks = blocks.map(
+    (node): AiLayoutBlockDecision =>
+      submitted.get(node.attrs.blockId) ?? {
+        blockId: node.attrs.blockId,
+        componentId: node.type === "imageBlock" ? AI_LAYOUT_IMAGE_COMPONENT_IDS[0] : null,
+        reason: "保留为连续正文",
+        treatment: node.type === "imageBlock" ? "image" : "body",
+      },
+  );
+
   return {
     ...raw,
-    blocks: blocks.map(
-      (node): AiLayoutBlockDecision =>
-        submitted.get(node.attrs.blockId) ?? {
-          blockId: node.attrs.blockId,
-          componentId: node.type === "imageBlock" ? AI_LAYOUT_IMAGE_COMPONENT_IDS[0] : null,
-          reason: "保留为连续正文",
-          treatment: node.type === "imageBlock" ? "image" : "body",
-        },
-    ),
+    blocks: ensureVisibleStructure(normalizedBlocks, blocks),
+    designTokens: accessibleDesignTokens(raw.designTokens, raw.languageId),
     dividerAfterBlockIds: [...new Set(raw.dividerAfterBlockIds)]
       .filter((blockId) => byId.has(blockId))
       .slice(0, 5),
@@ -529,7 +816,10 @@ export class AiLayoutService {
       "hero 与 footer 文案可以概括文章气质，但不能新增事实。dividerAfterBlockIds 只放在真正的章节转折后。",
       "六种视觉语言：minimal-blue 理性极简；warm-paper 人文杂志；night-cyan 科技数据；forest-green 自然留白；crimson-editorial 政务编辑；ink-gold 经典深读。",
       "选择 crimson-editorial 时，目标是红白报刊编辑效果：引言金句、本文看点、编号章节、左线小标题、浅红关键词标记、数据三联卡和克制结尾；不是红金横幅堆叠。",
+      "你必须定义 designTokens，让本篇文章拥有自己的主色、强调色、底色、字色、正文尺寸、行距、圆角和章节间距；textColor 与 surfaceColor 对比度至少 4.5:1。",
+      "视觉结果必须在第一屏就能辨认：主标题、导读首屏、至少两个章节锚点；长文还要尽量包含一个数据卡或金句卡。不能只改变加粗和段落间距。",
       "你还要为每个特殊区块选择具体 componentId，这些选择会真正改变排版，不要总是选每类的第一个。body/list/lead 的 componentId 必须为 null。",
+      `组件视觉说明（名称、用途、预览文案）：${JSON.stringify(componentCatalog)}。`,
       `一级标题候选：${AI_LAYOUT_HEADING1_COMPONENT_IDS.join("、")}。`,
       `二级标题候选：${AI_LAYOUT_HEADING2_COMPONENT_IDS.join("、")}。`,
       `引用/金句候选：${AI_LAYOUT_QUOTE_COMPONENT_IDS.join("、")}。`,

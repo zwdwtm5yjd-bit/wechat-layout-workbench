@@ -31,6 +31,11 @@ export interface SaveArticleDocumentInput {
   readonly document: DocumentJson;
   readonly lastTransactionId: string;
   readonly transactionOrigin: string;
+  readonly appearance?: {
+    readonly paletteId: string;
+    readonly themeId: string;
+    readonly themeVersion: string;
+  };
 }
 
 export interface SaveArticleDocumentResult {
@@ -120,6 +125,7 @@ export async function saveArticleDocument(
         document: input.document,
         lastTransactionId: input.lastTransactionId,
         transactionOrigin: input.transactionOrigin,
+        ...(input.appearance === undefined ? {} : { appearance: input.appearance }),
       } satisfies components["schemas"]["SaveArticleDocumentDto"]),
     },
   );

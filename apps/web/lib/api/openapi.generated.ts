@@ -1991,6 +1991,7 @@ export interface components {
       safetySnapshot: components["schemas"]["SnapshotSummaryDto"];
     };
     SaveArticleDocumentDto: {
+      appearance?: components["schemas"]["SaveDocumentAppearanceDto"];
       baseVersion: number;
       /** @description 符合 Document Schema V1 的完整文档 JSON */
       document: {
@@ -2017,6 +2018,14 @@ export interface components {
       lastTransactionId: string;
       /** @description 同一事务因网络恢复而安全重放时为 true */
       replayed: boolean;
+    };
+    SaveDocumentAppearanceDto: {
+      /** Format: uuid */
+      paletteId: string;
+      /** Format: uuid */
+      themeId: string;
+      /** @example 1.0.0 */
+      themeVersion: string;
     };
     SessionRevocationResponseDto: {
       data: components["schemas"]["SessionRevocationResultDto"];

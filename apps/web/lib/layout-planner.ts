@@ -3,6 +3,7 @@ import type {
   AiLayoutComponentId,
   AiLayoutDecision,
   AiLayoutDesignLanguageId,
+  AiLayoutDesignTokens,
   AiLayoutRhythm,
   AiLayoutTreatment,
   AiLayoutVisualIntensity,
@@ -56,6 +57,7 @@ export interface LayoutPlan {
   readonly assetStyle: VisualAssetStyle;
   readonly brief: string | null;
   readonly description: string;
+  readonly designTokens: AiLayoutDesignTokens;
   readonly designName: string;
   readonly highlights: readonly string[];
   readonly id: LayoutPlanId;
@@ -84,6 +86,27 @@ interface DesignLanguageDefinition {
   readonly themeNames: readonly string[];
   readonly tone: string;
   readonly types: readonly ArticleType[];
+}
+
+function defaultPlanTokens(language: DesignLanguageDefinition): AiLayoutDesignTokens {
+  const [primaryColor, surfaceAltColor, textColor] = language.palette;
+  const dark = language.id === "night-cyan" || language.id === "ink-gold";
+  return {
+    accentColor: language.id === "crimson-editorial" ? "#D29A54" : primaryColor,
+    bodyFontSize: language.id === "minimal-blue" || language.id === "night-cyan" ? 14 : 15,
+    bodyLineHeight: language.id === "night-cyan" ? 1.82 : 1.88,
+    cardRadius: language.id === "ink-gold" ? 3 : language.id === "forest-green" ? 4 : 8,
+    mutedColor: dark ? "#A7B0B7" : "#667085",
+    primaryColor,
+    sectionSpacing: language.id === "forest-green" ? 44 : 38,
+    surfaceAltColor,
+    surfaceColor: dark ? (language.id === "night-cyan" ? "#0C2732" : "#171717") : "#FFFFFF",
+    textColor,
+    titleAlign:
+      language.id === "warm-paper" || language.id === "forest-green" || language.id === "ink-gold"
+        ? "center"
+        : "left",
+  };
 }
 
 export const DESIGN_LANGUAGES: readonly DesignLanguageDefinition[] = [
@@ -443,6 +466,7 @@ function planFor(
         : mode === "described"
           ? `把你的风格描述翻译成可在公众号稳定渲染的标题、正文、引用、图片和章节节奏。`
           : language.description,
+    designTokens: defaultPlanTokens(language),
     reasoning,
     highlights: [
       `识别：${gene.articleTypeLabel} · ${gene.emotionLabel}`,
@@ -520,6 +544,12 @@ export function layoutPlanFromAiDecision(
   });
   return {
     ...base,
+    accentColors: [
+      decision.designTokens.primaryColor,
+      decision.designTokens.surfaceAltColor,
+      decision.designTokens.textColor,
+    ],
+    designTokens: decision.designTokens,
     id: `${sourcePlan.mode}:${decision.languageId}-ai-${String(base.articleGene.seed)}`,
     name: decision.designName,
     designName: decision.designName,
@@ -528,6 +558,7 @@ export function layoutPlanFromAiDecision(
     highlights: [
       `模型逐段判断 ${String(decision.blocks.length)} 个内容区块`,
       `组件：按内容选择首屏、标题、金句、图片与数据卡`,
+      `原创色板：${decision.designTokens.primaryColor} · ${decision.designTokens.accentColor}`,
       `节奏：${decision.rhythm} · 视觉强度：${decision.visualIntensity}`,
       "不生成占位图片或无关图集",
       "微信安全样式与原文保护",
@@ -546,14 +577,12 @@ function blockId(): string {
   return `block_layout_${value}`;
 }
 
-const BODY_COLORS: Readonly<Record<DesignLanguageId, string>> = {
-  "minimal-blue": "#333333",
-  "warm-paper": "#4A3728",
-  "night-cyan": "#D0D0D0",
-  "forest-green": "#3A4A3E",
-  "crimson-editorial": "#2A2218",
-  "ink-gold": "#D4D0C8",
-};
+function clipped(value: string | undefined, fallback: string, maxLength: number): string {
+  const normalized = value?.trim() || fallback;
+  return normalized.length <= maxLength
+    ? normalized
+    : `${normalized.slice(0, Math.max(1, maxLength - 1)).trimEnd()}…`;
+}
 
 function languageRhythm(plan: LayoutPlan): {
   readonly bodyGap: number;
@@ -577,29 +606,37 @@ function languageRhythm(plan: LayoutPlan): {
         return { bodyGap: 18, headingGap: 32, lineHeight: 1.85, radius: 6 };
     }
   })();
+  const designed = {
+    ...base,
+    headingGap: plan.designTokens.sectionSpacing,
+    lineHeight: plan.designTokens.bodyLineHeight,
+    radius: plan.designTokens.cardRadius,
+  };
   if (plan.rhythm === "compact") {
     return {
-      ...base,
-      bodyGap: Math.max(12, base.bodyGap - 4),
-      headingGap: Math.max(24, base.headingGap - 6),
-      lineHeight: Math.max(1.7, base.lineHeight - 0.1),
+      ...designed,
+      bodyGap: Math.max(12, designed.bodyGap - 4),
+      headingGap: Math.max(24, designed.headingGap - 6),
+      lineHeight: Math.max(1.7, designed.lineHeight - 0.1),
     };
   }
   if (plan.rhythm === "airy") {
     return {
-      ...base,
-      bodyGap: base.bodyGap + 5,
-      headingGap: base.headingGap + 8,
-      lineHeight: base.lineHeight + 0.08,
+      ...designed,
+      bodyGap: designed.bodyGap + 5,
+      headingGap: designed.headingGap + 8,
+      lineHeight: designed.lineHeight + 0.08,
     };
   }
-  return base;
+  return designed;
 }
 
 function planStyle(node: BlockNode, plan: LayoutPlan): StyleOverrides {
-  const [accent, surface, title] = plan.accentColors;
+  const accent = plan.designTokens.primaryColor;
+  const surface = plan.designTokens.surfaceAltColor;
+  const title = plan.designTokens.textColor;
   const rhythm = languageRhythm(plan);
-  const body = BODY_COLORS[plan.languageId];
+  const body = plan.designTokens.textColor;
   const expressive = plan.visualIntensity === "bold";
   const restrained = plan.visualIntensity === "restrained";
   if (node.type === "heading") {
@@ -607,8 +644,8 @@ function planStyle(node: BlockNode, plan: LayoutPlan): StyleOverrides {
     if (plan.languageId === "crimson-editorial") {
       const levelTwo = node.attrs.level === 2;
       return {
-        backgroundColor: "#FFFFFF",
-        borderColor: levelTwo ? "#DC2626" : "#FEE2E2",
+        backgroundColor: plan.designTokens.surfaceColor,
+        borderColor: levelTwo ? accent : plan.designTokens.surfaceAltColor,
         borderRadius: 0,
         borderStyle: "solid",
         borderWidth: levelTwo ? 3 : node.attrs.level === 3 ? 0 : 1,
@@ -622,8 +659,8 @@ function planStyle(node: BlockNode, plan: LayoutPlan): StyleOverrides {
         paddingLeft: node.attrs.level === 3 ? 10 : 0,
         paddingRight: 0,
         paddingTop: 0,
-        textAlign: levelOne ? "center" : "left",
-        textColor: "#1C1917",
+        textAlign: levelOne ? plan.designTokens.titleAlign : "left",
+        textColor: title,
       };
     }
     const quietHeading = plan.languageId === "forest-green" || plan.languageId === "ink-gold";
@@ -655,16 +692,17 @@ function planStyle(node: BlockNode, plan: LayoutPlan): StyleOverrides {
       paddingLeft: levelOne || quietHeading ? 0 : 14,
       paddingRight: levelOne || quietHeading ? 0 : 14,
       paddingTop: levelOne || quietHeading ? 8 : 10,
-      textAlign:
-        levelOne || plan.visualVariant === 1 || plan.languageId === "warm-paper"
+      textAlign: levelOne
+        ? plan.designTokens.titleAlign
+        : plan.visualVariant === 1 || plan.languageId === "warm-paper"
           ? "center"
           : "left",
-      textColor: levelOne ? title : plan.languageId === "night-cyan" ? title : title,
+      textColor: title,
     };
   }
   if (node.type === "paragraph") {
     return {
-      fontSize: plan.languageId === "crimson-editorial" ? 15 : 14,
+      fontSize: plan.designTokens.bodyFontSize,
       letterSpacing: plan.languageId === "ink-gold" ? 0.5 : 0.3,
       lineHeight: rhythm.lineHeight,
       marginBottom: rhythm.bodyGap,
@@ -1178,22 +1216,27 @@ function introCard(
       componentVersion: "1.0.0",
       componentVariantId: "default",
       compatibilityLevel: "safe",
-      eyebrow: crimson
-        ? "“"
-        : (copy?.eyebrow ?? `ARTICLE GUIDE \u00b7 ${plan.articleGene.articleTypeLabel}`),
-      footer: crimson
-        ? (copy?.footer ?? `${String(characterCount)} 字 · 约 ${String(readingMinutes)} 分钟`)
-        : (copy?.footer ??
-          `${String(characterCount)} 字 \u00b7 约 ${String(readingMinutes)} 分钟 \u00b7 ${keywords}`),
+      eyebrow: clipped(
+        crimson ? "“" : copy?.eyebrow,
+        `ARTICLE GUIDE \u00b7 ${plan.articleGene.articleTypeLabel}`,
+        160,
+      ),
+      footer: clipped(
+        copy?.footer,
+        crimson
+          ? `${String(characterCount)} 字 · 约 ${String(readingMinutes)} 分钟`
+          : `${String(characterCount)} 字 \u00b7 约 ${String(readingMinutes)} 分钟 \u00b7 ${keywords}`,
+        900,
+      ),
       locked: false,
       semanticRole: "layout_plan_generated_intro",
       styleRef: `layout.${plan.languageId}.hero`,
       ...(crimson
         ? {
             styleOverrides: {
-              backgroundColor: "#FFFFFF",
-              borderColor: "#FEE2E2",
-              borderRadius: 12,
+              backgroundColor: plan.designTokens.surfaceColor,
+              borderColor: plan.designTokens.surfaceAltColor,
+              borderRadius: plan.designTokens.cardRadius,
               borderStyle: "solid",
               borderWidth: 1,
               marginBottom: 32,
@@ -1205,7 +1248,7 @@ function introCard(
             },
           }
         : {}),
-      title: copy?.title ?? plan.articleGene.summary,
+      title: clipped(copy?.title, plan.articleGene.summary, 460),
       variant: crimson ? "editorial_quote_intro" : component.variant,
     },
     ...(paragraph === undefined ? {} : { content: [paragraph] }),
@@ -1234,8 +1277,9 @@ function dataCard(
       semanticRole: "layout_plan_generated_data",
       styleRef: `layout.${plan.languageId}.data`,
       styleOverrides: {
-        borderColor: plan.accentColors[0],
-        borderRadius: 8,
+        backgroundColor: plan.designTokens.surfaceAltColor,
+        borderColor: plan.designTokens.primaryColor,
+        borderRadius: plan.designTokens.cardRadius,
         borderStyle: "solid",
         borderWidth: 1,
         marginBottom: 24,
@@ -1262,14 +1306,14 @@ function tailCard(plan: LayoutPlan, copy?: AiLayoutDecision["footer"]): Semantic
       componentVariantId: "default",
       compatibilityLevel: "safe",
       eyebrow: plan.languageId === "crimson-editorial" ? "END" : "READ \u00b7 SHARE",
-      footer: copy?.text ?? "感谢阅读 \u00b7 愿好内容被更多人看见",
+      footer: clipped(copy?.text, "感谢阅读 \u00b7 愿好内容被更多人看见", 900),
       locked: false,
       semanticRole: "layout_plan_generated_footer",
       styleRef: `layout.${plan.languageId}.footer`,
       styleOverrides: {
-        backgroundColor: plan.accentColors[1],
-        borderColor: plan.accentColors[0],
-        borderRadius: 10,
+        backgroundColor: plan.designTokens.surfaceAltColor,
+        borderColor: plan.designTokens.primaryColor,
+        borderRadius: plan.designTokens.cardRadius,
         borderStyle: "dashed",
         borderWidth: 1,
         marginBottom: 16,
@@ -1280,17 +1324,22 @@ function tailCard(plan: LayoutPlan, copy?: AiLayoutDecision["footer"]): Semantic
         paddingTop: 20,
         textAlign: "center",
       },
-      title: copy?.title ?? "\ud83d\udc4d 点赞 \u00b7 \ud83d\udc40 在看 \u00b7 \u2197 转发",
+      title: clipped(
+        copy?.title,
+        "\ud83d\udc4d 点赞 \u00b7 \ud83d\udc40 在看 \u00b7 \u2197 转发",
+        460,
+      ),
       variant: plan.languageId === "crimson-editorial" ? "editorial_footer" : component.variant,
     },
   };
 }
 
 function overviewCard(plan: LayoutPlan, headings: readonly HeadingNode[]): SemanticCardNode | null {
-  if (plan.languageId !== "crimson-editorial" || headings.length < 2) return null;
+  if (headings.length < 2) return null;
+  const crimson = plan.languageId === "crimson-editorial";
   const items = headings.slice(0, 3).map((heading, index) => {
     const number = String(index + 1).padStart(2, "0");
-    return `${number}\t${textFromNode(heading).trim()}`;
+    return `${number}\t${clipped(textFromNode(heading), `第 ${String(index + 1)} 部分`, 72)}`;
   });
   return {
     type: "semanticCard",
@@ -1300,26 +1349,28 @@ function overviewCard(plan: LayoutPlan, headings: readonly HeadingNode[]): Seman
       componentVersion: "1.0.0",
       componentVariantId: "default",
       compatibilityLevel: "safe",
-      eyebrow: "📌 本文看点",
+      eyebrow: crimson ? "📌 本文看点" : "READING MAP · 本文看点",
       footer: items.join("\n"),
       locked: false,
       semanticRole: "layout_plan_generated_overview",
-      styleRef: "layout.crimson-editorial.overview",
+      styleRef: `layout.${plan.languageId}.overview`,
       styleOverrides: {
-        backgroundColor: "#FFFFFF",
-        borderColor: "#FFFFFF",
-        borderRadius: 0,
+        backgroundColor: crimson
+          ? plan.designTokens.surfaceColor
+          : plan.designTokens.surfaceAltColor,
+        borderColor: crimson ? plan.designTokens.surfaceColor : plan.designTokens.primaryColor,
+        borderRadius: crimson ? 0 : plan.designTokens.cardRadius,
         borderStyle: "solid",
-        borderWidth: 0,
+        borderWidth: crimson ? 0 : 1,
         marginBottom: 32,
         marginTop: 10,
-        paddingBottom: 0,
-        paddingLeft: 0,
-        paddingRight: 0,
-        paddingTop: 0,
+        paddingBottom: crimson ? 0 : 18,
+        paddingLeft: crimson ? 0 : 20,
+        paddingRight: crimson ? 0 : 20,
+        paddingTop: crimson ? 0 : 18,
       },
       title: "阅读导航",
-      variant: "editorial_overview",
+      variant: crimson ? "editorial_overview" : "section_roadmap",
     },
   };
 }

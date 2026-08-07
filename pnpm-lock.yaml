@@ -80,6 +80,9 @@ importers:
       '@wechat-layout/api-contracts':
         specifier: workspace:*
         version: link:../../packages/api-contracts
+      '@wechat-layout/component-registry':
+        specifier: workspace:*
+        version: link:../../packages/component-registry
       '@wechat-layout/config':
         specifier: workspace:*
         version: link:../../packages/config

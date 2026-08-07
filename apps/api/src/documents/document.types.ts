@@ -41,6 +41,12 @@ export interface DocumentStatistics {
   readonly svgCount: number;
 }
 
+export interface DocumentAppearance {
+  readonly paletteId: string;
+  readonly themeId: string;
+  readonly themeVersion: string;
+}
+
 export interface SaveArticleDocumentInput {
   readonly ownerUserId: string;
   readonly articleId: string;
@@ -51,6 +57,7 @@ export interface SaveArticleDocumentInput {
   readonly transactionOrigin: string;
   readonly statistics: DocumentStatistics;
   readonly context: DocumentMutationContext;
+  readonly appearance?: DocumentAppearance;
 }
 
 export type SaveArticleDocumentResult =
