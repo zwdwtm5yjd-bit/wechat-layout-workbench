@@ -8,6 +8,9 @@ import type { DocumentSaveSnapshot } from "../lib/documents/autosave";
 import {
   analyzeDocumentLayout,
   createLayoutPlans,
+  DESIGN_LANGUAGE_FAMILY_BY_ID,
+  DESIGN_LANGUAGE_FAMILY_LABELS,
+  type DesignLanguageFamily,
   type LayoutDesignMode,
   type LayoutPlan,
 } from "../lib/layout-planner";
@@ -66,6 +69,7 @@ export function EditorDeliveryActions({
   const [copyOpen, setCopyOpen] = useState(false);
   const [layoutOpen, setLayoutOpen] = useState(false);
   const [layoutMode, setLayoutMode] = useState<LayoutDesignMode>("preset");
+  const [languageFamily, setLanguageFamily] = useState<DesignLanguageFamily | "all">("all");
   const [providerId, setProviderId] = useState<AiLayoutProviderId>("auto");
   const [styleBrief, setStyleBrief] = useState("");
   const [renderOutput, setRenderOutput] = useState<RenderOutput | null>(null);
@@ -82,6 +86,15 @@ export function EditorDeliveryActions({
   const layoutPlans = useMemo(
     () => createLayoutPlans(document, themes, { brief: styleBrief, mode: layoutMode }),
     [document, layoutMode, styleBrief, themes],
+  );
+  const visibleLayoutPlans = useMemo(
+    () =>
+      layoutMode !== "preset" || languageFamily === "all"
+        ? layoutPlans
+        : layoutPlans.filter(
+            (plan) => DESIGN_LANGUAGE_FAMILY_BY_ID[plan.languageId] === languageFamily,
+          ),
+    [languageFamily, layoutMode, layoutPlans],
   );
 
   useEffect(() => {
@@ -254,7 +267,7 @@ export function EditorDeliveryActions({
             >
               {(
                 [
-                  ["preset", "快速规则", "不用模型，从 6 种安全设计语言中选择"],
+                  ["preset", "快速规则", "不用模型，从 18 种安全设计语言中选择"],
                   ["described", "AI 定制", "说出感觉，由模型逐段设计"],
                   ["original", "AI 原创", "模型阅读全文后自主设计"],
                 ] as const
@@ -377,10 +390,47 @@ export function EditorDeliveryActions({
                 请切换到已连接的模型后再生成。
               </div>
             )}
+            {layoutMode === "preset" ? (
+              <div className="mt-4 flex flex-wrap items-center gap-1.5 rounded-control border border-line bg-panel-muted p-2">
+                <button
+                  aria-pressed={languageFamily === "all"}
+                  className={`rounded-md px-3 py-1.5 text-[9px] font-medium transition ${
+                    languageFamily === "all"
+                      ? "bg-accent text-white"
+                      : "bg-panel text-muted hover:text-ink"
+                  }`}
+                  onClick={() => setLanguageFamily("all")}
+                  type="button"
+                >
+                  全部 · {layoutPlans.length}
+                </button>
+                {Object.entries(DESIGN_LANGUAGE_FAMILY_LABELS).map(([family, label]) => {
+                  const familyId = family as DesignLanguageFamily;
+                  const count = layoutPlans.filter(
+                    (plan) => DESIGN_LANGUAGE_FAMILY_BY_ID[plan.languageId] === familyId,
+                  ).length;
+                  return (
+                    <button
+                      aria-pressed={languageFamily === familyId}
+                      className={`rounded-md px-3 py-1.5 text-[9px] font-medium transition ${
+                        languageFamily === familyId
+                          ? "bg-accent text-white"
+                          : "bg-panel text-muted hover:text-ink"
+                      }`}
+                      key={familyId}
+                      onClick={() => setLanguageFamily(familyId)}
+                      type="button"
+                    >
+                      {label} · {count}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
             <div
-              className={`mt-5 grid gap-3 ${layoutPlans.length === 1 ? "mx-auto max-w-xl" : "lg:grid-cols-3"}`}
+              className={`mt-5 grid gap-3 ${visibleLayoutPlans.length === 1 ? "mx-auto max-w-xl" : "lg:grid-cols-3"}`}
             >
-              {layoutPlans.map((plan) => {
+              {visibleLayoutPlans.map((plan) => {
                 const applying = applyingPlanId === plan.id;
                 return (
                   <article

@@ -5,6 +5,18 @@ export const AI_LAYOUT_DESIGN_LANGUAGE_IDS = [
   "forest-green",
   "crimson-editorial",
   "ink-gold",
+  "civic-blue",
+  "news-editorial",
+  "annual-report",
+  "data-dashboard",
+  "monochrome-finance",
+  "future-purple",
+  "cyber-neon",
+  "jade-oriental",
+  "seasonal-poetry",
+  "academic-journal",
+  "playful-notebook",
+  "event-poster",
 ] as const;
 
 export type AiLayoutDesignLanguageId = (typeof AI_LAYOUT_DESIGN_LANGUAGE_IDS)[number];
@@ -135,6 +147,12 @@ export interface AiLayoutBlockDecision {
   readonly treatment: AiLayoutTreatment;
 }
 
+export interface AiLayoutVisualAssetDecision {
+  readonly afterBlockId: string;
+  readonly reason: string;
+  readonly resourceId: string;
+}
+
 export interface AiLayoutDecision {
   readonly blocks: readonly AiLayoutBlockDecision[];
   readonly concept: string;
@@ -156,6 +174,7 @@ export interface AiLayoutDecision {
   readonly languageId: AiLayoutDesignLanguageId;
   readonly rhythm: AiLayoutRhythm;
   readonly variantSeed: number;
+  readonly visualAssets: readonly AiLayoutVisualAssetDecision[];
   readonly visualIntensity: AiLayoutVisualIntensity;
 }
 

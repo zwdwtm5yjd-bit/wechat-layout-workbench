@@ -82,6 +82,13 @@ describe("AiLayoutService", () => {
       designTokens,
       rhythm: "compact",
       variantSeed: 2187,
+      visualAssets: [
+        {
+          afterBlockId: "block_paragraph",
+          reason: "在导语后建立政务视觉锚点",
+          resourceId: "builtin_visual_static_022",
+        },
+      ],
       visualIntensity: "restrained",
       dividerComponentId: "cmp_divider_ornament_center_003",
       hero: {
@@ -131,6 +138,7 @@ describe("AiLayoutService", () => {
     expect(result.decision.languageId).toBe("crimson-editorial");
     expect(result.decision.blocks).toHaveLength(documentV1Fixture.content.content.length);
     expect(result.decision.dividerAfterBlockIds).toEqual(["block_paragraph"]);
+    expect(result.decision.visualAssets).toEqual(modelDecision.visualAssets);
   });
 
   it("uses Kimi-compatible chat completions and accepts fenced JSON safely", async () => {
@@ -141,6 +149,13 @@ describe("AiLayoutService", () => {
       designTokens,
       rhythm: "airy",
       variantSeed: 7301,
+      visualAssets: [
+        {
+          afterBlockId: "block_paragraph",
+          reason: "在导语后加入暖色主视觉",
+          resourceId: "builtin_visual_static_062",
+        },
+      ],
       visualIntensity: "balanced",
       dividerComponentId: "cmp_divider_ornament_dots_004",
       hero: {
@@ -233,6 +248,13 @@ describe("AiLayoutService", () => {
       designTokens,
       rhythm: "balanced",
       variantSeed: 1098,
+      visualAssets: [
+        {
+          afterBlockId: "block_paragraph",
+          reason: "用几何主视觉建立阅读起点",
+          resourceId: "builtin_visual_static_072",
+        },
+      ],
       visualIntensity: "restrained",
       dividerComponentId: "cmp_divider_ornament_dots_004",
       hero: {

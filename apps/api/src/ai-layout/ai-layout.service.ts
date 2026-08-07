@@ -21,10 +21,15 @@ import {
   type AiLayoutProviderId,
   type AiLayoutStatus,
   type AiLayoutTreatment,
+  type AiLayoutVisualAssetDecision,
   type GenerateAiLayoutInput,
   type GenerateAiLayoutResult,
 } from "@wechat-layout/api-contracts";
-import { OFFICIAL_COMPONENT_ASSETS } from "@wechat-layout/component-registry";
+import {
+  OFFICIAL_COMPONENT_ASSETS,
+  OFFICIAL_STATIC_VISUAL_ASSETS,
+  type VisualAssetStyle,
+} from "@wechat-layout/component-registry";
 import { HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { parseDocument, type DocNode, type DocumentV1 } from "@wechat-layout/document-schema";
 import { z } from "zod";
@@ -64,6 +69,12 @@ const blockDecisionSchema = z.strictObject({
   treatment: z.enum(AI_LAYOUT_TREATMENTS),
 });
 
+const visualAssetDecisionSchema = z.strictObject({
+  afterBlockId: z.string().min(1).max(160),
+  reason: z.string().min(1).max(120),
+  resourceId: z.string().regex(/^builtin_visual_static_\d{3}$/u),
+});
+
 const decisionSchema = z.strictObject({
   blocks: z.array(blockDecisionSchema).max(160),
   concept: z.string().min(2).max(240),
@@ -85,6 +96,7 @@ const decisionSchema = z.strictObject({
   languageId: z.enum(AI_LAYOUT_DESIGN_LANGUAGE_IDS),
   rhythm: z.enum(AI_LAYOUT_RHYTHMS),
   variantSeed: z.number().int().min(0).max(9_999),
+  visualAssets: z.array(visualAssetDecisionSchema).min(1).max(3),
   visualIntensity: z.enum(AI_LAYOUT_VISUAL_INTENSITIES),
 });
 
@@ -103,6 +115,7 @@ const responseJsonSchema = {
     "languageId",
     "rhythm",
     "variantSeed",
+    "visualAssets",
     "visualIntensity",
   ],
   properties: {
@@ -185,6 +198,21 @@ const responseJsonSchema = {
     languageId: { type: "string", enum: AI_LAYOUT_DESIGN_LANGUAGE_IDS },
     rhythm: { type: "string", enum: AI_LAYOUT_RHYTHMS },
     variantSeed: { type: "integer", minimum: 0, maximum: 9_999 },
+    visualAssets: {
+      type: "array",
+      minItems: 1,
+      maxItems: 3,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["afterBlockId", "reason", "resourceId"],
+        properties: {
+          afterBlockId: { type: "string", minLength: 1, maxLength: 160 },
+          reason: { type: "string", minLength: 1, maxLength: 120 },
+          resourceId: { type: "string", pattern: "^builtin_visual_static_[0-9]{3}$" },
+        },
+      },
+    },
     visualIntensity: { type: "string", enum: AI_LAYOUT_VISUAL_INTENSITIES },
   },
 } as const;
@@ -277,6 +305,162 @@ const defaultDesignTokens: Readonly<Record<AiLayoutDesignLanguageId, AiLayoutDes
     surfaceAltColor: "#262626",
     surfaceColor: "#171717",
     textColor: "#F2EFE9",
+    titleAlign: "center",
+  },
+  "civic-blue": {
+    accentColor: "#4D86B8",
+    bodyFontSize: 15,
+    bodyLineHeight: 1.86,
+    cardRadius: 6,
+    mutedColor: "#5C7082",
+    primaryColor: "#1D5FA7",
+    sectionSpacing: 38,
+    surfaceAltColor: "#EEF5FB",
+    surfaceColor: "#FFFFFF",
+    textColor: "#18324A",
+    titleAlign: "left",
+  },
+  "news-editorial": {
+    accentColor: "#B21F2D",
+    bodyFontSize: 15,
+    bodyLineHeight: 1.86,
+    cardRadius: 3,
+    mutedColor: "#716962",
+    primaryColor: "#B21F2D",
+    sectionSpacing: 38,
+    surfaceAltColor: "#F8F5EE",
+    surfaceColor: "#FFFDFC",
+    textColor: "#211E1C",
+    titleAlign: "left",
+  },
+  "annual-report": {
+    accentColor: "#D7B56D",
+    bodyFontSize: 15,
+    bodyLineHeight: 1.86,
+    cardRadius: 6,
+    mutedColor: "#AFC0CF",
+    primaryColor: "#C9A55C",
+    sectionSpacing: 40,
+    surfaceAltColor: "#153250",
+    surfaceColor: "#0C2338",
+    textColor: "#F2F5F7",
+    titleAlign: "left",
+  },
+  "data-dashboard": {
+    accentColor: "#7FE7EF",
+    bodyFontSize: 14,
+    bodyLineHeight: 1.82,
+    cardRadius: 10,
+    mutedColor: "#9FC2CC",
+    primaryColor: "#22C7D6",
+    sectionSpacing: 34,
+    surfaceAltColor: "#102C3A",
+    surfaceColor: "#081E29",
+    textColor: "#F0FAFC",
+    titleAlign: "left",
+  },
+  "monochrome-finance": {
+    accentColor: "#9D7B45",
+    bodyFontSize: 15,
+    bodyLineHeight: 1.88,
+    cardRadius: 0,
+    mutedColor: "#626262",
+    primaryColor: "#1C1C1C",
+    sectionSpacing: 40,
+    surfaceAltColor: "#F3F3F1",
+    surfaceColor: "#FFFFFF",
+    textColor: "#171717",
+    titleAlign: "left",
+  },
+  "future-purple": {
+    accentColor: "#9A7BFF",
+    bodyFontSize: 14,
+    bodyLineHeight: 1.86,
+    cardRadius: 12,
+    mutedColor: "#6C6688",
+    primaryColor: "#6757E8",
+    sectionSpacing: 36,
+    surfaceAltColor: "#F2F0FF",
+    surfaceColor: "#FFFFFF",
+    textColor: "#252044",
+    titleAlign: "left",
+  },
+  "cyber-neon": {
+    accentColor: "#FF3DCE",
+    bodyFontSize: 14,
+    bodyLineHeight: 1.84,
+    cardRadius: 8,
+    mutedColor: "#A6A9C2",
+    primaryColor: "#00D7F0",
+    sectionSpacing: 34,
+    surfaceAltColor: "#121426",
+    surfaceColor: "#090B16",
+    textColor: "#F4F5FF",
+    titleAlign: "left",
+  },
+  "jade-oriental": {
+    accentColor: "#B78B4A",
+    bodyFontSize: 15,
+    bodyLineHeight: 1.92,
+    cardRadius: 4,
+    mutedColor: "#667A72",
+    primaryColor: "#2F6F62",
+    sectionSpacing: 46,
+    surfaceAltColor: "#F2F5EC",
+    surfaceColor: "#FBFCF8",
+    textColor: "#263A34",
+    titleAlign: "center",
+  },
+  "seasonal-poetry": {
+    accentColor: "#D79B52",
+    bodyFontSize: 15,
+    bodyLineHeight: 1.92,
+    cardRadius: 8,
+    mutedColor: "#7D6C61",
+    primaryColor: "#B9683A",
+    sectionSpacing: 44,
+    surfaceAltColor: "#FBF4E7",
+    surfaceColor: "#FFFCF6",
+    textColor: "#47362D",
+    titleAlign: "center",
+  },
+  "academic-journal": {
+    accentColor: "#8B6C3E",
+    bodyFontSize: 15,
+    bodyLineHeight: 1.9,
+    cardRadius: 4,
+    mutedColor: "#61707B",
+    primaryColor: "#334E68",
+    sectionSpacing: 42,
+    surfaceAltColor: "#F4F1E9",
+    surfaceColor: "#FFFFFF",
+    textColor: "#1F2D38",
+    titleAlign: "center",
+  },
+  "playful-notebook": {
+    accentColor: "#F0A64A",
+    bodyFontSize: 15,
+    bodyLineHeight: 1.88,
+    cardRadius: 14,
+    mutedColor: "#7B6971",
+    primaryColor: "#FF647A",
+    sectionSpacing: 38,
+    surfaceAltColor: "#FFF5D9",
+    surfaceColor: "#FFFEFB",
+    textColor: "#493C42",
+    titleAlign: "center",
+  },
+  "event-poster": {
+    accentColor: "#F0A43C",
+    bodyFontSize: 15,
+    bodyLineHeight: 1.84,
+    cardRadius: 10,
+    mutedColor: "#735E55",
+    primaryColor: "#E84A3C",
+    sectionSpacing: 36,
+    surfaceAltColor: "#FFF2D6",
+    surfaceColor: "#FFFDFC",
+    textColor: "#33211D",
     titleAlign: "center",
   },
 };
@@ -432,6 +616,102 @@ const componentCatalog = OFFICIAL_COMPONENT_ASSETS.filter((asset) =>
   sample: asset.preview.sample,
 }));
 
+const assetStyleByLanguage: Readonly<Record<AiLayoutDesignLanguageId, VisualAssetStyle>> = {
+  "minimal-blue": "editorial-geometric",
+  "warm-paper": "warm-lifestyle",
+  "night-cyan": "tech-blue",
+  "forest-green": "botanical-nature",
+  "crimson-editorial": "civic-red",
+  "ink-gold": "oriental-ink",
+  "civic-blue": "tech-blue",
+  "news-editorial": "editorial-geometric",
+  "annual-report": "premium-business",
+  "data-dashboard": "tech-blue",
+  "monochrome-finance": "premium-business",
+  "future-purple": "editorial-geometric",
+  "cyber-neon": "tech-blue",
+  "jade-oriental": "oriental-ink",
+  "seasonal-poetry": "festival-heritage",
+  "academic-journal": "premium-business",
+  "playful-notebook": "childlike-education",
+  "event-poster": "festival-heritage",
+};
+
+const aiVisualAssetFunctions = new Set(["hero", "heading", "divider", "corner", "sticker"]);
+const aiVisualAssetCatalog = (() => {
+  const perStyleFunction = new Map<string, number>();
+  return OFFICIAL_STATIC_VISUAL_ASSETS.filter((asset) => {
+    if (!aiVisualAssetFunctions.has(asset.function)) return false;
+    const key = `${asset.style}:${asset.function}`;
+    const count = perStyleFunction.get(key) ?? 0;
+    const limit = asset.function === "sticker" ? 2 : 1;
+    if (count >= limit) return false;
+    perStyleFunction.set(key, count + 1);
+    return true;
+  }).map((asset) => ({
+    function: asset.function,
+    name: asset.name,
+    resourceId: asset.resourceId,
+    scenes: asset.scenes,
+    style: asset.style,
+  }));
+})();
+
+const aiVisualAssetByResourceId = new Map(
+  OFFICIAL_STATIC_VISUAL_ASSETS.filter((asset) => aiVisualAssetFunctions.has(asset.function)).map(
+    (asset) => [asset.resourceId, asset],
+  ),
+);
+
+function visualAssetFallbacks(
+  blocks: readonly AiLayoutBlockDecision[],
+  languageId: AiLayoutDesignLanguageId,
+): readonly AiLayoutVisualAssetDecision[] {
+  const style = assetStyleByLanguage[languageId];
+  const anchors = [
+    blocks.find((block) => block.treatment === "lead")?.blockId,
+    blocks.find((block) => block.treatment === "section")?.blockId,
+  ].filter((blockId): blockId is string => blockId !== undefined);
+  const functions = ["hero", "divider"] as const;
+  return anchors.flatMap((afterBlockId, index) => {
+    const asset = OFFICIAL_STATIC_VISUAL_ASSETS.find(
+      (candidate) => candidate.style === style && candidate.function === functions[index],
+    );
+    return asset === undefined
+      ? []
+      : [
+          {
+            afterBlockId,
+            reason: index === 0 ? "用同风格主视觉建立首屏记忆" : "用同风格分隔素材强化章节转场",
+            resourceId: asset.resourceId,
+          },
+        ];
+  });
+}
+
+function sanitizedVisualAssets(
+  requested: readonly AiLayoutVisualAssetDecision[],
+  decisions: readonly AiLayoutBlockDecision[],
+  sourceBlocks: readonly TopLevelBlock[],
+  languageId: AiLayoutDesignLanguageId,
+): readonly AiLayoutVisualAssetDecision[] {
+  const validBlockIds = new Set(sourceBlocks.map((block) => block.attrs.blockId));
+  const seenResources = new Set<string>();
+  const accepted = requested.filter((selection) => {
+    const asset = aiVisualAssetByResourceId.get(selection.resourceId);
+    if (
+      asset === undefined ||
+      !validBlockIds.has(selection.afterBlockId) ||
+      seenResources.has(selection.resourceId)
+    ) {
+      return false;
+    }
+    seenResources.add(selection.resourceId);
+    return true;
+  });
+  return (accepted.length > 0 ? accepted : visualAssetFallbacks(decisions, languageId)).slice(0, 3);
+}
+
 function compatibleComponentId(
   treatment: AiLayoutTreatment,
   componentId: AiLayoutComponentId | null,
@@ -581,6 +861,7 @@ function sanitizeDecision(
     dividerAfterBlockIds: [...new Set(raw.dividerAfterBlockIds)]
       .filter((blockId) => byId.has(blockId))
       .slice(0, 5),
+    visualAssets: sanitizedVisualAssets(raw.visualAssets, normalizedBlocks, blocks, raw.languageId),
   };
 }
 
@@ -814,7 +1095,7 @@ export class AiLayoutService {
       "lead 应优先选择能概括全文立场的开篇判断或金句；章节后的短句可作为 quote；包含两个以上有意义数字的段落优先作为 data。",
       "特殊模块要克制，连续正文仍是主体。不要生成占位图片、空图集、无关装饰或固定套话。",
       "hero 与 footer 文案可以概括文章气质，但不能新增事实。dividerAfterBlockIds 只放在真正的章节转折后。",
-      "六种视觉语言：minimal-blue 理性极简；warm-paper 人文杂志；night-cyan 科技数据；forest-green 自然留白；crimson-editorial 政务编辑；ink-gold 经典深读。",
+      "十八种视觉语言：minimal-blue 理性极简；warm-paper 人文杂志；night-cyan 科技数据；forest-green 自然留白；crimson-editorial 政务编辑；ink-gold 经典深读；civic-blue 蓝白政务；news-editorial 央媒新闻；annual-report 深蓝年报；data-dashboard 数据仪表；monochrome-finance 黑白财经；future-purple 未来渐变紫；cyber-neon 赛博霓虹；jade-oriental 新中式青绿；seasonal-poetry 节气雅集；academic-journal 学术期刊；playful-notebook 童趣手账；event-poster 活动海报。",
       "选择 crimson-editorial 时，目标是红白报刊编辑效果：引言金句、本文看点、编号章节、左线小标题、浅红关键词标记、数据三联卡和克制结尾；不是红金横幅堆叠。",
       "你必须定义 designTokens，让本篇文章拥有自己的主色、强调色、底色、字色、正文尺寸、行距、圆角和章节间距；textColor 与 surfaceColor 对比度至少 4.5:1。",
       "视觉结果必须在第一屏就能辨认：主标题、导读首屏、至少两个章节锚点；长文还要尽量包含一个数据卡或金句卡。不能只改变加粗和段落间距。",
@@ -827,6 +1108,8 @@ export class AiLayoutService {
       `图片候选：${AI_LAYOUT_IMAGE_COMPONENT_IDS.join("、")}。`,
       `章节分隔候选：${AI_LAYOUT_DIVIDER_COMPONENT_IDS.join("、")}。`,
       `导读首屏候选：${AI_LAYOUT_HERO_COMPONENT_IDS.join("、")}。`,
+      "visualAssets 必须选择 1–3 个真实静态素材，并通过 afterBlockId 指定插入位置。只在首屏、章节转场或结尾前使用，不能连续堆叠，也不能选择与文章题材无关的素材。",
+      `可调用素材（resourceId、风格、用途、场景）：${JSON.stringify(aiVisualAssetCatalog)}。`,
       "rhythm 决定全文呼吸感：compact 紧凑、balanced 均衡、airy 舒展。visualIntensity 决定装饰强度：restrained 克制、balanced 均衡、bold 鲜明。",
       "variantSeed 是 0–9999 的整数，同一文章重新生成时要主动变化它，并换一组合理的组件组合。",
       "每一个提供的 blockId 必须且只能在 blocks 中出现一次。输出必须严格符合 JSON Schema。",

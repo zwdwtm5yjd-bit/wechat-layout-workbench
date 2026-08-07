@@ -12,14 +12,14 @@ import {
 } from "./layout-planner";
 
 describe("layout planner", () => {
-  it("analyzes the article gene and creates six design-language plans", () => {
+  it("analyzes the article gene and creates eighteen design-language plans", () => {
     const analysis = analyzeDocumentLayout(documentV1Fixture);
     const plans = createLayoutPlans(documentV1Fixture, []);
 
     expect(analysis.characterCount).toBeGreaterThan(0);
     expect(analysis.gene.articleTypeLabel).not.toHaveLength(0);
     expect(analysis.gene.emotionLabel).not.toHaveLength(0);
-    expect(plans).toHaveLength(6);
+    expect(plans).toHaveLength(18);
     expect(plans.filter((plan) => plan.recommended)).toHaveLength(1);
   });
 
@@ -111,6 +111,13 @@ describe("layout planner", () => {
       },
       rhythm: "compact",
       variantSeed: 812,
+      visualAssets: [
+        {
+          afterBlockId: "block_paragraph",
+          reason: "用政务主视觉建立导语后的视觉锚点",
+          resourceId: "builtin_visual_static_022",
+        },
+      ],
       visualIntensity: "bold",
       dividerComponentId: "cmp_divider_dashed_subtle_002",
       hero: {
@@ -158,6 +165,14 @@ describe("layout planner", () => {
     expect(result.content.content.find((node) => node.type === "divider")?.attrs.componentId).toBe(
       "cmp_divider_dashed_subtle_002",
     );
+    expect(
+      result.content.content.some(
+        (node) =>
+          node.type === "imageBlock" &&
+          node.attrs.semanticRole === "layout_plan_generated_visual_asset" &&
+          node.attrs.resourceId === "builtin_visual_static_022",
+      ),
+    ).toBe(true);
   });
 
   it("builds the red-white editorial baseline from article structure", () => {

@@ -1,4 +1,8 @@
-import type { VisualAssetStyle } from "@wechat-layout/component-registry";
+import {
+  findOfficialVisualAsset,
+  type OfficialVisualAsset,
+  type VisualAssetStyle,
+} from "@wechat-layout/component-registry";
 import type {
   AiLayoutComponentId,
   AiLayoutDecision,
@@ -26,6 +30,39 @@ import type { OfficialTheme } from "./themes/client";
 export type LayoutDesignMode = "preset" | "described" | "original";
 export type LayoutPlanId = `${LayoutDesignMode}:${string}`;
 export type DesignLanguageId = AiLayoutDesignLanguageId;
+export type DesignLanguageFamily =
+  "civic-media" | "business-data" | "technology" | "culture-life" | "education-event";
+
+export const DESIGN_LANGUAGE_FAMILY_LABELS: Readonly<Record<DesignLanguageFamily, string>> = {
+  "civic-media": "政务传媒",
+  "business-data": "商业数据",
+  technology: "科技未来",
+  "culture-life": "文化生活",
+  "education-event": "教育活动",
+};
+
+export const DESIGN_LANGUAGE_FAMILY_BY_ID: Readonly<
+  Record<DesignLanguageId, DesignLanguageFamily>
+> = {
+  "minimal-blue": "technology",
+  "warm-paper": "culture-life",
+  "night-cyan": "technology",
+  "forest-green": "culture-life",
+  "crimson-editorial": "civic-media",
+  "ink-gold": "culture-life",
+  "civic-blue": "civic-media",
+  "news-editorial": "civic-media",
+  "annual-report": "business-data",
+  "data-dashboard": "business-data",
+  "monochrome-finance": "business-data",
+  "future-purple": "technology",
+  "cyber-neon": "technology",
+  "jade-oriental": "culture-life",
+  "seasonal-poetry": "culture-life",
+  "academic-journal": "education-event",
+  "playful-notebook": "education-event",
+  "event-poster": "education-event",
+};
 export type ArticleType = "tutorial" | "list" | "opinion" | "interview" | "data" | "essay" | "case";
 export type ArticleEmotion = "calm" | "passionate" | "warm" | "authoritative" | "light";
 
@@ -81,6 +118,7 @@ interface DesignLanguageDefinition {
   readonly description: string;
   readonly emotions: readonly ArticleEmotion[];
   readonly id: DesignLanguageId;
+  readonly keywords: readonly string[];
   readonly name: string;
   readonly palette: readonly [string, string, string];
   readonly themeNames: readonly string[];
@@ -88,24 +126,60 @@ interface DesignLanguageDefinition {
   readonly types: readonly ArticleType[];
 }
 
+const DARK_DESIGN_LANGUAGES = new Set<DesignLanguageId>([
+  "night-cyan",
+  "ink-gold",
+  "annual-report",
+  "data-dashboard",
+  "cyber-neon",
+]);
+
+const CENTERED_TITLE_LANGUAGES = new Set<DesignLanguageId>([
+  "warm-paper",
+  "forest-green",
+  "ink-gold",
+  "jade-oriental",
+  "seasonal-poetry",
+  "academic-journal",
+  "playful-notebook",
+  "event-poster",
+]);
+
 function defaultPlanTokens(language: DesignLanguageDefinition): AiLayoutDesignTokens {
   const [primaryColor, surfaceAltColor, textColor] = language.palette;
-  const dark = language.id === "night-cyan" || language.id === "ink-gold";
+  const dark = DARK_DESIGN_LANGUAGES.has(language.id);
   return {
-    accentColor: language.id === "crimson-editorial" ? "#D29A54" : primaryColor,
-    bodyFontSize: language.id === "minimal-blue" || language.id === "night-cyan" ? 14 : 15,
-    bodyLineHeight: language.id === "night-cyan" ? 1.82 : 1.88,
-    cardRadius: language.id === "ink-gold" ? 3 : language.id === "forest-green" ? 4 : 8,
+    accentColor:
+      language.id === "crimson-editorial"
+        ? "#D29A54"
+        : language.id === "annual-report"
+          ? "#D7B56D"
+          : language.id === "cyber-neon"
+            ? "#FF3DCE"
+            : primaryColor,
+    bodyFontSize:
+      language.id === "minimal-blue" ||
+      language.id === "night-cyan" ||
+      language.id === "data-dashboard" ||
+      language.id === "future-purple"
+        ? 14
+        : 15,
+    bodyLineHeight: language.id === "night-cyan" || language.id === "data-dashboard" ? 1.82 : 1.88,
+    cardRadius:
+      language.id === "ink-gold" || language.id === "news-editorial"
+        ? 3
+        : language.id === "forest-green" || language.id === "academic-journal"
+          ? 4
+          : language.id === "playful-notebook"
+            ? 14
+            : 8,
     mutedColor: dark ? "#A7B0B7" : "#667085",
     primaryColor,
     sectionSpacing: language.id === "forest-green" ? 44 : 38,
     surfaceAltColor,
     surfaceColor: dark ? (language.id === "night-cyan" ? "#0C2732" : "#171717") : "#FFFFFF",
     textColor,
-    titleAlign:
-      language.id === "warm-paper" || language.id === "forest-green" || language.id === "ink-gold"
-        ? "center"
-        : "left",
+    titleAlign: CENTERED_TITLE_LANGUAGES.has(language.id) ? "center" : "left",
   };
 }
 
@@ -118,6 +192,7 @@ export const DESIGN_LANGUAGES: readonly DesignLanguageDefinition[] = [
     palette: ["#2563EB", "#F5F7FA", "#1A1A2E"],
     themeNames: ["极简蓝", "高级极简"],
     assetStyle: "editorial-geometric",
+    keywords: ["教程", "方法", "知识", "工具", "效率"],
     types: ["tutorial", "list", "data"],
     emotions: ["calm", "authoritative"],
   },
@@ -129,6 +204,7 @@ export const DESIGN_LANGUAGES: readonly DesignLanguageDefinition[] = [
     palette: ["#B8532A", "#F7F0E6", "#4A3728"],
     themeNames: ["暖纸墨", "人物专访", "食味暖橙"],
     assetStyle: "warm-lifestyle",
+    keywords: ["人物", "故事", "生活", "人文", "品牌"],
     types: ["opinion", "essay", "interview"],
     emotions: ["warm", "calm"],
   },
@@ -140,6 +216,7 @@ export const DESIGN_LANGUAGES: readonly DesignLanguageDefinition[] = [
     palette: ["#00D4AA", "#252540", "#E8E8F0"],
     themeNames: ["暗夜青", "科技蓝金"],
     assetStyle: "tech-blue",
+    keywords: ["科技", "AI", "代码", "产品", "开发"],
     types: ["tutorial", "data", "case"],
     emotions: ["authoritative", "calm"],
   },
@@ -151,6 +228,7 @@ export const DESIGN_LANGUAGES: readonly DesignLanguageDefinition[] = [
     palette: ["#4A7C59", "#F5F7F3", "#2C3A2E"],
     themeNames: ["森语绿", "夏日森系"],
     assetStyle: "botanical-nature",
+    keywords: ["自然", "健康", "旅行", "治愈", "环保"],
     types: ["essay", "opinion", "interview"],
     emotions: ["calm", "warm"],
   },
@@ -162,6 +240,7 @@ export const DESIGN_LANGUAGES: readonly DesignLanguageDefinition[] = [
     palette: ["#C1292E", "#FEF9F7", "#1A1210"],
     themeNames: ["绯红编", "现代政务红"],
     assetStyle: "civic-red",
+    keywords: ["党建", "政务", "纪检", "会议", "报告"],
     types: ["case", "data", "opinion"],
     emotions: ["authoritative", "passionate"],
   },
@@ -173,8 +252,153 @@ export const DESIGN_LANGUAGES: readonly DesignLanguageDefinition[] = [
     palette: ["#C9A96E", "#252525", "#D4D0C8"],
     themeNames: ["墨金雅", "人物专访", "国风雅韵"],
     assetStyle: "oriental-ink",
+    keywords: ["文化", "国风", "人物", "历史", "传承"],
     types: ["interview", "essay", "case"],
     emotions: ["authoritative", "calm"],
+  },
+  {
+    id: "civic-blue",
+    name: "蓝白政务",
+    tone: "清正、秩序、公信",
+    description: "以蓝白公文秩序组织政策解读、工作动态和会议材料，稳重但不沉闷。",
+    palette: ["#1D5FA7", "#EEF5FB", "#18324A"],
+    themeNames: ["现代政务红", "科技蓝金", "高级极简"],
+    assetStyle: "tech-blue",
+    keywords: ["政务", "政策", "会议", "通报", "工作动态"],
+    types: ["data", "case", "tutorial"],
+    emotions: ["authoritative", "calm"],
+  },
+  {
+    id: "news-editorial",
+    name: "央媒新闻",
+    tone: "新闻、庄重、直达",
+    description: "借鉴报刊头版的标题层级、导语和细线规则，适合权威发布与深度报道。",
+    palette: ["#B21F2D", "#F8F5EE", "#211E1C"],
+    themeNames: ["高级极简", "现代政务红"],
+    assetStyle: "editorial-geometric",
+    keywords: ["新闻", "发布", "报道", "要闻", "权威"],
+    types: ["opinion", "data", "case", "interview"],
+    emotions: ["authoritative", "calm"],
+  },
+  {
+    id: "annual-report",
+    name: "深蓝年报",
+    tone: "商务、稳健、价值",
+    description: "深蓝与金色建立年报级重量，用数据、章节和结论卡呈现经营成果。",
+    palette: ["#C9A55C", "#153250", "#F2F5F7"],
+    themeNames: ["科技蓝金", "人物专访"],
+    assetStyle: "premium-business",
+    keywords: ["年报", "总结", "经营", "业绩", "金融"],
+    types: ["data", "case", "list"],
+    emotions: ["authoritative", "calm"],
+  },
+  {
+    id: "data-dashboard",
+    name: "数据仪表",
+    tone: "精确、模块、洞察",
+    description: "用仪表盘式的数据锚点和短节奏章节突出指标、趋势与关键结论。",
+    palette: ["#22C7D6", "#102C3A", "#F0FAFC"],
+    themeNames: ["暗夜青", "科技蓝金"],
+    assetStyle: "tech-blue",
+    keywords: ["数据", "指标", "增长", "统计", "分析"],
+    types: ["data", "tutorial", "list"],
+    emotions: ["authoritative", "calm"],
+  },
+  {
+    id: "monochrome-finance",
+    name: "黑白财经",
+    tone: "冷静、克制、判断",
+    description: "黑白灰搭配极少量金色，用财经杂志的留白和边线承载观点与数字。",
+    palette: ["#1C1C1C", "#F3F3F1", "#171717"],
+    themeNames: ["高级极简", "人物专访"],
+    assetStyle: "premium-business",
+    keywords: ["财经", "商业", "资本", "市场", "投资"],
+    types: ["opinion", "data", "case"],
+    emotions: ["authoritative", "calm"],
+  },
+  {
+    id: "future-purple",
+    name: "未来渐变紫",
+    tone: "前沿、轻盈、产品",
+    description: "以蓝紫渐变和几何分区营造数字产品感，适合新品、AI 与创新项目。",
+    palette: ["#6757E8", "#F2F0FF", "#252044"],
+    themeNames: ["科技蓝金", "极简蓝"],
+    assetStyle: "editorial-geometric",
+    keywords: ["未来", "创新", "新品", "互联网", "数字化"],
+    types: ["tutorial", "case", "data"],
+    emotions: ["passionate", "calm"],
+  },
+  {
+    id: "cyber-neon",
+    name: "赛博霓虹",
+    tone: "霓虹、锋利、实验",
+    description: "深色舞台配合青色与洋红信号，制造强烈的科技发布和先锋阅读体验。",
+    palette: ["#00D7F0", "#121426", "#F4F5FF"],
+    themeNames: ["暗夜青", "科技蓝金"],
+    assetStyle: "tech-blue",
+    keywords: ["赛博", "霓虹", "游戏", "元宇宙", "先锋"],
+    types: ["case", "tutorial", "data"],
+    emotions: ["passionate", "light"],
+  },
+  {
+    id: "jade-oriental",
+    name: "新中式青绿",
+    tone: "青绿、雅正、东方",
+    description: "用青绿山水、印章式编号和疏朗留白呈现传统文化与东方生活。",
+    palette: ["#2F6F62", "#F2F5EC", "#263A34"],
+    themeNames: ["国风雅韵", "森语绿"],
+    assetStyle: "oriental-ink",
+    keywords: ["国风", "东方", "传统", "非遗", "青绿"],
+    types: ["essay", "interview", "opinion"],
+    emotions: ["calm", "warm"],
+  },
+  {
+    id: "seasonal-poetry",
+    name: "节气雅集",
+    tone: "时令、诗意、手作",
+    description: "以节气纹样、暖色题签和诗意分隔建立季节性的慢阅读节奏。",
+    palette: ["#B9683A", "#FBF4E7", "#47362D"],
+    themeNames: ["国风雅韵", "节日红金", "暖纸墨"],
+    assetStyle: "festival-heritage",
+    keywords: ["节气", "春节", "中秋", "端午", "传统节日"],
+    types: ["essay", "list", "interview"],
+    emotions: ["warm", "calm"],
+  },
+  {
+    id: "academic-journal",
+    name: "学术期刊",
+    tone: "严谨、清晰、文献",
+    description: "以期刊目录、编号标题和注释式卡片组织研究、课程与知识型长文。",
+    palette: ["#334E68", "#F4F1E9", "#1F2D38"],
+    themeNames: ["高级极简", "科技蓝金"],
+    assetStyle: "premium-business",
+    keywords: ["学术", "研究", "论文", "课程", "课题"],
+    types: ["tutorial", "data", "opinion"],
+    emotions: ["authoritative", "calm"],
+  },
+  {
+    id: "playful-notebook",
+    name: "童趣手账",
+    tone: "可爱、轻松、参与",
+    description: "用手账贴纸、圆角题签和彩色章节为亲子、校园与活动内容增加参与感。",
+    palette: ["#FF7A8A", "#FFF5D9", "#493C42"],
+    themeNames: ["校园青春", "食味暖橙"],
+    assetStyle: "childlike-education",
+    keywords: ["亲子", "儿童", "幼儿园", "校园", "可爱"],
+    types: ["list", "tutorial", "essay"],
+    emotions: ["light", "warm"],
+  },
+  {
+    id: "event-poster",
+    name: "活动海报",
+    tone: "聚焦、热烈、行动",
+    description: "用海报式首屏、丝带标题和行动卡突出时间、亮点与参与路径。",
+    palette: ["#E84A3C", "#FFF2D6", "#33211D"],
+    themeNames: ["节日红金", "校园青春"],
+    assetStyle: "festival-heritage",
+    keywords: ["活动", "招募", "邀请", "报名", "发布会"],
+    types: ["list", "tutorial", "case"],
+    emotions: ["passionate", "light"],
   },
 ];
 
@@ -215,25 +439,16 @@ const EMOTION_TERMS: Readonly<Record<ArticleEmotion, readonly string[]>> = {
 };
 
 const KEYWORD_TERMS = [
-  "人工智能",
-  "AI",
-  "数字化",
-  "科技",
-  "教育",
-  "校园",
-  "党建",
-  "政务",
-  "文化",
-  "品牌",
-  "旅行",
-  "自然",
-  "美食",
-  "健康",
-  "数据",
-  "案例",
-  "方法",
-  "人物",
-  "活动",
+  ...new Set([
+    "人工智能",
+    "AI",
+    "数字化",
+    "科技",
+    "教育",
+    "文化",
+    "美食",
+    ...DESIGN_LANGUAGES.flatMap((language) => language.keywords),
+  ]),
 ] as const;
 
 function textFromNode(node: unknown): string {
@@ -311,7 +526,7 @@ function articleGene(document: DocumentV1): ArticleGene {
   ];
   const keywords = KEYWORD_TERMS.filter((term) =>
     text.toLocaleLowerCase("zh-CN").includes(term.toLocaleLowerCase("zh-CN")),
-  ).slice(0, 5);
+  ).slice(0, 8);
   const articleTypeLabel = ARTICLE_TYPE_LABELS[articleType];
   const emotionLabel = EMOTION_LABELS[emotion];
   return {
@@ -363,9 +578,13 @@ function findTheme(
 }
 
 function languageScore(language: DesignLanguageDefinition, gene: ArticleGene): number {
+  const keywordMatches = language.keywords.filter((keyword) =>
+    gene.keywords.some((candidate) => candidate.includes(keyword) || keyword.includes(candidate)),
+  ).length;
   return (
     (language.types.includes(gene.articleType) ? 6 : 0) +
     (language.emotions.includes(gene.emotion) ? 3 : 0) +
+    keywordMatches * 4 +
     ((gene.keywords.includes("科技") || gene.keywords.includes("AI")) &&
     language.id === "night-cyan"
       ? 4
@@ -388,6 +607,18 @@ function recommendedLanguage(gene: ArticleGene): DesignLanguageDefinition {
 function languageFromBrief(brief: string, gene: ArticleGene): DesignLanguageDefinition {
   const normalized = brief.toLocaleLowerCase("zh-CN");
   const rules: readonly [DesignLanguageId, readonly string[]][] = [
+    ["civic-blue", ["蓝白政务", "公文", "政策解读", "清正", "政务蓝"]],
+    ["news-editorial", ["新闻", "报刊", "央媒", "头版", "报道"]],
+    ["annual-report", ["年报", "深蓝", "经营", "商务金", "业绩"]],
+    ["data-dashboard", ["仪表盘", "数据可视化", "指标", "统计", "图表"]],
+    ["monochrome-finance", ["财经", "金融", "黑白", "资本", "商业杂志"]],
+    ["future-purple", ["紫色", "渐变", "数字化", "新品", "未来感"]],
+    ["cyber-neon", ["赛博", "霓虹", "元宇宙", "游戏", "先锋"]],
+    ["jade-oriental", ["新中式", "青绿", "非遗", "东方", "山水"]],
+    ["seasonal-poetry", ["节气", "雅集", "春节", "中秋", "端午"]],
+    ["academic-journal", ["学术", "期刊", "论文", "研究", "课程"]],
+    ["playful-notebook", ["童趣", "手账", "亲子", "幼儿园", "可爱"]],
+    ["event-poster", ["活动", "海报", "招募", "报名", "邀请函"]],
     ["night-cyan", ["暗色", "深色", "科技", "终端", "霓虹", "未来", "黑底", "数据"]],
     ["ink-gold", ["高端", "奢华", "金色", "经典", "收藏", "深沉", "品牌", "访谈"]],
     ["warm-paper", ["温暖", "杂志", "纸张", "人文", "复古", "棕色", "故事"]],
@@ -560,6 +791,7 @@ export function layoutPlanFromAiDecision(
       `组件：按内容选择首屏、标题、金句、图片与数据卡`,
       `原创色板：${decision.designTokens.primaryColor} · ${decision.designTokens.accentColor}`,
       `节奏：${decision.rhythm} · 视觉强度：${decision.visualIntensity}`,
+      `智能素材：自动落位 ${String(decision.visualAssets.length)} 个匹配装饰`,
       "不生成占位图片或无关图集",
       "微信安全样式与原文保护",
     ],
@@ -822,6 +1054,114 @@ const LAYOUT_COMPONENTS: Readonly<Record<DesignLanguageId, LayoutComponentSet>> 
     notice: { id: "cmp_notice_story_intro_006", variant: "story" },
     image: { id: "cmp_image_polaroid_caption_005", variant: "polaroid" },
     divider: { id: "cmp_divider_ornament_dots_004", variant: "ornament" },
+  },
+  "civic-blue": {
+    hero: { id: "cmp_tech_orbit_hero_001", variant: "tech_orbit_hero" },
+    heading1: { id: "cmp_head_level1_leftbar_001", variant: "leftbar" },
+    heading2: { id: "cmp_head_level2_dot_001", variant: "dot" },
+    quote: { id: "cmp_quote_document_source_004", variant: "document" },
+    notice: { id: "cmp_notice_info_blue_001", variant: "info" },
+    image: { id: "cmp_image_border_documentary_003", variant: "documentary" },
+    divider: { id: "cmp_divider_solid_clean_001", variant: "solid" },
+  },
+  "news-editorial": {
+    hero: { id: "cmp_gov_red_gold_banner_001", variant: "civic_red_banner" },
+    heading1: { id: "cmp_head_level1_underlined_003", variant: "underlined" },
+    heading2: { id: "cmp_head_level2_plain_004", variant: "plain" },
+    quote: { id: "cmp_quote_standard_leftline_001", variant: "leftline" },
+    notice: { id: "cmp_notice_story_intro_006", variant: "story" },
+    image: { id: "cmp_image_fullwidth_clean_001", variant: "fullwidth" },
+    divider: { id: "cmp_divider_solid_clean_001", variant: "solid" },
+  },
+  "annual-report": {
+    hero: { id: "cmp_tech_orbit_hero_001", variant: "tech_orbit_hero" },
+    heading1: { id: "cmp_head_level1_frame_006", variant: "framed" },
+    heading2: { id: "cmp_head_level2_leftbar_002", variant: "leftbar" },
+    quote: { id: "cmp_quote_conclusion_card_003", variant: "conclusion" },
+    notice: { id: "cmp_notice_checklist_action_005", variant: "checklist" },
+    image: { id: "cmp_image_centered_numbered_004", variant: "centered_numbered" },
+    divider: { id: "cmp_divider_dashed_subtle_002", variant: "dashed" },
+  },
+  "data-dashboard": {
+    hero: { id: "cmp_tech_orbit_hero_001", variant: "tech_orbit_hero" },
+    heading1: { id: "cmp_head_level1_ribbon_005", variant: "ribbon" },
+    heading2: { id: "cmp_head_level2_marker_006", variant: "marker" },
+    quote: { id: "cmp_quote_highlight_center_006", variant: "highlight" },
+    notice: { id: "cmp_notice_info_blue_001", variant: "info" },
+    image: { id: "cmp_image_centered_numbered_004", variant: "centered_numbered" },
+    divider: { id: "cmp_divider_dashed_subtle_002", variant: "dashed" },
+  },
+  "monochrome-finance": {
+    hero: { id: "cmp_intro_bamboo_note_002", variant: "bamboo_note" },
+    heading1: { id: "cmp_head_level1_centered_004", variant: "centered" },
+    heading2: { id: "cmp_head_level2_underlined_003", variant: "underlined" },
+    quote: { id: "cmp_quote_conclusion_card_003", variant: "conclusion" },
+    notice: { id: "cmp_notice_checklist_action_005", variant: "checklist" },
+    image: { id: "cmp_image_fullwidth_clean_001", variant: "fullwidth" },
+    divider: { id: "cmp_divider_solid_clean_001", variant: "solid" },
+  },
+  "future-purple": {
+    hero: { id: "cmp_tech_orbit_hero_001", variant: "tech_orbit_hero" },
+    heading1: { id: "cmp_head_level1_ribbon_005", variant: "ribbon" },
+    heading2: { id: "cmp_head_level2_pill_005", variant: "pill" },
+    quote: { id: "cmp_quote_highlight_center_006", variant: "highlight" },
+    notice: { id: "cmp_notice_info_blue_001", variant: "info" },
+    image: { id: "cmp_image_rounded_caption_002", variant: "rounded_caption" },
+    divider: { id: "cmp_divider_ornament_center_003", variant: "ornament" },
+  },
+  "cyber-neon": {
+    hero: { id: "cmp_tech_orbit_hero_001", variant: "tech_orbit_hero" },
+    heading1: { id: "cmp_head_level1_frame_006", variant: "framed" },
+    heading2: { id: "cmp_head_level2_marker_006", variant: "marker" },
+    quote: { id: "cmp_quote_citation_marks_002", variant: "quotation" },
+    notice: { id: "cmp_notice_warning_amber_003", variant: "warning" },
+    image: { id: "cmp_image_border_documentary_003", variant: "documentary" },
+    divider: { id: "cmp_divider_dashed_subtle_002", variant: "dashed" },
+  },
+  "jade-oriental": {
+    hero: { id: "cmp_hero_ink_mountain_001", variant: "ink_mountain_hero" },
+    heading1: { id: "cmp_head_mist_mountains_007", variant: "mist_mountain_heading" },
+    heading2: { id: "cmp_head_cloud_scroll_008", variant: "cloud_scroll_heading" },
+    quote: { id: "cmp_quote_citation_marks_002", variant: "quotation" },
+    notice: { id: "cmp_notice_story_intro_006", variant: "story" },
+    image: { id: "cmp_image_polaroid_caption_005", variant: "polaroid" },
+    divider: { id: "cmp_divider_ornament_dots_004", variant: "ornament" },
+  },
+  "seasonal-poetry": {
+    hero: { id: "cmp_hero_festival_lantern_002", variant: "festival_lantern_hero" },
+    heading1: { id: "cmp_head_mist_mountains_007", variant: "mist_mountain_heading" },
+    heading2: { id: "cmp_head_level2_pill_005", variant: "pill" },
+    quote: { id: "cmp_quote_postcard_warm_005", variant: "postcard" },
+    notice: { id: "cmp_notice_story_intro_006", variant: "story" },
+    image: { id: "cmp_image_polaroid_caption_005", variant: "polaroid" },
+    divider: { id: "cmp_divider_ornament_dots_004", variant: "ornament" },
+  },
+  "academic-journal": {
+    hero: { id: "cmp_intro_bamboo_note_002", variant: "bamboo_note" },
+    heading1: { id: "cmp_head_level1_numbered_002", variant: "numbered" },
+    heading2: { id: "cmp_head_level2_plain_004", variant: "plain" },
+    quote: { id: "cmp_quote_document_source_004", variant: "document" },
+    notice: { id: "cmp_notice_checklist_action_005", variant: "checklist" },
+    image: { id: "cmp_image_centered_numbered_004", variant: "centered_numbered" },
+    divider: { id: "cmp_divider_solid_clean_001", variant: "solid" },
+  },
+  "playful-notebook": {
+    hero: { id: "cmp_intro_leaf_story_003", variant: "leaf_story_intro" },
+    heading1: { id: "cmp_head_level1_ribbon_005", variant: "ribbon" },
+    heading2: { id: "cmp_head_level2_pill_005", variant: "pill" },
+    quote: { id: "cmp_quote_postcard_warm_005", variant: "postcard" },
+    notice: { id: "cmp_notice_success_green_002", variant: "success" },
+    image: { id: "cmp_image_polaroid_caption_005", variant: "polaroid" },
+    divider: { id: "cmp_divider_ornament_dots_004", variant: "ornament" },
+  },
+  "event-poster": {
+    hero: { id: "cmp_hero_festival_lantern_002", variant: "festival_lantern_hero" },
+    heading1: { id: "cmp_head_level1_ribbon_005", variant: "ribbon" },
+    heading2: { id: "cmp_head_level2_leftbar_002", variant: "leftbar" },
+    quote: { id: "cmp_quote_highlight_center_006", variant: "highlight" },
+    notice: { id: "cmp_notice_checklist_action_005", variant: "checklist" },
+    image: { id: "cmp_image_rounded_caption_002", variant: "rounded_caption" },
+    divider: { id: "cmp_divider_ornament_center_003", variant: "ornament" },
   },
 };
 
@@ -1191,6 +1531,40 @@ function generatedDivider(plan: LayoutPlan, componentId?: AiLayoutComponentId | 
       ),
       variant,
       widthPercent: variant === "ornament" ? 28 : 68,
+    },
+  };
+}
+
+function generatedVisualAsset(asset: OfficialVisualAsset, plan: LayoutPlan): ImageBlockNode {
+  const floating =
+    asset.function === "sticker" || asset.function === "corner" || asset.function === "badge";
+  return {
+    type: "imageBlock",
+    attrs: {
+      alt: asset.name,
+      blockId: blockId(),
+      compatibilityLevel: "safe",
+      elementKind: floating ? "sticker" : "decoration",
+      freePosition: floating,
+      horizontalAlign: floating && plan.visualVariant === 1 ? "right" : "center",
+      layer: floating ? 2 : 1,
+      locked: false,
+      objectFit: "contain",
+      objectPositionX: 50,
+      objectPositionY: 50,
+      offsetX: 0,
+      offsetY: 0,
+      opacity: plan.visualIntensity === "restrained" ? 0.86 : 1,
+      resourceId: asset.resourceId,
+      rotation: floating ? (plan.visualVariant - 1) * 4 : 0,
+      semanticRole: "layout_plan_generated_visual_asset",
+      styleRef: `layout.${plan.languageId}.asset.${asset.function}`,
+      styleOverrides: {
+        marginBottom: floating ? 8 : 20,
+        marginTop: floating ? 4 : 12,
+      },
+      widthMode: floating ? "percent" : "full",
+      ...(floating ? { widthPercent: plan.visualIntensity === "bold" ? 28 : 22 } : {}),
     },
   };
 }
@@ -1580,6 +1954,15 @@ export function applyAiLayoutDecisionToDocument(
   const analysis = analyzeDocumentLayout(document);
   const decisions = new Map(decision.blocks.map((item) => [item.blockId, item]));
   const dividerAfter = new Set(decision.dividerAfterBlockIds);
+  const visualAssetsAfter = new Map<string, OfficialVisualAsset[]>();
+  decision.visualAssets.forEach((selection) => {
+    const asset = findOfficialVisualAsset(selection.resourceId);
+    if (asset === undefined || asset.motion !== "static") return;
+    visualAssetsAfter.set(selection.afterBlockId, [
+      ...(visualAssetsAfter.get(selection.afterBlockId) ?? []),
+      asset,
+    ]);
+  });
   const originalBlocks = restoreOriginalBlocks(document.content.content);
   let sectionNumber = 0;
   const styledBlocks = editorialHighlightBlocks(
@@ -1627,6 +2010,10 @@ export function applyAiLayoutDecisionToDocument(
     if (dividerAfter.has(node.attrs.blockId)) {
       result.push(generatedDivider(plan, decision.dividerComponentId));
     }
+    visualAssetsAfter
+      .get(node.attrs.blockId)
+      ?.slice(0, 2)
+      .forEach((asset) => result.push(generatedVisualAsset(asset, plan)));
   });
 
   if (!leadInserted) {
