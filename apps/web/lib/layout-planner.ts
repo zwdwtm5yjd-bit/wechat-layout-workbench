@@ -88,6 +88,14 @@ export interface LayoutAnalysis {
   readonly quoteCount: number;
 }
 
+export function recommendedContentImageCount(
+  characterCount: number,
+  articleType: ArticleType,
+): number {
+  const typeMultiplier = articleType === "essay" || articleType === "interview" ? 560 : 700;
+  return Math.max(1, Math.ceil(characterCount / typeMultiplier));
+}
+
 export interface LayoutPlan {
   readonly accentColors: readonly [string, string, string];
   readonly articleGene: ArticleGene;
@@ -552,9 +560,7 @@ export function analyzeDocumentLayout(document: DocumentV1): LayoutAnalysis {
   const paragraphCount = topLevel.filter((node) => node.type === "paragraph").length;
   const quoteCount = topLevel.filter((node) => node.type === "blockquote").length;
   const gene = articleGene(document);
-  const typeMultiplier =
-    gene.articleType === "essay" || gene.articleType === "interview" ? 560 : 700;
-  const recommendedImageCount = Math.max(1, Math.ceil(characterCount / typeMultiplier));
+  const recommendedImageCount = recommendedContentImageCount(characterCount, gene.articleType);
   return {
     characterCount,
     gene,

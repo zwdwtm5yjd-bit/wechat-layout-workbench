@@ -19,6 +19,18 @@ const draftStore = vi.hoisted(() => ({
   put: vi.fn(),
 }));
 
+const deliveryHarness = vi.hoisted(() => ({
+  error: null as unknown,
+  result: null as unknown,
+  selection: {
+    taskId: "image-task:block_paragraph",
+    afterBlockId: "block_paragraph",
+    resourceId: "019c0fb5-7d53-7f66-bfb7-f70c0e462603",
+    alt: "项目现场",
+    caption: "真实活动记录",
+  },
+}));
+
 vi.mock("next/link", () => ({
   default: ({ children, href }: { readonly children: ReactNode; readonly href: string }) => (
     <a href={href}>{children}</a>
@@ -102,7 +114,34 @@ vi.mock("./article-editor", () => ({
 
 vi.mock("./creation-progress", () => ({ CreationProgress: () => null }));
 vi.mock("./document-save-status", () => ({ DocumentSaveStatus: () => null }));
-vi.mock("./editor-delivery-actions", () => ({ EditorDeliveryActions: () => null }));
+vi.mock("./editor-delivery-actions", () => ({
+  EditorDeliveryActions: ({
+    onPrepareImages,
+  }: {
+    readonly onPrepareImages: (
+      selections: readonly (typeof deliveryHarness)["selection"][],
+    ) => Promise<unknown>;
+  }) => (
+    <button
+      aria-label="测试保存准备好的配图"
+      onClick={() => {
+        deliveryHarness.error = null;
+        deliveryHarness.result = null;
+        void onPrepareImages([deliveryHarness.selection]).then(
+          (result) => {
+            deliveryHarness.result = result;
+          },
+          (error: unknown) => {
+            deliveryHarness.error = error;
+          },
+        );
+      }}
+      type="button"
+    >
+      测试保存配图
+    </button>
+  ),
+}));
 vi.mock("./snapshot-panel", () => ({ SnapshotPanel: () => null }));
 
 function articleDocument(document: DocumentV1, version = 1): ArticleDocument {
@@ -130,6 +169,8 @@ function Providers({ children }: { readonly children: ReactNode }) {
 }
 
 beforeEach(() => {
+  deliveryHarness.error = null;
+  deliveryHarness.result = null;
   const recoveredDocument = structuredClone(documentV1Fixture);
   const recovered: LocalDocumentDraft = {
     articleId: recoveredDocument.articleId,
@@ -205,5 +246,108 @@ describe("DocumentWorkspace layout draft save", () => {
         true,
       );
     });
+  });
+});
+
+describe("DocumentWorkspace image preparation", () => {
+  it("saves pending edits before inserting and persisting a resolved image", async () => {
+    draftStore.draft = null;
+    draftStore.get.mockResolvedValue(null);
+    let remote = articleDocument(structuredClone(documentV1Fixture));
+    vi.mocked(getArticleDocument).mockImplementation(() =>
+      Promise.resolve(structuredClone(remote)),
+    );
+    vi.mocked(saveArticleDocument).mockImplementation((input) => {
+      const nextVersion = input.baseVersion + 1;
+      const lastSavedAt = `2026-08-12T10:00:0${String(nextVersion)}.000Z`;
+      remote = {
+        ...articleDocument(input.document as unknown as DocumentV1, nextVersion),
+        lastSavedAt,
+        lastTransactionId: input.lastTransactionId,
+      };
+      return Promise.resolve({
+        documentVersion: nextVersion,
+        lastSavedAt,
+        lastTransactionId: input.lastTransactionId,
+        replayed: false,
+      });
+    });
+
+    render(<DocumentWorkspace articleId={remote.articleId} />, { wrapper: Providers });
+
+    fireEvent.click(await screen.findByRole("button", { name: "模拟保存响应前的晚到编辑" }));
+    await waitFor(() => expect(draftStore.put).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: "测试保存准备好的配图" }));
+
+    await waitFor(() => expect(deliveryHarness.result).not.toBeNull());
+    expect(deliveryHarness.error).toBeNull();
+    expect(saveArticleDocument).toHaveBeenCalledTimes(2);
+    expect(saveArticleDocument).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        baseVersion: 1,
+        transactionOrigin: "editor.input",
+      }),
+    );
+    expect(saveArticleDocument).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        baseVersion: 2,
+        transactionOrigin: "image.preparation.apply",
+      }),
+    );
+
+    const preparedCall = vi.mocked(saveArticleDocument).mock.calls[1]?.[0];
+    const preparedDocument = preparedCall?.document as unknown as DocumentV1;
+    const anchorIndex = preparedDocument.content.content.findIndex(
+      (node) => node.attrs.blockId === deliveryHarness.selection.afterBlockId,
+    );
+    const inserted = preparedDocument.content.content[anchorIndex + 1];
+    expect(inserted).toMatchObject({
+      type: "imageBlock",
+      attrs: {
+        alt: deliveryHarness.selection.alt,
+        caption: deliveryHarness.selection.caption,
+        compatibilityLevel: "safe",
+        locked: false,
+        resourceId: deliveryHarness.selection.resourceId,
+      },
+    });
+    expect(
+      preparedDocument.content.content.some((node) => node.attrs.blockId === "block_late_edit"),
+    ).toBe(true);
+    expect(getArticleDocument).toHaveBeenCalledTimes(3);
+    expect(deliveryHarness.result).toMatchObject({
+      documentVersion: 3,
+      document: expect.objectContaining({ documentId: documentV1Fixture.documentId }),
+    });
+  });
+
+  it("rejects implicit image preparation while an editable AI draft exists", async () => {
+    const initial = articleDocument(structuredClone(documentV1Fixture));
+    vi.mocked(getArticleDocument).mockResolvedValue(initial);
+    vi.mocked(saveArticleDocument).mockResolvedValue({
+      documentVersion: 2,
+      lastSavedAt: "2026-08-12T10:00:02.000Z",
+      lastTransactionId: "transaction-should-not-save",
+      replayed: false,
+    });
+
+    render(<DocumentWorkspace articleId={initial.articleId} />, { wrapper: Providers });
+
+    expect(await screen.findByRole("button", { name: "手动保存成稿" })).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "测试保存准备好的配图" }));
+
+    await waitFor(() => expect(deliveryHarness.error).toBeInstanceOf(Error));
+    expect((deliveryHarness.error as Error).message).toBe(
+      "请先手动保存或放弃当前 AI 排版草稿，再添加配图",
+    );
+    expect(
+      await screen.findByText(
+        "编辑器暂未保存本次变更：请先手动保存或放弃当前 AI 排版草稿，再添加配图",
+      ),
+    ).not.toBeNull();
+    expect(saveArticleDocument).not.toHaveBeenCalled();
+    expect(getArticleDocument).toHaveBeenCalledTimes(1);
   });
 });

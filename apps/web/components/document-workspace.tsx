@@ -27,6 +27,11 @@ import {
 } from "../lib/documents/client";
 import { IndexedDbDocumentDraftStore, type LocalDocumentDraft } from "../lib/documents/draft-store";
 import { generateAiLayout } from "../lib/ai-layout/client";
+import {
+  insertPreparedImages,
+  type PreparedImageSelection,
+  type PreparedImagesSaveResult,
+} from "../lib/ai-layout/image-preparation";
 import { createEditableLayoutDraft } from "../lib/layout-draft";
 import {
   applyAiLayoutDecisionToDocument,
@@ -530,6 +535,57 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
     }
   };
 
+  const handlePrepareImages = async (
+    selections: readonly PreparedImageSelection[],
+  ): Promise<PreparedImagesSaveResult> => {
+    if (layoutDraftRef.current !== null) {
+      const message = "请先手动保存或放弃当前 AI 排版草稿，再添加配图";
+      setEditorError(message);
+      throw new Error(message);
+    }
+    if (controller === null) {
+      throw new Error("文档保存会话尚未就绪");
+    }
+
+    setEditorError(null);
+    try {
+      await controller.flushNow();
+      const current = controller.getSnapshot();
+      if (current.status !== "saved") {
+        throw new Error(current.errorMessage ?? "请先等待当前文档保存完成");
+      }
+      const persisted = await getArticleDocument(initial.articleId);
+      if (persisted.documentVersion !== current.documentVersion) {
+        throw new Error("文章版本已更新，请刷新后重新选择配图");
+      }
+      const sourceDocument = normalizeDocument(persisted.document);
+      const prepared = insertPreparedImages(sourceDocument, selections);
+      const insertedCount = prepared.content.content.length - sourceDocument.content.content.length;
+      if (insertedCount !== selections.length) {
+        throw new Error("部分所选图片已在文章中或插入位置已失效，请重新选择");
+      }
+
+      await controller.queue(
+        prepared as unknown as DocumentJson,
+        initial.schemaVersion,
+        "image.preparation.apply",
+      );
+      await controller.flushNow();
+      const savedState = controller.getSnapshot();
+      if (savedState.status !== "saved") {
+        throw new Error(savedState.errorMessage ?? "配图尚未保存，请稍后重试");
+      }
+      const saved = await getArticleDocument(initial.articleId);
+      const savedDocument = normalizeDocument(saved.document);
+      setActiveDocument(savedDocument);
+      setLastTransactionId(saved.lastTransactionId);
+      return { document: savedDocument, documentVersion: saved.documentVersion };
+    } catch (error) {
+      setEditorError(error instanceof Error ? error.message : "配图保存失败，请稍后重试");
+      throw error;
+    }
+  };
+
   return (
     <div className="space-y-5">
       <CreationProgress
@@ -654,6 +710,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
         document={activeDocument}
         documentVersion={snapshot.documentVersion}
         onApplyLayout={handleApplyLayout}
+        onPrepareImages={handlePrepareImages}
         saveStatus={snapshot.status}
         themes={themesQuery.data?.items ?? []}
       />

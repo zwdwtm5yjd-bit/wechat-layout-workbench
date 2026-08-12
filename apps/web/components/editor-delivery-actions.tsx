@@ -8,7 +8,7 @@ import {
   type AiLayoutProviderId,
 } from "@wechat-layout/api-contracts";
 import type { DocumentV1 } from "@wechat-layout/document-schema";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { RenderOutput } from "../lib/copy/client";
 import type { DocumentSaveSnapshot } from "../lib/documents/autosave";
 import {
@@ -24,6 +24,12 @@ import {
 import { generateAiLayout, getAiLayoutStatus } from "../lib/ai-layout/client";
 import { compareAiLayoutCandidate } from "../lib/ai-layout/candidate-comparison";
 import {
+  countRealContentImages,
+  createImagePreparationTasks,
+  type PreparedImageSelection,
+  type PreparedImagesSaveResult,
+} from "../lib/ai-layout/image-preparation";
+import {
   AI_LAYOUT_FAVORITES_STORAGE_KEY,
   orderAiLayoutCandidates,
   parseAiLayoutFavorites,
@@ -32,22 +38,32 @@ import {
 } from "../lib/ai-layout/favorites";
 import type { OfficialTheme } from "../lib/themes/client";
 import {
+  createResourceAccessUrl,
+  listResources,
+  uploadResource,
+  type Resource,
+} from "../lib/resources/client";
+import {
+  Ban,
   CheckCircle2,
   ClipboardCopy,
+  Copy,
   Eye,
   FileCheck2,
   Info,
+  Images,
   LayoutTemplate,
   LoaderCircle,
   ImagePlus,
   ShieldAlert,
   Sparkles,
   Star,
+  UploadCloud,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AiLayoutCandidatePreview } from "./ai-layout-candidate-preview";
 import { WechatCopyPanel } from "./wechat-copy-panel";
@@ -62,8 +78,18 @@ interface EditorDeliveryActionsProps {
     providerId: AiLayoutProviderId,
     decision?: AiLayoutDecision,
   ) => Promise<void>;
+  readonly onPrepareImages: (
+    selections: readonly PreparedImageSelection[],
+  ) => Promise<PreparedImagesSaveResult>;
   readonly saveStatus: DocumentSaveSnapshot["status"];
   readonly themes: readonly OfficialTheme[];
+}
+
+type ImageTaskResolution =
+  Readonly<{ status: "skipped" }> | Readonly<{ resource: Resource; status: "selected" }>;
+
+function resourceLabel(resource: Resource): string {
+  return resource.displayName ?? resource.originalFilename ?? "未命名图片";
 }
 
 function isEditingTarget(target: EventTarget | null): boolean {
@@ -82,9 +108,11 @@ export function EditorDeliveryActions({
   document,
   documentVersion,
   onApplyLayout,
+  onPrepareImages,
   saveStatus,
   themes,
 }: EditorDeliveryActionsProps) {
+  const queryClient = useQueryClient();
   const router = useRouter();
   const [compatibilityOpen, setCompatibilityOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
@@ -100,6 +128,17 @@ export function EditorDeliveryActions({
   const [favoriteAnnouncement, setFavoriteAnnouncement] = useState("");
   const [candidateError, setCandidateError] = useState<string | null>(null);
   const [generatingCandidates, setGeneratingCandidates] = useState(false);
+  const [imageTaskResolutions, setImageTaskResolutions] = useState<
+    Readonly<Record<string, ImageTaskResolution>>
+  >({});
+  const [imageTaskError, setImageTaskError] = useState<string | null>(null);
+  const [imageTaskSaving, setImageTaskSaving] = useState(false);
+  const [uploadingImageTaskId, setUploadingImageTaskId] = useState<string | null>(null);
+  const [resourcePickerTaskId, setResourcePickerTaskId] = useState<string | null>(null);
+  const [copiedSearchTaskId, setCopiedSearchTaskId] = useState<string | null>(null);
+  const candidateSectionRef = useRef<HTMLElement | null>(null);
+  const imageTaskSavingRef = useRef(false);
+  const generatingCandidatesRef = useRef(false);
   const [renderOutput, setRenderOutput] = useState<RenderOutput | null>(null);
   const aiStatusQuery = useQuery({
     queryKey: ["ai-layout-status"],
@@ -111,6 +150,57 @@ export function EditorDeliveryActions({
   const selectedProviderAvailable =
     providerId === "auto" ? aiAvailable : selectedModel?.available === true;
   const analysis = useMemo(() => analyzeDocumentLayout(document), [document]);
+  const realContentImageCount = useMemo(() => countRealContentImages(document), [document]);
+  const imagePreparationTasks = useMemo(() => createImagePreparationTasks(document), [document]);
+  const resolvedImageTaskCount = imagePreparationTasks.filter(
+    (task) => imageTaskResolutions[task.taskId] !== undefined,
+  ).length;
+  const selectedImageTaskCount = imagePreparationTasks.filter(
+    (task) => imageTaskResolutions[task.taskId]?.status === "selected",
+  ).length;
+  const privateImagesQuery = useQuery({
+    queryKey: ["image-preparation-private-resources"],
+    queryFn: () => listResources({ resourceType: "image", status: "active", pageSize: 100 }),
+    enabled: resourcePickerTaskId !== null,
+    staleTime: 30_000,
+  });
+  const privateImages = privateImagesQuery.data?.items ?? [];
+  const visiblePrivateImages = privateImages.slice(0, 30);
+  const previewResources = [
+    ...new Map(
+      [
+        ...visiblePrivateImages,
+        ...Object.values(imageTaskResolutions).flatMap((resolution) =>
+          resolution.status === "selected" ? [resolution.resource] : [],
+        ),
+      ].map((resource) => [resource.id, resource] as const),
+    ).values(),
+  ];
+  const privateImageIdsKey = previewResources.map((resource) => resource.id).join(",");
+  const privateImageUrlsQuery = useQuery({
+    queryKey: ["image-preparation-private-resource-urls", privateImageIdsKey],
+    enabled:
+      (resourcePickerTaskId !== null || selectedImageTaskCount > 0) && previewResources.length > 0,
+    staleTime: 4 * 60_000,
+    queryFn: async () => {
+      const entries = await Promise.all(
+        previewResources.map(async (resource) => {
+          try {
+            const access = await createResourceAccessUrl(
+              resource.id,
+              resource.thumbnail === null ? "original" : "thumbnail",
+            );
+            return [resource.id, access.url] as const;
+          } catch {
+            return [resource.id, null] as const;
+          }
+        }),
+      );
+      return Object.fromEntries(
+        entries.filter((entry): entry is readonly [string, string] => entry[1] !== null),
+      );
+    },
+  });
   const layoutPlans = useMemo(
     () => createLayoutPlans(document, themes, { brief: styleBrief, mode: layoutMode }),
     [document, layoutMode, styleBrief, themes],
@@ -194,22 +284,109 @@ export function EditorDeliveryActions({
     setCandidateError(null);
   }, [documentVersion, layoutMode, providerId, styleBrief]);
 
+  useEffect(() => {
+    const validTaskIds = new Set(imagePreparationTasks.map((task) => task.taskId));
+    setImageTaskResolutions((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(
+          ([taskId, resolution]) => resolution.status === "skipped" && validTaskIds.has(taskId),
+        ),
+      ),
+    );
+    setImageTaskError(null);
+    setResourcePickerTaskId(null);
+  }, [document.documentId, documentVersion, imagePreparationTasks]);
+
+  const selectedImageTaskInputs = (): readonly PreparedImageSelection[] =>
+    imagePreparationTasks.flatMap((task) => {
+      const resolution = imageTaskResolutions[task.taskId];
+      if (resolution?.status !== "selected") return [];
+      return [
+        {
+          taskId: task.taskId,
+          afterBlockId: task.afterBlockId,
+          resourceId: resolution.resource.id,
+          alt: resourceLabel(resolution.resource).slice(0, 500),
+        },
+      ];
+    });
+
+  const savePreparedImages = async (): Promise<
+    | Readonly<{ result: PreparedImagesSaveResult | null; success: true }>
+    | Readonly<{ success: false }>
+  > => {
+    const selections = selectedImageTaskInputs();
+    if (selections.length === 0) return { result: null, success: true };
+    if (imageTaskSavingRef.current) return { success: false };
+    imageTaskSavingRef.current = true;
+    setImageTaskSaving(true);
+    setImageTaskError(null);
+    try {
+      const result = await onPrepareImages(selections);
+      setImageTaskResolutions({});
+      return { result, success: true };
+    } catch (error) {
+      setImageTaskError(error instanceof Error ? error.message : "配图没有保存，请重试");
+      return { success: false };
+    } finally {
+      imageTaskSavingRef.current = false;
+      setImageTaskSaving(false);
+    }
+  };
+
+  const resolveImageTask = (taskId: string, resolution: ImageTaskResolution): void => {
+    setImageTaskResolutions((current) => ({ ...current, [taskId]: resolution }));
+    setImageTaskError(null);
+    setResourcePickerTaskId(null);
+  };
+
+  const uploadImageForTask = async (taskId: string, file: File): Promise<void> => {
+    setUploadingImageTaskId(taskId);
+    setImageTaskError(null);
+    try {
+      const resource = await uploadResource(file);
+      resolveImageTask(taskId, { resource, status: "selected" });
+      await queryClient.invalidateQueries({ queryKey: ["resources"] });
+      await queryClient.invalidateQueries({ queryKey: ["editor-private-resources"] });
+      await queryClient.invalidateQueries({ queryKey: ["image-preparation-private-resources"] });
+    } catch (error) {
+      setImageTaskError(error instanceof Error ? error.message : "图片上传失败，请重试");
+    } finally {
+      setUploadingImageTaskId(null);
+    }
+  };
+
+  const continueToCandidates = async (): Promise<void> => {
+    if (!(await savePreparedImages()).success) return;
+    candidateSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const generateCandidates = async (): Promise<void> => {
     if (
       layoutMode === "preset" ||
       saveStatus !== "saved" ||
       !selectedProviderAvailable ||
       generatingCandidates ||
+      generatingCandidatesRef.current ||
+      imageTaskSaving ||
       (layoutMode === "described" && styleBrief.trim().length < 3)
     ) {
       return;
     }
+    generatingCandidatesRef.current = true;
     setGeneratingCandidates(true);
     setCandidateError(null);
     try {
-      const sourcePlan = layoutPlans[0];
+      const preparation = await savePreparedImages();
+      if (!preparation.success) return;
+      const effectiveDocument = preparation.result?.document ?? document;
+      const effectiveVersion = preparation.result?.documentVersion ?? documentVersion;
+      const sourcePlan = createLayoutPlans(effectiveDocument, themes, {
+        brief: styleBrief,
+        mode: layoutMode,
+      })[0];
       const generated = await generateAiLayout(articleId, {
-        baseDocumentVersion: documentVersion,
+        baseDocumentVersion: effectiveVersion,
         mode: layoutMode,
         ...(sourcePlan === undefined ? {} : { preferredLanguageId: sourcePlan.languageId }),
         providerId,
@@ -222,6 +399,7 @@ export function EditorDeliveryActions({
     } catch (error) {
       setCandidateError(error instanceof Error ? error.message : "AI 候选方案生成失败");
     } finally {
+      generatingCandidatesRef.current = false;
       setGeneratingCandidates(false);
     }
   };
@@ -362,8 +540,8 @@ export function EditorDeliveryActions({
                   {[
                     ["正文", `${analysis.characterCount.toLocaleString("zh-CN")} 字`],
                     ["章节", `${analysis.headingCount} 个标题`],
-                    ["现有图片", `${analysis.imageCount} 张`],
-                    ["建议补图", `${analysis.missingImageCount} 张`],
+                    ["内容图片", `${realContentImageCount} 张`],
+                    ["建议补图", `${imagePreparationTasks.length} 张`],
                   ].map(([label, value]) => (
                     <div key={label}>
                       <p className="text-[9px] text-faint">{label}</p>
@@ -377,7 +555,322 @@ export function EditorDeliveryActions({
                   </p>
                 )}
               </div>
+              <section className="mt-4 overflow-hidden rounded-card border border-line bg-panel">
+                <div className="border-b border-line bg-panel-muted px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-control bg-accent-soft text-accent">
+                        <Images aria-hidden="true" size={16} />
+                      </span>
+                      <div>
+                        <p className="text-[11px] font-semibold text-ink">2 · 配图准备</p>
+                        <p className="mt-0.5 text-[9px] leading-4 text-muted">
+                          把缺图位置变成任务；上传的真实图片会参与下一步 AI 排版。
+                        </p>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-panel px-2.5 py-1 text-[9px] font-medium text-muted">
+                      {imagePreparationTasks.length === 0
+                        ? "已经图文平衡"
+                        : `已处理 ${resolvedImageTaskCount}/${imagePreparationTasks.length}`}
+                    </span>
+                  </div>
+                </div>
+
+                {imagePreparationTasks.length === 0 ? (
+                  <div className="flex items-start gap-3 p-4">
+                    <CheckCircle2
+                      aria-hidden="true"
+                      className="mt-0.5 shrink-0 text-success"
+                      size={16}
+                    />
+                    <div>
+                      <p className="text-[11px] font-semibold text-ink">当前图片密度已足够</p>
+                      <p className="mt-1 text-[9px] leading-4 text-muted">
+                        无需为了凑数再加图，可直接选择排版方向。
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid gap-3 p-4 lg:grid-cols-2">
+                    {imagePreparationTasks.map((task, index) => {
+                      const resolution = imageTaskResolutions[task.taskId];
+                      const selectedResource =
+                        resolution?.status === "selected" ? resolution.resource : null;
+                      const selectedUrl =
+                        selectedResource === null
+                          ? undefined
+                          : privateImageUrlsQuery.data?.[selectedResource.id];
+                      const pickerOpen = resourcePickerTaskId === task.taskId;
+                      return (
+                        <article
+                          className={`rounded-control border p-3 ${
+                            resolution === undefined
+                              ? "border-line bg-panel"
+                              : "border-accent/25 bg-accent-soft/40"
+                          }`}
+                          key={task.taskId}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-[10px] font-semibold text-ink">
+                                {String(index + 1).padStart(2, "0")} · {task.sectionLabel}
+                              </p>
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[8px] font-medium text-accent">
+                                  {task.purposeLabel}
+                                </span>
+                                <span className="rounded-full bg-panel-muted px-2 py-0.5 text-[8px] text-muted">
+                                  {task.aspectRatio === "portrait"
+                                    ? "竖图"
+                                    : task.aspectRatio === "square"
+                                      ? "方图"
+                                      : "横图"}
+                                </span>
+                              </div>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-1 text-[8px] font-medium ${
+                                resolution?.status === "selected"
+                                  ? "bg-success-soft text-success"
+                                  : resolution?.status === "skipped"
+                                    ? "bg-panel-muted text-faint"
+                                    : "bg-warning-soft text-warning"
+                              }`}
+                            >
+                              {resolution?.status === "selected"
+                                ? "已选图"
+                                : resolution?.status === "skipped"
+                                  ? "已略过"
+                                  : "待补图"}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-[9px] leading-4 text-muted">{task.reason}</p>
+
+                          <div className="mt-2 flex items-center gap-2 rounded-md bg-panel-muted px-2.5 py-2">
+                            <p className="min-w-0 flex-1 truncate text-[9px] text-muted">
+                              搜图词：
+                              <span className="font-medium text-ink">{task.searchQuery}</span>
+                            </p>
+                            <button
+                              aria-label={`复制搜图词 ${task.searchQuery}`}
+                              className="grid size-7 shrink-0 place-items-center rounded-md bg-panel text-faint hover:text-accent"
+                              onClick={() => {
+                                void navigator.clipboard
+                                  .writeText(task.searchQuery)
+                                  .then(() => setCopiedSearchTaskId(task.taskId))
+                                  .catch(() => setImageTaskError("无法复制搜图词，请手动选中复制"));
+                              }}
+                              type="button"
+                            >
+                              {copiedSearchTaskId === task.taskId ? (
+                                <CheckCircle2
+                                  aria-hidden="true"
+                                  className="text-success"
+                                  size={12}
+                                />
+                              ) : (
+                                <Copy aria-hidden="true" size={12} />
+                              )}
+                            </button>
+                          </div>
+
+                          {selectedResource === null ? null : (
+                            <div className="mt-3 flex items-center gap-3 rounded-md border border-line bg-panel p-2">
+                              <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-md bg-panel-muted">
+                                {selectedUrl === undefined ? (
+                                  <Images aria-hidden="true" className="text-faint" size={16} />
+                                ) : (
+                                  <img
+                                    alt={resourceLabel(selectedResource)}
+                                    className="h-full w-full object-cover"
+                                    src={selectedUrl}
+                                  />
+                                )}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-[9px] font-semibold text-ink">
+                                  {resourceLabel(selectedResource)}
+                                </p>
+                                <p className="mt-0.5 text-[8px] text-success">将插入该内容之后</p>
+                              </div>
+                              <button
+                                aria-label={`移除${task.sectionLabel}已选图片`}
+                                className="shrink-0 text-[8px] text-muted hover:text-danger"
+                                onClick={() =>
+                                  setImageTaskResolutions((current) => {
+                                    const next = { ...current };
+                                    delete next[task.taskId];
+                                    return next;
+                                  })
+                                }
+                                type="button"
+                              >
+                                移除
+                              </button>
+                            </div>
+                          )}
+
+                          <div className="mt-3 grid grid-cols-3 gap-1.5">
+                            <label className="inline-flex h-8 cursor-pointer items-center justify-center gap-1 rounded-md bg-accent text-[8px] font-semibold text-white hover:bg-accent-strong focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
+                              {uploadingImageTaskId === task.taskId ? (
+                                <LoaderCircle
+                                  aria-hidden="true"
+                                  className="animate-spin"
+                                  size={11}
+                                />
+                              ) : (
+                                <UploadCloud aria-hidden="true" size={11} />
+                              )}
+                              {selectedResource === null ? "上传图片" : "换一张"}
+                              <input
+                                accept="image/png,image/jpeg,image/webp,image/gif"
+                                aria-label={`为${task.sectionLabel}上传图片`}
+                                className="sr-only"
+                                disabled={uploadingImageTaskId !== null || imageTaskSaving}
+                                onChange={(event) => {
+                                  const file = event.currentTarget.files?.[0];
+                                  if (file !== undefined)
+                                    void uploadImageForTask(task.taskId, file);
+                                  event.currentTarget.value = "";
+                                }}
+                                type="file"
+                              />
+                            </label>
+                            <button
+                              aria-expanded={pickerOpen}
+                              aria-label={`为${task.sectionLabel}从我的素材选择图片`}
+                              className="h-8 rounded-md border border-line bg-panel text-[8px] font-medium text-ink hover:bg-hover"
+                              onClick={() =>
+                                setResourcePickerTaskId((current) =>
+                                  current === task.taskId ? null : task.taskId,
+                                )
+                              }
+                              type="button"
+                            >
+                              我的素材
+                            </button>
+                            <button
+                              aria-label={`${task.sectionLabel}这处不配图`}
+                              className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-line bg-panel text-[8px] font-medium text-muted hover:bg-hover"
+                              onClick={() => resolveImageTask(task.taskId, { status: "skipped" })}
+                              type="button"
+                            >
+                              <Ban aria-hidden="true" size={10} />
+                              这处不配
+                            </button>
+                          </div>
+
+                          {pickerOpen ? (
+                            <div className="mt-3 rounded-md border border-line bg-panel p-2">
+                              {privateImagesQuery.isPending ? (
+                                <p className="py-4 text-center text-[9px] text-muted">
+                                  正在读取我的素材…
+                                </p>
+                              ) : privateImagesQuery.isError ? (
+                                <div className="py-4 text-center">
+                                  <p className="text-[9px] text-danger">素材库暂时无法读取</p>
+                                  <button
+                                    className="mt-2 text-[8px] font-medium text-accent hover:underline"
+                                    onClick={() => void privateImagesQuery.refetch()}
+                                    type="button"
+                                  >
+                                    重新加载
+                                  </button>
+                                </div>
+                              ) : privateImages.length === 0 ? (
+                                <p className="py-4 text-center text-[9px] text-faint">
+                                  素材库还没有图片，可直接上传。
+                                </p>
+                              ) : (
+                                <div className="grid max-h-52 grid-cols-3 gap-2 overflow-y-auto">
+                                  {visiblePrivateImages.map((resource) => {
+                                    const url = privateImageUrlsQuery.data?.[resource.id];
+                                    return (
+                                      <button
+                                        className="overflow-hidden rounded-md border border-line bg-panel-muted text-left hover:border-accent"
+                                        key={resource.id}
+                                        onClick={() =>
+                                          resolveImageTask(task.taskId, {
+                                            resource,
+                                            status: "selected",
+                                          })
+                                        }
+                                        type="button"
+                                      >
+                                        <span className="grid aspect-square place-items-center overflow-hidden">
+                                          {url === undefined ? (
+                                            <Images
+                                              aria-hidden="true"
+                                              className="text-faint"
+                                              size={14}
+                                            />
+                                          ) : (
+                                            <img
+                                              alt={resourceLabel(resource)}
+                                              className="h-full w-full object-cover"
+                                              loading="lazy"
+                                              src={url}
+                                            />
+                                          )}
+                                        </span>
+                                        <span className="block truncate border-t border-line px-1.5 py-1 text-[7px] text-ink">
+                                          {resourceLabel(resource)}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {imagePreparationTasks.length === 0 ? null : (
+                  <div className="flex flex-col gap-3 border-t border-line bg-panel-muted p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-[9px] leading-4 text-muted">
+                      {selectedImageTaskCount > 0
+                        ? `已选 ${selectedImageTaskCount} 张真实图片，保存后 AI 会重新阅读全文与图片。`
+                        : "图片不是必填项；可明确略过，不会生成空白占位图。"}
+                    </p>
+                    <button
+                      className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-control bg-accent px-4 text-[9px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
+                      disabled={
+                        saveStatus !== "saved" || imageTaskSaving || uploadingImageTaskId !== null
+                      }
+                      onClick={() => void continueToCandidates()}
+                      type="button"
+                    >
+                      {imageTaskSaving ? (
+                        <LoaderCircle aria-hidden="true" className="animate-spin" size={12} />
+                      ) : (
+                        <Sparkles aria-hidden="true" size={12} />
+                      )}
+                      {imageTaskSaving
+                        ? "正在保存配图…"
+                        : selectedImageTaskCount > 0
+                          ? `保存 ${selectedImageTaskCount} 张配图并继续`
+                          : "先用现有图片继续"}
+                    </button>
+                  </div>
+                )}
+                {imageTaskError === null ? null : (
+                  <p
+                    className="border-t border-danger/15 bg-danger-soft px-4 py-2.5 text-[9px] text-danger"
+                    role="alert"
+                  >
+                    {imageTaskError}
+                  </p>
+                )}
+              </section>
               <div
+                ref={(node) => {
+                  candidateSectionRef.current = node;
+                }}
                 className="mt-5 grid gap-2 sm:grid-cols-3"
                 role="tablist"
                 aria-label="排版生成方式"
@@ -528,6 +1021,7 @@ export function EditorDeliveryActions({
                         saveStatus !== "saved" ||
                         !selectedProviderAvailable ||
                         generatingCandidates ||
+                        imageTaskSaving ||
                         (layoutMode === "described" && styleBrief.trim().length < 3)
                       }
                       onClick={() => void generateCandidates()}

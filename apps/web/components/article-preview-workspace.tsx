@@ -12,6 +12,7 @@ import type {
   InlineNode,
   StyleOverrides,
 } from "@wechat-layout/document-schema";
+import { collectDocumentEntries } from "@wechat-layout/document-schema";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -25,10 +26,11 @@ import {
   Tablet,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 import { ArticleClientError, getArticle } from "../lib/articles/client";
 import { DocumentClientError, getArticleDocument } from "../lib/documents/client";
+import { createResourceAccessUrl } from "../lib/resources/client";
 
 type Device = "desktop" | "phone" | "tablet";
 
@@ -137,7 +139,71 @@ function InlineContent({ nodes }: { readonly nodes: readonly InlineNode[] | unde
   );
 }
 
-function PreviewBlock({ node }: { readonly node: BlockNode }) {
+function privateImageResourceIds(document: DocumentV1): readonly string[] {
+  return [
+    ...new Set(
+      collectDocumentEntries(document.content).blocks.flatMap(({ node }) =>
+        node.type === "imageBlock" &&
+        builtInVisualAssetPublicPath(node.attrs.resourceId) === undefined
+          ? [node.attrs.resourceId]
+          : [],
+      ),
+    ),
+  ];
+}
+
+function PreviewImage({
+  alt,
+  objectFit,
+  objectPositionX,
+  objectPositionY,
+  resourceId,
+  source,
+}: {
+  readonly alt: string;
+  readonly objectFit: "contain" | "cover" | "fill" | undefined;
+  readonly objectPositionX: number | undefined;
+  readonly objectPositionY: number | undefined;
+  readonly resourceId: string;
+  readonly source: string | undefined;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => setFailed(false), [source]);
+
+  if (source === undefined || failed) {
+    return (
+      <div className="grid aspect-video place-items-center rounded-md bg-zinc-100 text-zinc-400">
+        <span className="text-center text-xs">
+          <ImageIcon aria-hidden="true" className="mx-auto mb-2" size={22} />
+          图片资源 · {resourceId}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      alt={alt}
+      className="block h-auto max-w-full"
+      onError={() => setFailed(true)}
+      src={source}
+      style={{
+        objectFit: objectFit ?? "contain",
+        objectPosition: `${String(objectPositionX ?? 50)}% ${String(objectPositionY ?? 50)}%`,
+        width: "100%",
+      }}
+    />
+  );
+}
+
+function PreviewBlock({
+  node,
+  resourceUrls,
+}: {
+  readonly node: BlockNode;
+  readonly resourceUrls: Readonly<Record<string, string>>;
+}) {
   const style = blockStyle(node.attrs.styleOverrides);
   if (node.type === "paragraph") {
     return (
@@ -178,7 +244,7 @@ function PreviewBlock({ node }: { readonly node: BlockNode }) {
         style={style}
       >
         {node.content.map((child) => (
-          <PreviewBlock key={child.attrs.blockId} node={child} />
+          <PreviewBlock key={child.attrs.blockId} node={child} resourceUrls={resourceUrls} />
         ))}
       </blockquote>
     );
@@ -195,7 +261,7 @@ function PreviewBlock({ node }: { readonly node: BlockNode }) {
         {node.content.map((item) => (
           <li key={item.attrs.blockId}>
             {item.content.map((child) => (
-              <PreviewBlock key={child.attrs.blockId} node={child} />
+              <PreviewBlock key={child.attrs.blockId} node={child} resourceUrls={resourceUrls} />
             ))}
           </li>
         ))}
@@ -209,7 +275,8 @@ function PreviewBlock({ node }: { readonly node: BlockNode }) {
     return <hr className="my-8 border-0 border-t border-zinc-200" style={style} />;
   }
   if (node.type === "imageBlock") {
-    const source = builtInVisualAssetPublicPath(node.attrs.resourceId);
+    const source =
+      builtInVisualAssetPublicPath(node.attrs.resourceId) ?? resourceUrls[node.attrs.resourceId];
     const width =
       node.attrs.widthMode === "percent"
         ? `${String(node.attrs.widthPercent ?? 80)}%`
@@ -237,27 +304,14 @@ function PreviewBlock({ node }: { readonly node: BlockNode }) {
           zIndex: node.attrs.layer ?? 1,
         }}
       >
-        {source === undefined ? (
-          <div className="grid aspect-video place-items-center rounded-md bg-zinc-100 text-zinc-400">
-            <span className="text-center text-xs">
-              <ImageIcon aria-hidden="true" className="mx-auto mb-2" size={22} />
-              图片资源 · {node.attrs.resourceId}
-            </span>
-          </div>
-        ) : (
-          <img
-            alt={node.attrs.alt ?? ""}
-            className="block h-auto max-w-full"
-            src={source}
-            style={{
-              objectFit: node.attrs.objectFit ?? "contain",
-              objectPosition: `${String(node.attrs.objectPositionX ?? 50)}% ${String(
-                node.attrs.objectPositionY ?? 50,
-              )}%`,
-              width: "100%",
-            }}
-          />
-        )}
+        <PreviewImage
+          alt={node.attrs.alt ?? ""}
+          objectFit={node.attrs.objectFit}
+          objectPositionX={node.attrs.objectPositionX}
+          objectPositionY={node.attrs.objectPositionY}
+          resourceId={node.attrs.resourceId}
+          source={source}
+        />
         {node.attrs.caption === undefined ? null : (
           <figcaption className="mt-2 text-center text-xs text-zinc-500">
             {node.attrs.caption}
@@ -318,7 +372,7 @@ function PreviewBlock({ node }: { readonly node: BlockNode }) {
           )}
           <div className={dark ? "text-slate-100" : undefined}>
             {(node.content ?? []).map((child) => (
-              <PreviewBlock key={child.attrs.blockId} node={child} />
+              <PreviewBlock key={child.attrs.blockId} node={child} resourceUrls={resourceUrls} />
             ))}
           </div>
           {node.attrs.footer === undefined ? null : (
@@ -334,7 +388,7 @@ function PreviewBlock({ node }: { readonly node: BlockNode }) {
     return (
       <footer className="mt-10 border-t border-zinc-200 pt-5 text-center" style={style}>
         {(node.content ?? []).map((child) => (
-          <PreviewBlock key={child.attrs.blockId} node={child} />
+          <PreviewBlock key={child.attrs.blockId} node={child} resourceUrls={resourceUrls} />
         ))}
       </footer>
     );
@@ -351,9 +405,11 @@ function PreviewBlock({ node }: { readonly node: BlockNode }) {
 
 function DocumentPreview({
   document,
+  resourceUrls,
   title,
 }: {
   readonly document: DocumentV1;
+  readonly resourceUrls: Readonly<Record<string, string>>;
   readonly title: string;
 }) {
   return (
@@ -365,7 +421,7 @@ function DocumentPreview({
         <h1 className="mt-3 text-3xl font-bold tracking-tight text-zinc-950">{title}</h1>
       </header>
       {document.content.content.map((node) => (
-        <PreviewBlock key={node.attrs.blockId} node={node} />
+        <PreviewBlock key={node.attrs.blockId} node={node} resourceUrls={resourceUrls} />
       ))}
     </article>
   );
@@ -389,6 +445,39 @@ export function ArticlePreviewWorkspace({ articleId }: { readonly articleId: str
       documentQuery.data === undefined ? null : normalizeDocument(documentQuery.data.document),
     [documentQuery.data],
   );
+  const resourceIds = useMemo(
+    () => (document === null ? [] : privateImageResourceIds(document)),
+    [document],
+  );
+  const resourceIdsKey = resourceIds.join(",");
+  const resourceUrlsQuery = useQuery({
+    queryKey: [
+      "article-preview-image-urls",
+      articleId,
+      documentQuery.data?.documentVersion,
+      resourceIdsKey,
+    ],
+    enabled: resourceIds.length > 0,
+    staleTime: 2 * 60_000,
+    refetchInterval: 2 * 60_000,
+    refetchIntervalInBackground: false,
+    queryFn: async () => {
+      const entries = await Promise.all(
+        resourceIds.map(async (resourceId) => {
+          try {
+            const access = await createResourceAccessUrl(resourceId, "original");
+            return [resourceId, access.url] as const;
+          } catch {
+            return [resourceId, null] as const;
+          }
+        }),
+      );
+      return Object.fromEntries(
+        entries.filter((entry): entry is readonly [string, string] => entry[1] !== null),
+      );
+    },
+  });
+  const resourceUrls = resourceUrlsQuery.data ?? {};
   const pending = articleQuery.isPending || documentQuery.isPending;
   const error = articleQuery.error ?? documentQuery.error;
 
@@ -519,7 +608,11 @@ export function ArticlePreviewWorkspace({ articleId }: { readonly articleId: str
             marginBottom: `${(zoom / 100 - 1) * 720}px`,
           }}
         >
-          <DocumentPreview document={document} title={articleQuery.data.title} />
+          <DocumentPreview
+            document={document}
+            resourceUrls={resourceUrls}
+            title={articleQuery.data.title}
+          />
         </div>
       </div>
     </div>

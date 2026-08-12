@@ -9,12 +9,14 @@ import type {
   GenerateAiLayoutResult,
 } from "@wechat-layout/api-contracts";
 import { documentV1Fixture } from "@wechat-layout/document-schema/fixtures";
+import type { DocumentV1 } from "@wechat-layout/document-schema";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { generateAiLayout, getAiLayoutStatus } from "../lib/ai-layout/client";
+import { createResourceAccessUrl, listResources, uploadResource } from "../lib/resources/client";
 import { EditorDeliveryActions } from "./editor-delivery-actions";
 
 vi.mock("next/navigation", () => ({
@@ -25,6 +27,17 @@ vi.mock("../lib/ai-layout/client", () => ({
   generateAiLayout: vi.fn(),
   getAiLayoutStatus: vi.fn(),
 }));
+
+vi.mock("../lib/resources/client", async () => {
+  const actual =
+    await vi.importActual<typeof import("../lib/resources/client")>("../lib/resources/client");
+  return {
+    ...actual,
+    createResourceAccessUrl: vi.fn(),
+    listResources: vi.fn(),
+    uploadResource: vi.fn(),
+  };
+});
 
 const providerStatus = {
   available: true,
@@ -140,6 +153,24 @@ const generationResult = {
   decision: candidates[0]!.decision,
 } satisfies GenerateAiLayoutResult;
 
+function documentNeedingImages(): DocumentV1 {
+  const document = structuredClone(documentV1Fixture) as DocumentV1;
+  document.content.content = document.content.content.filter((node) => node.type !== "imageBlock");
+  const paragraph = document.content.content.find((node) => node.type === "paragraph");
+  if (paragraph === undefined || paragraph.type !== "paragraph") {
+    throw new Error("fixture paragraph is required");
+  }
+  paragraph.content = [
+    {
+      type: "text",
+      text: "团队深入项目现场，记录真实工作过程，围绕协作、质量与服务形成可复盘的实践路径。".repeat(
+        45,
+      ),
+    },
+  ];
+  return document;
+}
+
 function renderWithQueryClient(ui: ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -156,6 +187,12 @@ afterEach(() => {
 beforeEach(() => {
   vi.mocked(getAiLayoutStatus).mockResolvedValue(providerStatus);
   vi.mocked(generateAiLayout).mockResolvedValue(generationResult);
+  vi.mocked(listResources).mockResolvedValue({ items: [], page: 1, pageSize: 100, total: 0 });
+  vi.mocked(createResourceAccessUrl).mockResolvedValue({
+    expiresAt: "2026-08-12T10:05:00.000Z",
+    headers: {},
+    url: "https://cdn.example.com/prepared-image.jpg",
+  });
 });
 
 describe("EditorDeliveryActions AI candidate comparison", () => {
@@ -166,6 +203,10 @@ describe("EditorDeliveryActions AI candidate comparison", () => {
         document={structuredClone(documentV1Fixture)}
         documentVersion={1}
         onApplyLayout={vi.fn().mockResolvedValue(undefined)}
+        onPrepareImages={vi.fn().mockResolvedValue({
+          document: structuredClone(documentV1Fixture),
+          documentVersion: 1,
+        })}
         saveStatus="saved"
         themes={[]}
       />,
@@ -205,6 +246,42 @@ describe("EditorDeliveryActions AI candidate comparison", () => {
     expect(within(firstCard).getByText(/\d+ 个章节/u).className).toContain("text-[11px]");
   });
 
+  it("prevents a rapid double click from consuming two AI requests", async () => {
+    let resolveGeneration: (result: GenerateAiLayoutResult) => void = () => undefined;
+    vi.mocked(generateAiLayout).mockReturnValue(
+      new Promise((resolve) => {
+        resolveGeneration = resolve;
+      }),
+    );
+    renderWithQueryClient(
+      <EditorDeliveryActions
+        articleId={documentV1Fixture.articleId}
+        document={structuredClone(documentV1Fixture)}
+        documentVersion={1}
+        onApplyLayout={vi.fn().mockResolvedValue(undefined)}
+        onPrepareImages={vi.fn().mockResolvedValue({
+          document: structuredClone(documentV1Fixture),
+          documentVersion: 1,
+        })}
+        saveStatus="saved"
+        themes={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "智能排版" }));
+    fireEvent.click(screen.getByRole("tab", { name: /AI 原创/u }));
+    const generateButton = await screen.findByRole("button", { name: "生成6套AI方案" });
+    await waitFor(() => expect(generateButton.hasAttribute("disabled")).toBe(false));
+    act(() => {
+      generateButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      generateButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => expect(generateAiLayout).toHaveBeenCalledTimes(1));
+    resolveGeneration(generationResult);
+    expect(await screen.findByText("已生成 6 套可对比方案")).toBeTruthy();
+  });
+
   it("announces favorite pinning and removal to assistive technology", async () => {
     renderWithQueryClient(
       <EditorDeliveryActions
@@ -212,6 +289,10 @@ describe("EditorDeliveryActions AI candidate comparison", () => {
         document={structuredClone(documentV1Fixture)}
         documentVersion={1}
         onApplyLayout={vi.fn().mockResolvedValue(undefined)}
+        onPrepareImages={vi.fn().mockResolvedValue({
+          document: structuredClone(documentV1Fixture),
+          documentVersion: 1,
+        })}
         saveStatus="saved"
         themes={[]}
       />,
@@ -232,5 +313,62 @@ describe("EditorDeliveryActions AI candidate comparison", () => {
     fireEvent.click(screen.getByRole("button", { name: "取消收藏纪实图文型结构" }));
     await waitFor(() => expect(status.textContent).toContain("已取消收藏“纪实图文型”"));
     expect(screen.getByText("已收藏 0")).toBeTruthy();
+  });
+
+  it("saves a real uploaded image before AI generation and uses the new document version", async () => {
+    const document = documentNeedingImages();
+    const preparedDocument = structuredClone(document);
+    const uploadedResourceId = "019c0fb5-7d53-7f66-bfb7-f70c0e462603";
+    const uploadedResource = {
+      id: uploadedResourceId,
+      displayName: "项目现场.jpg",
+      originalFilename: "项目现场.jpg",
+      thumbnail: null,
+    };
+    vi.mocked(uploadResource).mockResolvedValue(uploadedResource as never);
+    const onPrepareImages = vi.fn().mockResolvedValue({
+      document: preparedDocument,
+      documentVersion: 7,
+    });
+
+    renderWithQueryClient(
+      <EditorDeliveryActions
+        articleId={document.articleId}
+        document={document}
+        documentVersion={4}
+        onApplyLayout={vi.fn().mockResolvedValue(undefined)}
+        onPrepareImages={onPrepareImages}
+        saveStatus="saved"
+        themes={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "智能排版" }));
+    fireEvent.click(screen.getByRole("tab", { name: /AI 原创/u }));
+    const uploadInput = await screen.findAllByLabelText(/上传图片$/u);
+    const file = new File(["real image"], "项目现场.jpg", { type: "image/jpeg" });
+    fireEvent.change(uploadInput[0]!, { target: { files: [file] } });
+
+    expect(await screen.findByText("项目现场.jpg")).toBeTruthy();
+    expect(uploadResource).toHaveBeenCalledWith(file);
+
+    const generateButton = await screen.findByRole("button", { name: "生成6套AI方案" });
+    await waitFor(() => expect(generateButton.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(generateButton);
+
+    await waitFor(() => expect(onPrepareImages).toHaveBeenCalledTimes(1));
+    expect(onPrepareImages).toHaveBeenCalledWith([
+      expect.objectContaining({
+        resourceId: uploadedResourceId,
+        alt: "项目现场.jpg",
+      }),
+    ]);
+    await waitFor(() =>
+      expect(generateAiLayout).toHaveBeenCalledWith(
+        document.articleId,
+        expect.objectContaining({ baseDocumentVersion: 7, mode: "original" }),
+      ),
+    );
+    expect(await screen.findByText("已生成 6 套可对比方案")).toBeTruthy();
   });
 });
