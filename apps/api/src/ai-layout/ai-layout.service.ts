@@ -13,6 +13,8 @@ import {
   AI_LAYOUT_TREATMENTS,
   AI_LAYOUT_VISUAL_INTENSITIES,
   type AiLayoutBlockDecision,
+  type AiLayoutCandidate,
+  type AiLayoutCandidateProfileId,
   type AiLayoutComponentId,
   type AiLayoutConcreteProviderId,
   type AiLayoutDecision,
@@ -865,6 +867,228 @@ function sanitizeDecision(
   };
 }
 
+interface CandidateProfileDefinition {
+  readonly components: Readonly<Partial<Record<AiLayoutTreatment, AiLayoutComponentId>>>;
+  readonly conceptLead: string;
+  readonly differenceHighlights: readonly string[];
+  readonly dividerComponentId: AiLayoutDecision["dividerComponentId"];
+  readonly footerComponentId: AiLayoutDecision["footer"]["componentId"];
+  readonly heroComponentId: AiLayoutDecision["hero"]["componentId"];
+  readonly id: AiLayoutCandidateProfileId;
+  readonly label: string;
+  readonly rhythm: AiLayoutDecision["rhythm"];
+  readonly visualIntensity: AiLayoutDecision["visualIntensity"];
+}
+
+const candidateProfiles: readonly CandidateProfileDefinition[] = [
+  {
+    components: {
+      title: "cmp_head_level1_underlined_003",
+      section: "cmp_head_level2_leftbar_002",
+      quote: "cmp_quote_standard_leftline_001",
+      data: "cmp_notice_checklist_action_005",
+      callout: "cmp_notice_risk_red_004",
+      image: "cmp_image_border_documentary_003",
+    },
+    conceptLead: "先用报刊式导读建立阅读索引，再以左线章节和克制引语推进长文。",
+    differenceHighlights: ["报刊式首屏与本文看点", "左线章节 + 纪实图片", "连续正文为主，装饰克制"],
+    dividerComponentId: "cmp_divider_solid_clean_001",
+    footerComponentId: "cmp_notice_checklist_action_005",
+    heroComponentId: "cmp_gov_red_gold_banner_001",
+    id: "editorial-index",
+    label: "报刊导读型",
+    rhythm: "compact",
+    visualIntensity: "restrained",
+  },
+  {
+    components: {
+      title: "cmp_head_level1_frame_006",
+      section: "cmp_head_level2_pill_005",
+      quote: "cmp_quote_conclusion_card_003",
+      data: "cmp_notice_info_blue_001",
+      callout: "cmp_notice_story_intro_006",
+      image: "cmp_image_rounded_caption_002",
+    },
+    conceptLead: "把关键判断拆成简报卡片，使用框题、胶囊章节和结论盒形成分组节奏。",
+    differenceHighlights: ["框题首屏 + 胶囊章节", "关键判断转为简报卡片", "圆角配图 + 结论盒收束"],
+    dividerComponentId: "cmp_divider_ornament_dots_004",
+    footerComponentId: "cmp_notice_story_intro_006",
+    heroComponentId: "cmp_hero_ink_mountain_001",
+    id: "briefing-cards",
+    label: "简报卡片型",
+    rhythm: "airy",
+    visualIntensity: "balanced",
+  },
+  {
+    components: {
+      title: "cmp_head_level1_numbered_002",
+      section: "cmp_head_level2_underlined_003",
+      quote: "cmp_quote_document_source_004",
+      data: "cmp_notice_success_green_002",
+      callout: "cmp_notice_warning_amber_003",
+      image: "cmp_image_centered_numbered_004",
+    },
+    conceptLead: "以编号章节、数据证据卡和图注序号组织事实，让数字与成果成为视觉主线。",
+    differenceHighlights: ["编号章节建立进度感", "数字段落转为证据卡", "图片编号 + 来源式引用"],
+    dividerComponentId: "cmp_divider_dashed_subtle_002",
+    footerComponentId: "cmp_notice_success_green_002",
+    heroComponentId: "cmp_tech_orbit_hero_001",
+    id: "evidence-led",
+    label: "数据证据型",
+    rhythm: "balanced",
+    visualIntensity: "bold",
+  },
+];
+
+function candidateLanguages(
+  baseLanguageId: AiLayoutDesignLanguageId,
+  blocks: readonly TopLevelBlock[],
+): readonly AiLayoutDesignLanguageId[] {
+  const text = blocks.map(textFromNode).join(" ");
+  const isGovernment = /(?:党委|党建|政务|纪检|巡察|监督|廉洁|纪律|整改|国企)/u.test(text);
+  const isTechnical = /(?:AI|人工智能|技术|系统|产品|开发|算法|数字化)/iu.test(text);
+  const numericSignals = text.match(/\d+(?:\.\d+)?(?:%|万|亿|倍|年|个|项|人|件)?/gu)?.length ?? 0;
+  const ordered = isGovernment
+    ? ([
+        "crimson-editorial",
+        "civic-blue",
+        numericSignals >= 5 ? "annual-report" : "news-editorial",
+        baseLanguageId,
+      ] as const)
+    : numericSignals >= 6
+      ? ([baseLanguageId, "data-dashboard", "annual-report", "academic-journal"] as const)
+      : isTechnical
+        ? ([baseLanguageId, "minimal-blue", "data-dashboard", "future-purple"] as const)
+        : ([baseLanguageId, "warm-paper", "news-editorial", "academic-journal"] as const);
+  const unique = [...new Set<AiLayoutDesignLanguageId>(ordered)];
+  for (const fallback of AI_LAYOUT_DESIGN_LANGUAGE_IDS) {
+    if (!unique.includes(fallback)) unique.push(fallback);
+    if (unique.length >= candidateProfiles.length) break;
+  }
+  return unique.slice(0, candidateProfiles.length);
+}
+
+function profileBlocks(
+  baseBlocks: readonly AiLayoutBlockDecision[],
+  sourceBlocks: readonly TopLevelBlock[],
+  profile: CandidateProfileDefinition,
+): readonly AiLayoutBlockDecision[] {
+  const sourceById = new Map(sourceBlocks.map((block) => [block.attrs.blockId, block]));
+  let promotedCallouts = 0;
+  let promotedQuotes = 0;
+  let promotedSections = 0;
+  return baseBlocks.map((decision, index) => {
+    const source = sourceById.get(decision.blockId);
+    const text = source === undefined ? "" : textFromNode(source).replaceAll(/\s+/gu, " ").trim();
+    let treatment = decision.treatment;
+    if (source?.type === "paragraph" && treatment === "body") {
+      if (
+        profile.id === "editorial-index" &&
+        promotedSections < 2 &&
+        text.length >= 4 &&
+        text.length <= 64 &&
+        headingSignal(text)
+      ) {
+        treatment = "section";
+        promotedSections += 1;
+      } else if (
+        profile.id === "briefing-cards" &&
+        promotedCallouts < 2 &&
+        text.length >= 24 &&
+        text.length <= 240 &&
+        index % 3 !== 0
+      ) {
+        treatment = promotedCallouts === 0 ? "callout" : "quote";
+        promotedCallouts += 1;
+      } else if (profile.id === "evidence-led") {
+        const numbers = text.match(/\d+(?:\.\d+)?(?:%|万|亿|倍|年|个|项|人|件)?/gu) ?? [];
+        if (promotedCallouts < 3 && text.length <= 420 && numbers.length >= 2) {
+          treatment = "data";
+          promotedCallouts += 1;
+        } else if (promotedQuotes < 1 && text.length >= 20 && text.length <= 150) {
+          treatment = "quote";
+          promotedQuotes += 1;
+        }
+      }
+    }
+    const componentId = profile.components[treatment] ?? null;
+    return {
+      ...decision,
+      componentId: compatibleComponentId(treatment, componentId),
+      reason: `${decision.reason}；${profile.label}采用${treatment}表达`.slice(0, 120),
+      treatment,
+    };
+  });
+}
+
+function candidateDividerAnchors(
+  blocks: readonly AiLayoutBlockDecision[],
+  profileId: AiLayoutCandidateProfileId,
+): readonly string[] {
+  const sections = blocks.filter((block) => block.treatment === "section");
+  if (profileId === "briefing-cards") {
+    return sections
+      .filter((_, index) => index % 2 === 1)
+      .map((block) => block.blockId)
+      .slice(0, 3);
+  }
+  if (profileId === "evidence-led") {
+    const evidence = blocks.filter(
+      (block) => block.treatment === "data" || block.treatment === "callout",
+    );
+    return (evidence.length > 0 ? evidence : sections).map((block) => block.blockId).slice(0, 3);
+  }
+  return sections.map((block) => block.blockId).slice(0, 3);
+}
+
+function buildLayoutCandidates(
+  base: AiLayoutDecision,
+  sourceBlocks: readonly TopLevelBlock[],
+): readonly AiLayoutCandidate[] {
+  const languages = candidateLanguages(base.languageId, sourceBlocks);
+  return candidateProfiles.map((profile, index) => {
+    const languageId = languages[index] ?? base.languageId;
+    const rawBlocks = profileBlocks(base.blocks, sourceBlocks, profile);
+    const designSuffix = `·${profile.label}`;
+    const raw: AiLayoutDecision = {
+      ...base,
+      blocks: rawBlocks,
+      concept: `${profile.conceptLead}${base.concept}`.slice(0, 240),
+      designName: `${base.designName.slice(0, 50 - designSuffix.length)}${designSuffix}`,
+      designTokens: defaultDesignTokens[languageId],
+      dividerAfterBlockIds: candidateDividerAnchors(rawBlocks, profile.id),
+      dividerComponentId: profile.dividerComponentId,
+      footer: { ...base.footer, componentId: profile.footerComponentId },
+      hero: { ...base.hero, componentId: profile.heroComponentId },
+      languageId,
+      rhythm: profile.rhythm,
+      variantSeed: (base.variantSeed + index * 2713) % 10_000,
+      visualAssets: [],
+      visualIntensity: profile.visualIntensity,
+    };
+    const sanitized = sanitizeDecision(raw, sourceBlocks);
+    const blocks = sanitized.blocks;
+    const fallbackAssets = visualAssetFallbacks(blocks, languageId);
+    const decision: AiLayoutDecision = {
+      ...sanitized,
+      blocks,
+      dividerAfterBlockIds: candidateDividerAnchors(blocks, profile.id),
+      visualAssets:
+        fallbackAssets.length > 0
+          ? fallbackAssets
+          : sanitizedVisualAssets(base.visualAssets, blocks, sourceBlocks, languageId),
+    };
+    return {
+      candidateId: `${profile.id}:${languageId}:${String(decision.variantSeed)}`,
+      decision,
+      differenceHighlights: profile.differenceHighlights,
+      profileId: profile.id,
+      recommended: index === 0,
+      structureLabel: profile.label,
+    };
+  });
+}
+
 const providerProfiles: Readonly<
   Record<AiLayoutConcreteProviderId, Readonly<{ description: string; label: string }>>
 > = {
@@ -1089,6 +1313,7 @@ export class AiLayoutService {
     const brief = input.styleBrief?.trim() || "没有额外风格要求";
     const instructions = [
       "你是微信公众号文章的资深视觉编辑。你不是在挑模板，而是在阅读全文后设计这篇文章独有的阅读结构。",
+      "这次请只生成一份可复用的内容语义骨架：系统会在不重复调用模型的前提下，将它派生为“报刊导读、简报卡片、数据证据”三套结构和组件都不同的候选成稿。",
       "必须保持原文事实与文字不变，只能通过 blockId 决定视觉角色；不要编造数据、图片、引用、人物或段落。",
       "title/section 只给真正承担标题作用的短文本；lead 只选一段；quote 最多 3 段；data/callout 合计最多 3 段。",
       "长文必须建立完整阅读路径：选 2–4 个真正的主章节为 section；每章之间保留连续正文，不要把普通段落都做成卡片。系统会用这些 section 自动生成“本文看点”导航。",
@@ -1128,9 +1353,12 @@ export class AiLayoutService {
     for (const provider of providers) {
       try {
         const decision = await this.requestDecision(provider, instructions, userInput);
+        const baseDecision = sanitizeDecision(decision as AiLayoutDecision, blocks);
+        const candidates = buildLayoutCandidates(baseDecision, blocks);
         return {
           ...this.providerStatus(provider),
-          decision: sanitizeDecision(decision as AiLayoutDecision, blocks),
+          candidates,
+          decision: candidates[0]?.decision ?? baseDecision,
         };
       } catch (error) {
         lastError = error;

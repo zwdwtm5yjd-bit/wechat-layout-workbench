@@ -46,6 +46,7 @@ describe("AI layout client", () => {
             model: "deepseek-v4-flash",
             models: [],
             provider: "deepseek",
+            candidates: [],
             decision: {},
           },
         }),

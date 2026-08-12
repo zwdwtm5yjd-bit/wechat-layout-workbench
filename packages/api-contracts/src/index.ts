@@ -178,6 +178,23 @@ export interface AiLayoutDecision {
   readonly visualIntensity: AiLayoutVisualIntensity;
 }
 
+export const AI_LAYOUT_CANDIDATE_PROFILE_IDS = [
+  "editorial-index",
+  "briefing-cards",
+  "evidence-led",
+] as const;
+
+export type AiLayoutCandidateProfileId = (typeof AI_LAYOUT_CANDIDATE_PROFILE_IDS)[number];
+
+export interface AiLayoutCandidate {
+  readonly candidateId: string;
+  readonly decision: AiLayoutDecision;
+  readonly differenceHighlights: readonly string[];
+  readonly profileId: AiLayoutCandidateProfileId;
+  readonly recommended: boolean;
+  readonly structureLabel: string;
+}
+
 export interface AiLayoutStatus {
   readonly available: boolean;
   readonly defaultProviderId: AiLayoutProviderId;
@@ -201,5 +218,7 @@ export interface GenerateAiLayoutInput {
 }
 
 export interface GenerateAiLayoutResult extends AiLayoutStatus {
+  /** Backward-compatible default candidate. Prefer `candidates` in new clients. */
   readonly decision: AiLayoutDecision;
+  readonly candidates: readonly AiLayoutCandidate[];
 }

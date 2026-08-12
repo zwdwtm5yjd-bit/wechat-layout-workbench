@@ -1010,10 +1010,36 @@ export function buildImportedDocument(input: BuildImportedDocumentInput): Docume
     },
     meta: {
       sourceType: input.documentSourceType,
+      ...(input.originalFileId === undefined ? {} : { originalFileId: input.originalFileId }),
       originalTextHash: `sha256:${input.originalTextHash}`,
       textLocked: true,
       createdAt: input.now.toISOString(),
       updatedAt: input.now.toISOString(),
     },
   };
+}
+
+export function preserveImportedImageResources(
+  blocks: readonly ImportBlock[],
+  currentDocument: DocumentV1,
+): readonly ImportBlock[] {
+  const resourceBySourceBlock = new Map(
+    currentDocument.content.content.flatMap((node): readonly [string, string][] =>
+      node.type === "imageBlock" && typeof node.attrs.sourceBlockId === "string"
+        ? [[node.attrs.sourceBlockId, node.attrs.resourceId]]
+        : [],
+    ),
+  );
+  return blocks.map((block) => {
+    if (block.role !== "image_reference" || block.relationMetadata.resourceId !== undefined) {
+      return block;
+    }
+    const resourceId = resourceBySourceBlock.get(block.sourceBlockId);
+    return resourceId === undefined
+      ? block
+      : {
+          ...block,
+          relationMetadata: { ...block.relationMetadata, resourceId },
+        };
+  });
 }

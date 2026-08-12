@@ -38,6 +38,10 @@ export interface DocumentAutosaveOptions {
   readonly now?: () => Date;
 }
 
+export interface DocumentQueueOptions {
+  readonly saveMode?: "automatic" | "manual";
+}
+
 function browserOnlineSource(): OnlineSource {
   return {
     isOnline: () => typeof navigator === "undefined" || navigator.onLine,
@@ -97,7 +101,7 @@ export class DocumentAutosaveController {
       conflict: null,
     };
     this.#unsubscribeOnline = this.#onlineSource.subscribe(() => {
-      if (!this.#conflicted) {
+      if (!this.#conflicted && this.#pendingDraft?.saveMode !== "manual") {
         void this.flushNow();
       }
     });
@@ -146,7 +150,7 @@ export class DocumentAutosaveController {
       errorMessage: null,
       conflict: null,
     });
-    if (this.#onlineSource.isOnline()) {
+    if (this.#onlineSource.isOnline() && draft.saveMode !== "manual") {
       this.schedule(0);
     }
     return draft;
@@ -156,6 +160,7 @@ export class DocumentAutosaveController {
     document: DocumentJson,
     schemaVersion: DocumentSchemaVersion,
     transactionOrigin = "autosave",
+    options: DocumentQueueOptions = {},
   ): Promise<void> {
     if (this.#destroyed) {
       throw new Error("自动保存会话已关闭");
@@ -168,6 +173,7 @@ export class DocumentAutosaveController {
       document: structuredClone(document),
       lastTransactionId: this.#createTransactionId(),
       transactionOrigin,
+      saveMode: options.saveMode ?? "automatic",
       savedAt: this.#now().toISOString(),
     };
     this.#pendingDraft = draft;
@@ -197,7 +203,7 @@ export class DocumentAutosaveController {
       errorMessage: null,
       conflict: null,
     });
-    if (this.#onlineSource.isOnline()) {
+    if (this.#onlineSource.isOnline() && draft.saveMode !== "manual") {
       this.schedule(this.#debounceMs);
     }
   }
@@ -248,7 +254,9 @@ export class DocumentAutosaveController {
           errorMessage: null,
           conflict: null,
         });
-        this.schedule(this.#debounceMs);
+        if (this.#pendingDraft.saveMode !== "manual") {
+          this.schedule(this.#debounceMs);
+        }
       }
     } catch (error) {
       if (error instanceof DocumentClientError && error.code === "ARTICLE_VERSION_CONFLICT") {

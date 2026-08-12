@@ -21,7 +21,7 @@ import {
 } from "../documents/postgres-document-resources.js";
 import { statisticsForDocument } from "../documents/document-statistics.js";
 import { buildSnapshotManifests } from "../snapshots/snapshot-manifest.js";
-import { buildImportedDocument } from "./paste-parser.js";
+import { buildImportedDocument, preserveImportedImageResources } from "./paste-parser.js";
 import type {
   ConfirmImportInput,
   ConfirmImportResult,
@@ -55,6 +55,7 @@ type ArticleRow = {
 
 type DocumentRow = {
   readonly id: string;
+  readonly document: JsonObject;
   readonly documentVersion: number;
   readonly lastTransactionId: string | null;
   readonly lastSavedAt: Date;
@@ -92,6 +93,7 @@ const articleSelection = {
 
 const documentSelection = {
   id: articleDocuments.id,
+  document: articleDocuments.documentJson,
   documentVersion: articleDocuments.documentVersion,
   lastTransactionId: articleDocuments.lastTransactionId,
   lastSavedAt: articleDocuments.lastSavedAt,
@@ -446,24 +448,36 @@ export class PostgresImportRepository implements ImportRepository {
         return { kind: "invalid_state" };
       }
 
-      const confirmedBlocks = blockRows.map((block) =>
-        toBlock({
-          ...block,
-          blockType: requestedRoles.get(block.sourceBlockId) ?? block.blockType,
-        }),
+      const currentDocument = validateDocument(base.document.document);
+      if (!currentDocument.success) {
+        throw new Error("导入确认读取到了无效 Document Schema V1 文档");
+      }
+      const confirmedBlocks = preserveImportedImageResources(
+        blockRows.map((block) =>
+          toBlock({
+            ...block,
+            blockType: requestedRoles.get(block.sourceBlockId) ?? block.blockType,
+          }),
+        ),
+        currentDocument.data,
+      );
+      const confirmedBlockById = new Map(
+        confirmedBlocks.map((block) => [block.sourceBlockId, block] as const),
       );
       const sourceMetadata = base.sourceDocument.sourceMetadata;
-      const documentSourceType = metadata<"html" | "plainText">(
-        sourceMetadata,
-        "documentSourceType",
-        "plainText",
-      );
+      const documentSourceType =
+        base.article.sourceType === "docx"
+          ? "docx"
+          : metadata<"html" | "plainText">(sourceMetadata, "documentSourceType", "plainText");
       const now = new Date();
       const document = buildImportedDocument({
         documentId: base.document.id,
         articleId: input.articleId,
         accountId: base.article.accountId,
         documentSourceType,
+        ...(currentDocument.data.meta.originalFileId === undefined
+          ? {}
+          : { originalFileId: currentDocument.data.meta.originalFileId }),
         originalTextHash: base.sourceDocument.originalTextHash ?? "",
         blocks: confirmedBlocks,
         now,
@@ -508,13 +522,16 @@ export class PostgresImportRepository implements ImportRepository {
       });
 
       for (const block of blockRows) {
-        const role = requestedRoles.get(block.sourceBlockId);
-        if (role === undefined || role === block.blockType) {
+        const confirmedBlock = confirmedBlockById.get(block.sourceBlockId);
+        if (confirmedBlock === undefined) {
           continue;
         }
         await transaction
           .update(sourceBlocks)
-          .set({ blockType: role })
+          .set({
+            blockType: confirmedBlock.role,
+            relationMetadata: confirmedBlock.relationMetadata,
+          })
           .where(eq(sourceBlocks.id, block.id));
       }
 

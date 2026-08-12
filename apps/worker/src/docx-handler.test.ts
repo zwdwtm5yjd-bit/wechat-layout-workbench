@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import { PermanentJobError } from "@wechat-layout/job-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { runPythonParser } from "./docx-handler.js";
+import { docxBlockRelationMetadata, runPythonParser } from "./docx-handler.js";
 
 const execFileAsync = promisify(execFile);
 const temporaryDirectories: string[] = [];
@@ -25,6 +25,29 @@ afterEach(async () => {
 });
 
 describe("Python DOCX worker boundary", () => {
+  it("persists the registered resource id beside every DOCX image source block", () => {
+    const resourceId = "019c0fb5-7d53-7f66-bfb7-f70c0e462699";
+    const relation = docxBlockRelationMetadata(
+      {
+        sourceBlockId: "src_000001_image",
+        sourceType: "image",
+        role: "image_reference",
+        text: "现场照片",
+        textHash: "a".repeat(64),
+        orderIndex: 0,
+        styleMetadata: {},
+        relationMetadata: { resourceKey: "image_0001", alt: "现场照片" },
+      },
+      new Map([["image_0001", resourceId]]),
+    );
+
+    expect(relation).toEqual({
+      resourceKey: "image_0001",
+      resourceId,
+      alt: "现场照片",
+    });
+  });
+
   it("accepts the frozen Word/WPS intermediate envelope", async () => {
     const root = resolve(process.cwd(), "../..");
     const temporary = await temporaryDirectory();

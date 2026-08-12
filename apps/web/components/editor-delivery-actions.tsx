@@ -1,6 +1,11 @@
 "use client";
 
-import { AI_LAYOUT_PROVIDER_IDS, type AiLayoutProviderId } from "@wechat-layout/api-contracts";
+import {
+  AI_LAYOUT_PROVIDER_IDS,
+  type AiLayoutCandidate,
+  type AiLayoutDecision,
+  type AiLayoutProviderId,
+} from "@wechat-layout/api-contracts";
 import type { DocumentV1 } from "@wechat-layout/document-schema";
 import { useQuery } from "@tanstack/react-query";
 import type { RenderOutput } from "../lib/copy/client";
@@ -10,11 +15,12 @@ import {
   createLayoutPlans,
   DESIGN_LANGUAGE_FAMILY_BY_ID,
   DESIGN_LANGUAGE_FAMILY_LABELS,
+  layoutPlanFromAiDecision,
   type DesignLanguageFamily,
   type LayoutDesignMode,
   type LayoutPlan,
 } from "../lib/layout-planner";
-import { getAiLayoutStatus } from "../lib/ai-layout/client";
+import { generateAiLayout, getAiLayoutStatus } from "../lib/ai-layout/client";
 import type { OfficialTheme } from "../lib/themes/client";
 import {
   CheckCircle2,
@@ -40,7 +46,11 @@ interface EditorDeliveryActionsProps {
   readonly applyingPlanId?: string | null;
   readonly document: DocumentV1;
   readonly documentVersion: number;
-  readonly onApplyLayout: (plan: LayoutPlan, providerId: AiLayoutProviderId) => Promise<void>;
+  readonly onApplyLayout: (
+    plan: LayoutPlan,
+    providerId: AiLayoutProviderId,
+    decision?: AiLayoutDecision,
+  ) => Promise<void>;
   readonly saveStatus: DocumentSaveSnapshot["status"];
   readonly themes: readonly OfficialTheme[];
 }
@@ -72,6 +82,9 @@ export function EditorDeliveryActions({
   const [languageFamily, setLanguageFamily] = useState<DesignLanguageFamily | "all">("all");
   const [providerId, setProviderId] = useState<AiLayoutProviderId>("auto");
   const [styleBrief, setStyleBrief] = useState("");
+  const [aiCandidates, setAiCandidates] = useState<readonly AiLayoutCandidate[]>([]);
+  const [candidateError, setCandidateError] = useState<string | null>(null);
+  const [generatingCandidates, setGeneratingCandidates] = useState(false);
   const [renderOutput, setRenderOutput] = useState<RenderOutput | null>(null);
   const aiStatusQuery = useQuery({
     queryKey: ["ai-layout-status"],
@@ -87,14 +100,29 @@ export function EditorDeliveryActions({
     () => createLayoutPlans(document, themes, { brief: styleBrief, mode: layoutMode }),
     [document, layoutMode, styleBrief, themes],
   );
+  const aiCandidatePlans = useMemo(() => {
+    if (layoutMode === "preset" || aiCandidates.length === 0) return [];
+    const sourcePlan = layoutPlans[0];
+    if (sourcePlan === undefined) return [];
+    return aiCandidates.map((candidate) => ({
+      candidate,
+      plan: layoutPlanFromAiDecision(document, themes, sourcePlan, candidate.decision),
+    }));
+  }, [aiCandidates, document, layoutMode, layoutPlans, themes]);
   const visibleLayoutPlans = useMemo(
     () =>
-      layoutMode !== "preset" || languageFamily === "all"
-        ? layoutPlans
-        : layoutPlans.filter(
-            (plan) => DESIGN_LANGUAGE_FAMILY_BY_ID[plan.languageId] === languageFamily,
-          ),
-    [languageFamily, layoutMode, layoutPlans],
+      layoutMode !== "preset"
+        ? aiCandidatePlans.map(({ plan }) => plan)
+        : languageFamily === "all"
+          ? layoutPlans
+          : layoutPlans.filter(
+              (plan) => DESIGN_LANGUAGE_FAMILY_BY_ID[plan.languageId] === languageFamily,
+            ),
+    [aiCandidatePlans, languageFamily, layoutMode, layoutPlans],
+  );
+  const aiCandidateByPlanId = useMemo(
+    () => new Map(aiCandidatePlans.map(({ candidate, plan }) => [plan.id, candidate])),
+    [aiCandidatePlans],
   );
 
   useEffect(() => {
@@ -134,6 +162,43 @@ export function EditorDeliveryActions({
   useEffect(() => {
     setRenderOutput(null);
   }, [documentVersion]);
+
+  useEffect(() => {
+    setAiCandidates([]);
+    setCandidateError(null);
+  }, [documentVersion, layoutMode, providerId, styleBrief]);
+
+  const generateCandidates = async (): Promise<void> => {
+    if (
+      layoutMode === "preset" ||
+      saveStatus !== "saved" ||
+      !selectedProviderAvailable ||
+      generatingCandidates ||
+      (layoutMode === "described" && styleBrief.trim().length < 3)
+    ) {
+      return;
+    }
+    setGeneratingCandidates(true);
+    setCandidateError(null);
+    try {
+      const sourcePlan = layoutPlans[0];
+      const generated = await generateAiLayout(articleId, {
+        baseDocumentVersion: documentVersion,
+        mode: layoutMode,
+        ...(sourcePlan === undefined ? {} : { preferredLanguageId: sourcePlan.languageId }),
+        providerId,
+        ...(layoutMode === "described" ? { styleBrief: styleBrief.trim() } : {}),
+      });
+      if (generated.candidates.length < 3) {
+        throw new Error("AI 未返回完整的三套候选方案，请重新生成");
+      }
+      setAiCandidates(generated.candidates.slice(0, 3));
+    } catch (error) {
+      setCandidateError(error instanceof Error ? error.message : "AI 候选方案生成失败");
+    } finally {
+      setGeneratingCandidates(false);
+    }
+  };
 
   const groupedIssues = useMemo(() => {
     if (renderOutput === null) return null;
@@ -390,6 +455,59 @@ export function EditorDeliveryActions({
                 请切换到已连接的模型后再生成。
               </div>
             )}
+            {layoutMode === "preset" ? null : (
+              <section className="mt-4 rounded-card border border-line bg-panel p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold text-ink">
+                      {aiCandidates.length >= 3 ? "已生成 3 套可选成稿" : "一次生成 3 套不同方向"}
+                    </p>
+                    <p className="mt-1 text-[9px] leading-4 text-muted">
+                      模型只阅读全文一次，再用三种结构表达派生候选，不会为每张卡重复消耗额度。
+                    </p>
+                  </div>
+                  <button
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-control bg-accent px-4 text-[10px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
+                    disabled={
+                      saveStatus !== "saved" ||
+                      !selectedProviderAvailable ||
+                      generatingCandidates ||
+                      (layoutMode === "described" && styleBrief.trim().length < 3)
+                    }
+                    onClick={() => void generateCandidates()}
+                    type="button"
+                  >
+                    {generatingCandidates ? (
+                      <LoaderCircle aria-hidden="true" className="animate-spin" size={13} />
+                    ) : (
+                      <Sparkles aria-hidden="true" size={13} />
+                    )}
+                    {generatingCandidates
+                      ? "正在设计3套方案…"
+                      : aiCandidates.length >= 3
+                        ? "重新生成3套"
+                        : "生成3套AI方案"}
+                  </button>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  {[
+                    ["报刊导读", "导读索引 · 左线章节 · 纪实配图"],
+                    ["简报卡片", "框题首屏 · 判断卡片 · 结论盒"],
+                    ["数据证据", "编号章节 · 数据卡 · 图片序号"],
+                  ].map(([label, description]) => (
+                    <div className="rounded-control bg-panel-muted px-3 py-2" key={label}>
+                      <p className="text-[9px] font-semibold text-ink">{label}</p>
+                      <p className="mt-1 text-[8px] leading-4 text-faint">{description}</p>
+                    </div>
+                  ))}
+                </div>
+                {candidateError === null ? null : (
+                  <p className="mt-3 rounded-control bg-danger-soft px-3 py-2 text-[9px] leading-4 text-danger">
+                    {candidateError}
+                  </p>
+                )}
+              </section>
+            )}
             {layoutMode === "preset" ? (
               <div className="mt-4 flex flex-wrap items-center gap-1.5 rounded-control border border-line bg-panel-muted p-2">
                 <button
@@ -432,16 +550,19 @@ export function EditorDeliveryActions({
             >
               {visibleLayoutPlans.map((plan) => {
                 const applying = applyingPlanId === plan.id;
+                const candidate = aiCandidateByPlanId.get(plan.id);
+                const recommended =
+                  layoutMode === "preset" ? plan.recommended : candidate?.recommended === true;
                 return (
                   <article
                     className={`relative overflow-hidden rounded-card border bg-panel p-4 ${
-                      plan.recommended ? "border-accent ring-2 ring-accent/10" : "border-line"
+                      recommended ? "border-accent ring-2 ring-accent/10" : "border-line"
                     }`}
                     key={plan.id}
                   >
-                    {plan.recommended ? (
+                    {recommended ? (
                       <span className="absolute top-3 right-3 rounded-full bg-accent-soft px-2 py-1 text-[9px] font-semibold text-accent">
-                        内容匹配推荐
+                        {layoutMode === "preset" ? "内容匹配推荐" : "AI 首选方向"}
                       </span>
                     ) : null}
                     <div className="flex gap-1.5">
@@ -455,14 +576,16 @@ export function EditorDeliveryActions({
                     </div>
                     <p className="mt-4 text-[14px] font-semibold text-ink">{plan.designName}</p>
                     <p className="mt-1 text-[10px] font-medium text-accent">
-                      {plan.languageName} · {plan.tone}
+                      {candidate === undefined
+                        ? `${plan.languageName} · ${plan.tone}`
+                        : `${candidate.structureLabel} · ${plan.languageName}`}
                     </p>
                     <p className="mt-3 text-[11px] leading-5 text-muted">{plan.description}</p>
                     <p className="mt-2 rounded-md bg-panel-muted px-2.5 py-2 text-[9px] leading-4 text-faint">
                       {plan.reasoning}
                     </p>
                     <ul className="mt-3 space-y-1.5 text-[10px] text-muted">
-                      {plan.highlights.map((highlight) => (
+                      {(candidate?.differenceHighlights ?? plan.highlights).map((highlight) => (
                         <li className="flex items-center gap-1.5" key={highlight}>
                           <Sparkles aria-hidden="true" className="text-accent" size={10} />
                           {highlight}
@@ -479,7 +602,7 @@ export function EditorDeliveryActions({
                         (layoutMode === "described" && styleBrief.trim().length < 3)
                       }
                       onClick={() => {
-                        void onApplyLayout(plan, providerId)
+                        void onApplyLayout(plan, providerId, candidate?.decision)
                           .then(() => setLayoutOpen(false))
                           .catch(() => undefined);
                       }}
@@ -494,11 +617,9 @@ export function EditorDeliveryActions({
                         ? "正在生成成稿…"
                         : layoutMode !== "preset" && !selectedProviderAvailable
                           ? "模型未连接"
-                          : layoutMode === "original"
-                            ? "生成并应用原创排版"
-                            : layoutMode === "described"
-                              ? "按描述生成并应用"
-                              : "应用这套设计语言"}
+                          : layoutMode === "preset"
+                            ? "应用这套设计语言"
+                            : "应用这套 AI 候选"}
                     </button>
                   </article>
                 );

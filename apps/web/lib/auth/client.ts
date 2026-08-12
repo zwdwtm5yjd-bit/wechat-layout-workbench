@@ -31,6 +31,8 @@ type CsrfResult = components["schemas"]["CsrfResultDto"];
 type LoginInput = components["schemas"]["LoginDto"];
 type LoginResult = components["schemas"]["LoginResultDto"];
 
+let pendingCsrfToken: Promise<string> | null = null;
+
 export class AuthClientError extends Error {
   override readonly name = "AuthClientError";
 
@@ -80,8 +82,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export async function getCsrfToken(): Promise<string> {
-  const result = await request<CsrfResult>("/api/v1/auth/csrf");
-  return result.csrfToken;
+  pendingCsrfToken ??= request<CsrfResult>("/api/v1/auth/csrf")
+    .then((result) => result.csrfToken)
+    .finally(() => {
+      pendingCsrfToken = null;
+    });
+  return pendingCsrfToken;
 }
 
 export async function login(input: LoginInput): Promise<LoginResult> {

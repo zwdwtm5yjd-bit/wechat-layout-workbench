@@ -73,6 +73,9 @@ export class AiLayoutStatusDto {
 }
 
 export class GenerateAiLayoutResponseDto extends AiLayoutStatusDto {
+  @ApiProperty({ isArray: true, type: Object })
+  candidates!: Readonly<Record<string, unknown>>[];
+
   @ApiProperty({ type: Object })
   decision!: Readonly<Record<string, unknown>>;
 }

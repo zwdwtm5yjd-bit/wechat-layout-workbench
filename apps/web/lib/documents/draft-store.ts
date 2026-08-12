@@ -10,6 +10,7 @@ export interface LocalDocumentDraft {
   readonly document: DocumentJson;
   readonly lastTransactionId: string;
   readonly transactionOrigin: string;
+  readonly saveMode?: "automatic" | "manual";
   readonly savedAt: string;
 }
 

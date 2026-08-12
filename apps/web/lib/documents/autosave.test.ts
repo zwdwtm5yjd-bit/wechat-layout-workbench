@@ -113,6 +113,78 @@ describe("document autosave", () => {
     controller.destroy();
   });
 
+  it("keeps a manual layout draft local until the user explicitly saves it", async () => {
+    vi.useFakeTimers();
+    const store = new MemoryDraftStore();
+    const online = new MutableOnlineSource(true);
+    const save = vi.fn().mockResolvedValue({
+      documentVersion: 2,
+      lastTransactionId: "transaction-manual-layout",
+      lastSavedAt: "2026-07-30T08:00:02.000Z",
+      replayed: false,
+    });
+    const controller = new DocumentAutosaveController({
+      articleId,
+      initialVersion: 1,
+      draftStore: store,
+      save,
+      onlineSource: online,
+      debounceMs: 10,
+      createTransactionId: () => "transaction-manual-layout",
+    });
+
+    await controller.queue(document, "1.0.0", "layout.ai.draft", { saveMode: "manual" });
+    await vi.advanceTimersByTimeAsync(1_000);
+    online.setOnline(false);
+    online.setOnline(true);
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(save).not.toHaveBeenCalled();
+    expect(store.draft).toMatchObject({
+      saveMode: "manual",
+      transactionOrigin: "layout.ai.draft",
+    });
+    expect(controller.getSnapshot().status).toBe("local_saved");
+
+    await controller.flushNow();
+
+    expect(save).toHaveBeenCalledOnce();
+    expect(store.draft).toBeNull();
+    expect(controller.getSnapshot().status).toBe("saved");
+    controller.destroy();
+  });
+
+  it("restores a manual layout draft without auto-submitting it", async () => {
+    vi.useFakeTimers();
+    const store = new MemoryDraftStore();
+    store.draft = {
+      articleId,
+      baseVersion: 1,
+      schemaVersion: "1.0.0",
+      document,
+      lastTransactionId: "transaction-restored-manual-layout",
+      transactionOrigin: "layout.ai.draft",
+      saveMode: "manual",
+      savedAt: "2026-07-30T08:00:00.000Z",
+    };
+    const save = vi.fn();
+    const controller = new DocumentAutosaveController({
+      articleId,
+      initialVersion: 1,
+      draftStore: store,
+      save,
+      onlineSource: new MutableOnlineSource(true),
+    });
+
+    const restored = await controller.initialize();
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(restored?.saveMode).toBe("manual");
+    expect(controller.getSnapshot().status).toBe("local_saved");
+    expect(save).not.toHaveBeenCalled();
+    controller.destroy();
+  });
+
   it("debounces saves and preserves the local draft on a 409 conflict", async () => {
     vi.useFakeTimers();
     const store = new MemoryDraftStore();

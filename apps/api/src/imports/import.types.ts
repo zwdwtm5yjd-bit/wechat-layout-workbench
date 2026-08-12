@@ -141,7 +141,8 @@ export interface BuildImportedDocumentInput {
   readonly documentId: string;
   readonly articleId: string;
   readonly accountId: string | null;
-  readonly documentSourceType: "html" | "plainText";
+  readonly documentSourceType: "docx" | "html" | "plainText";
+  readonly originalFileId?: string;
   readonly originalTextHash: string;
   readonly blocks: readonly ImportBlock[];
   readonly now: Date;

@@ -353,6 +353,14 @@ describe("authentication HTTP flow", () => {
     expect(structuredLogOutput).not.toContain(correctPassword);
   });
 
+  it("reuses the current valid CSRF token so concurrent writes cannot invalidate each other", async () => {
+    const agent = supertest.agent(application.getHttpServer());
+    const first = await getCsrfToken(agent);
+    const second = await getCsrfToken(agent);
+
+    expect(second).toBe(first);
+  });
+
   it("rate-limits repeated wrong passwords with a stable non-enumerating error", async () => {
     const agent = supertest.agent(application.getHttpServer());
     const csrfToken = await getCsrfToken(agent);

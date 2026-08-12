@@ -859,6 +859,21 @@ function imageReferences(document: DocumentV1): readonly {
   return result;
 }
 
+export function docxBlockRelationMetadata(
+  block: IntermediateBlock,
+  imageResourceIds: ReadonlyMap<string, string>,
+): Readonly<Record<string, unknown>> {
+  if (block.role !== "image_reference") {
+    return block.relationMetadata;
+  }
+  const resourceKey = block.relationMetadata.resourceKey;
+  const resourceId =
+    typeof resourceKey === "string" ? imageResourceIds.get(resourceKey) : undefined;
+  return resourceId === undefined
+    ? block.relationMetadata
+    : { ...block.relationMetadata, resourceId };
+}
+
 async function persistImport(input: {
   readonly transaction: Transaction;
   readonly context: JobHandlerContext;
@@ -867,6 +882,7 @@ async function persistImport(input: {
   readonly intermediateKey: string;
   readonly document: DocumentV1;
   readonly documentId: string;
+  readonly imageResourceIds: ReadonlyMap<string, string>;
 }): Promise<void> {
   const { transaction } = input;
   const [article] = await transaction
@@ -959,7 +975,7 @@ async function persistImport(input: {
       textHash: block.textHash,
       orderIndex: block.orderIndex,
       styleMetadata: block.styleMetadata,
-      relationMetadata: block.relationMetadata,
+      relationMetadata: docxBlockRelationMetadata(block, input.imageResourceIds),
       createdAt: now,
     })),
   );
@@ -1200,6 +1216,7 @@ export function createDocxImportHandler(options: DocxHandlerOptions): JobHandler
           intermediateKey,
           document,
           documentId,
+          imageResourceIds,
         }),
       );
       await context.progress(95, "DOCX 解析完成，等待结构确认", {

@@ -2,7 +2,14 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AuthClientError, getCurrentUser, login, logout, revokeSession } from "./client";
+import {
+  AuthClientError,
+  getCsrfToken,
+  getCurrentUser,
+  login,
+  logout,
+  revokeSession,
+} from "./client";
 
 function successResponse(data: unknown): Response {
   return new Response(
@@ -124,6 +131,24 @@ describe("authentication browser client", () => {
     await expect(getCurrentUser()).rejects.toEqual(
       new AuthClientError(429, "AUTH_LOGIN_RATE_LIMITED", "登录尝试过于频繁，请稍后再试", 900),
     );
+  });
+
+  it("shares one CSRF token request across concurrent media uploads", async () => {
+    let resolveResponse: ((value: Response) => void) | undefined;
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveResponse = resolve;
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = getCsrfToken();
+    const second = getCsrfToken();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    resolveResponse?.(successResponse({ csrfToken: "shared-csrf" }));
+    await expect(Promise.all([first, second])).resolves.toEqual(["shared-csrf", "shared-csrf"]);
   });
 
   it("preflights logout and session revocation with fresh CSRF tokens", async () => {

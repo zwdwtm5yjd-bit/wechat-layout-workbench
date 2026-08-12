@@ -132,13 +132,36 @@ describe("AiLayoutService", () => {
       "https://api.example.test/v1/responses",
       expect.objectContaining({ method: "POST" }),
     );
+    expect(fetcher).toHaveBeenCalledTimes(1);
     const request = fetcher.mock.calls[0]?.[1] as RequestInit;
     expect(request.headers).toMatchObject({ Authorization: "Bearer secret-key" });
     expect(String(request.body)).toContain("wechat_article_layout_decision");
     expect(result.decision.languageId).toBe("crimson-editorial");
     expect(result.decision.blocks).toHaveLength(documentV1Fixture.content.content.length);
-    expect(result.decision.dividerAfterBlockIds).toEqual(["block_paragraph"]);
-    expect(result.decision.visualAssets).toEqual(modelDecision.visualAssets);
+    expect(result.decision.dividerAfterBlockIds).not.toContain("unknown");
+    expect(result.candidates).toHaveLength(3);
+    expect(result.candidates.map((candidate) => candidate.profileId)).toEqual([
+      "editorial-index",
+      "briefing-cards",
+      "evidence-led",
+    ]);
+    expect(new Set(result.candidates.map((candidate) => candidate.decision.languageId)).size).toBe(
+      3,
+    );
+    expect(
+      new Set(result.candidates.map((candidate) => candidate.decision.hero.componentId)).size,
+    ).toBe(3);
+    expect(
+      new Set(
+        result.candidates.map((candidate) =>
+          candidate.decision.blocks
+            .filter((block) => block.treatment !== "body")
+            .map((block) => `${block.treatment}:${block.componentId ?? "none"}`)
+            .join("|"),
+        ),
+      ).size,
+    ).toBe(3);
+    expect(result.decision).toEqual(result.candidates[0]?.decision);
   });
 
   it("uses Kimi-compatible chat completions and accepts fenced JSON safely", async () => {
@@ -237,7 +260,8 @@ describe("AiLayoutService", () => {
     expect(requestBody.response_format).toEqual({ type: "json_object" });
     expect(requestBody.messages[0]?.content).toContain("JSON Schema");
     expect(result.provider).toBe("kimi");
-    expect(result.decision.designName).toBe("纸上脉络");
+    expect(result.decision.designName).toContain("纸上脉络");
+    expect(result.candidates).toHaveLength(3);
   });
 
   it("automatically falls back to the next configured model", async () => {

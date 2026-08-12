@@ -1604,13 +1604,26 @@ export interface components {
         | "night-cyan"
         | "forest-green"
         | "crimson-editorial"
-        | "ink-gold";
+        | "ink-gold"
+        | "civic-blue"
+        | "news-editorial"
+        | "annual-report"
+        | "data-dashboard"
+        | "monochrome-finance"
+        | "future-purple"
+        | "cyber-neon"
+        | "jade-oriental"
+        | "seasonal-poetry"
+        | "academic-journal"
+        | "playful-notebook"
+        | "event-poster";
       /** @enum {string} */
       providerId?: "auto" | "deepseek" | "qwen" | "kimi";
       styleBrief?: string;
     };
     GenerateAiLayoutResponseDto: {
       available: boolean;
+      candidates: Record<string, never>[];
       decision: Record<string, never>;
       /** @enum {string} */
       defaultProviderId: "auto" | "deepseek" | "qwen" | "kimi";

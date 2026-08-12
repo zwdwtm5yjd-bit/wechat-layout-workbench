@@ -1,7 +1,11 @@
 import { validateDocument } from "@wechat-layout/document-schema";
 import { describe, expect, it } from "vitest";
 
-import { buildImportedDocument, parsePasteImport } from "./paste-parser.js";
+import {
+  buildImportedDocument,
+  parsePasteImport,
+  preserveImportedImageResources,
+} from "./paste-parser.js";
 
 describe("paste import parser", () => {
   it("imports Word HTML while removing scripts, hidden nodes and Office styles", () => {
@@ -201,5 +205,62 @@ describe("paste import parser", () => {
       ]),
     );
     expect(validateDocument(document)).toEqual(expect.objectContaining({ success: true }));
+  });
+
+  it("preserves DOCX image resources when structure confirmation rebuilds the document", () => {
+    const resourceId = "019c0000-0000-7000-8000-000000000013";
+    const originalFileId = "019c0000-0000-7000-8000-000000000014";
+    const sourceBlockId = "src_000004_image";
+    const currentDocument = buildImportedDocument({
+      accountId: null,
+      articleId: "019c0000-0000-7000-8000-000000000002",
+      blocks: [
+        {
+          sourceBlockId,
+          role: "image_reference",
+          text: "图片 1",
+          textHash: "a".repeat(64),
+          orderIndex: 0,
+          styleMetadata: {},
+          relationMetadata: { resourceId, alt: "图片 1" },
+        },
+      ],
+      documentId: "019c0000-0000-7000-8000-000000000001",
+      documentSourceType: "docx",
+      originalFileId,
+      now: new Date("2026-07-30T00:00:00.000Z"),
+      originalTextHash: "b".repeat(64),
+    });
+    const blocksWithoutResource = [
+      {
+        sourceBlockId,
+        role: "image_reference" as const,
+        text: "图片 1",
+        textHash: "a".repeat(64),
+        orderIndex: 0,
+        styleMetadata: {},
+        relationMetadata: { alt: "图片 1", resourceKey: "image_0001" },
+      },
+    ];
+
+    const preserved = preserveImportedImageResources(blocksWithoutResource, currentDocument);
+    const rebuilt = buildImportedDocument({
+      accountId: null,
+      articleId: currentDocument.articleId,
+      blocks: preserved,
+      documentId: currentDocument.documentId,
+      documentSourceType: "docx",
+      originalFileId,
+      now: new Date("2026-07-30T00:01:00.000Z"),
+      originalTextHash: "b".repeat(64),
+    });
+
+    expect(preserved[0]?.relationMetadata.resourceId).toBe(resourceId);
+    expect(rebuilt.meta.sourceType).toBe("docx");
+    expect(rebuilt.meta.originalFileId).toBe(originalFileId);
+    expect(rebuilt.content.content[0]).toMatchObject({
+      type: "imageBlock",
+      attrs: { resourceId, sourceBlockId },
+    });
   });
 });

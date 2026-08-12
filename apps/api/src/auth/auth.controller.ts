@@ -26,7 +26,12 @@ import {
 } from "@nestjs/swagger";
 
 import { contextFromRequest, type ContextualHttpRequest } from "../common/http/request-context.js";
-import { AUTH_OPTIONS, CSRF_BINDING_COOKIE_NAME, SESSION_COOKIE_NAME } from "./auth.constants.js";
+import {
+  AUTH_OPTIONS,
+  CSRF_BINDING_COOKIE_NAME,
+  CSRF_COOKIE_NAME,
+  SESSION_COOKIE_NAME,
+} from "./auth.constants.js";
 import { CsrfTokenService } from "./auth.crypto.js";
 import { CurrentSession, PublicRoute } from "./auth.decorators.js";
 import {
@@ -116,7 +121,11 @@ export class AuthController {
     const sessionBinding = cookies.get(SESSION_COOKIE_NAME);
     const existingAnonymousBinding = cookies.get(CSRF_BINDING_COOKIE_NAME);
     const binding = sessionBinding ?? existingAnonymousBinding ?? this.csrfTokens.createBinding();
-    const token = this.csrfTokens.issue(binding);
+    const existingToken = cookies.get(CSRF_COOKIE_NAME);
+    const token =
+      existingToken !== undefined && this.csrfTokens.verify(existingToken, binding)
+        ? existingToken
+        : this.csrfTokens.issue(binding);
     const responseCookies = [buildCsrfCookie(token, this.options)];
 
     if (sessionBinding === undefined && existingAnonymousBinding === undefined) {
