@@ -12,6 +12,11 @@ import type { DocumentService } from "../documents/document.service.js";
 import type { ResourceService } from "../resources/resource.service.js";
 import type { AiLayoutRuntimeOptions } from "./ai-layout.constants.js";
 import { AiLayoutService } from "./ai-layout.service.js";
+import {
+  AI_LAYOUT_STRUCTURE_STRATEGY_IDS,
+  AI_LAYOUT_TEMPLATES,
+  aiLayoutTemplateCatalog,
+} from "./ai-layout.templates.js";
 
 const articleId = "0198f8e1-7a01-7000-8000-000000000301";
 const ownerUserId = "0198f8e1-7a01-7000-8000-000000000302";
@@ -28,6 +33,49 @@ const designTokens = {
   textColor: "#2A221F",
   titleAlign: "center",
 } as const;
+
+function validModelDecision(languageId: AiLayoutDesignLanguageId = "crimson-editorial") {
+  return {
+    blocks: [],
+    concept: "以清晰的阅读路径组织全文。",
+    designName: "内容导航",
+    designTokens,
+    dividerAfterBlockIds: [],
+    dividerComponentId: "cmp_divider_solid_clean_001",
+    footer: {
+      componentId: "cmp_notice_info_blue_001",
+      text: "回顾文章的核心判断",
+      title: "阅读小结",
+    },
+    hero: {
+      componentId: "cmp_gov_red_gold_banner_001",
+      eyebrow: "ARTICLE",
+      footer: "阅读 · 结构",
+      title: "内容决定排版",
+    },
+    imagePlacements: [],
+    languageId,
+    rhythm: "balanced",
+    variantSeed: 1357,
+    visualAssets: [
+      {
+        afterBlockId: "block_paragraph",
+        reason: "在导语后建立阅读节点",
+        resourceId: "builtin_visual_static_022",
+      },
+    ],
+    visualIntensity: "balanced",
+  } as const;
+}
+
+function modelResponse(decision: unknown): Response {
+  return new Response(
+    JSON.stringify({
+      output: [{ content: [{ type: "output_text", text: JSON.stringify(decision) }] }],
+    }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+}
 
 function documents(
   document: DocumentV1 = { ...structuredClone(documentV1Fixture), articleId },
@@ -46,6 +94,57 @@ function documentWithBodyText(text: string): DocumentV1 {
   const paragraph = document.content.content.find((node) => node.type === "paragraph");
   if (paragraph?.type !== "paragraph") throw new Error("fixture paragraph is required");
   paragraph.content = [{ type: "text", text }];
+  return document;
+}
+
+function documentWithoutImages(): DocumentV1 {
+  const document: DocumentV1 = { ...structuredClone(documentV1Fixture), articleId };
+  document.content.content = document.content.content.filter((node) => node.type !== "imageBlock");
+  return document;
+}
+
+function representativeTemplateDocument(): DocumentV1 {
+  const document: DocumentV1 = { ...structuredClone(documentV1Fixture), articleId };
+  const paragraphTemplate = documentV1Fixture.content.content.find(
+    (node) => node.type === "paragraph",
+  );
+  const headingTemplate = documentV1Fixture.content.content.find((node) => node.type === "heading");
+  if (paragraphTemplate?.type !== "paragraph" || headingTemplate?.type !== "heading") {
+    throw new Error("representative template fixtures are required");
+  }
+  const texts = [
+    "2024 年项目正式启动，完成 12 项基础任务，覆盖 6 个业务团队。",
+    "一、从问题出发建立新的工作机制",
+    "首先梳理责任清单，其次完善协同流程，最后形成闭环复盘。",
+    "负责人表示：“真正的改变来自每一次具体行动。”",
+    "阶段一完成调研，阶段二推进试点，2025 年进入全面应用。",
+    "数据显示，效率提升 32%，响应时间缩短 18%，用户满意度达到 95%。",
+    "现场的每一张照片，都记录着团队从陌生到默契的过程。",
+    "二、让经验成为可以复用的方法",
+    "打开工作台，选择任务，检查输入，确认无误后完成提交。",
+    "下一步将落实责任人、时间表和验收标准，持续完善治理机制。",
+    "我们相信，清晰不是删掉内容，而是让重要内容被真正看见。",
+    "年度复盘之后，团队将在未来三个季度继续推进产品焕新。",
+  ];
+  const heading: HeadingNode = structuredClone(headingTemplate);
+  heading.attrs = { ...heading.attrs, blockId: "representative_heading" };
+  heading.content = [{ type: "text", text: "一项工作如何从计划走向成果" }];
+  document.content = {
+    type: "doc",
+    content: [
+      heading,
+      ...texts.map((text, index): ParagraphNode => {
+        const paragraph: ParagraphNode = structuredClone(paragraphTemplate);
+        paragraph.attrs = {
+          blockId: `representative_paragraph_${String(index).padStart(2, "0")}`,
+          locked: false,
+          semanticRole: "body",
+        };
+        paragraph.content = [{ type: "text", text }];
+        return paragraph;
+      }),
+    ],
+  };
   return document;
 }
 
@@ -211,6 +310,201 @@ const candidateLanguageCases = [
 }[];
 
 describe("AiLayoutService", () => {
+  it("publishes exactly fifty versioned templates across five explicit catalog categories", () => {
+    const service = new AiLayoutService(options(null), vi.fn(), documents(), resourceService());
+    const catalog = service.templates();
+
+    expect(catalog.catalogVersion).toMatch(/^\d{4}\.\d{2}\.\d+$/u);
+    expect(catalog.templates).toHaveLength(50);
+    expect(aiLayoutTemplateCatalog()).toHaveLength(50);
+    expect(new Set(catalog.templates.map((template) => template.templateId)).size).toBe(50);
+    expect(new Set(catalog.templates.map((template) => template.name)).size).toBe(50);
+    expect(new Set(catalog.templates.map((template) => template.catalogCategoryId))).toEqual(
+      new Set([
+        "official-report",
+        "data-business",
+        "knowledge-guide",
+        "story-people",
+        "brand-event",
+      ]),
+    );
+    expect(catalog.templates.every((template) => template.version === 1)).toBe(true);
+    expect(catalog.templates.every((template) => template.preferredLanguageIds.length > 0)).toBe(
+      true,
+    );
+  });
+
+  it("keeps five structurally distinct executable recipes for every strategy", () => {
+    expect(AI_LAYOUT_TEMPLATES).toHaveLength(50);
+    expect(
+      new Set(AI_LAYOUT_TEMPLATES.map((template) => template.structuralFingerprint)).size,
+    ).toBe(50);
+    for (const strategyId of AI_LAYOUT_STRUCTURE_STRATEGY_IDS) {
+      const templates = AI_LAYOUT_TEMPLATES.filter(
+        (template) => template.strategyId === strategyId,
+      );
+      expect(templates).toHaveLength(5);
+      const executableSignatures = templates.map((template) =>
+        [
+          template.heroMode,
+          template.footerMode,
+          template.dividerPolicy,
+          template.imagePolicy,
+          template.maxCards,
+          template.maxDataCards,
+          template.maxQuotes,
+          template.promotionOffset,
+          template.promotionStride,
+        ].join("|"),
+      );
+      expect(new Set(executableSignatures).size).toBe(5);
+    }
+    expect(
+      AI_LAYOUT_TEMPLATES.find((template) => template.templateId === "timeline-milestones-modular")
+        ?.minimumSourceImages,
+    ).toBe(2);
+  });
+
+  it("produces ten observably different structures for representative content", async () => {
+    const signatures: string[] = [];
+    for (const strategyId of AI_LAYOUT_STRUCTURE_STRATEGY_IDS) {
+      const fetcher = vi.fn().mockResolvedValue(modelResponse(validModelDecision()));
+      const service = new AiLayoutService(
+        options("secret-key"),
+        fetcher,
+        documents(representativeTemplateDocument()),
+        resourceService(),
+      );
+
+      const result = await service.generate(ownerUserId, articleId, {
+        baseDocumentVersion: 7,
+        mode: "original",
+        preferredTemplateId: `${strategyId}-classic`,
+      });
+      const decision = result.candidates[0]?.decision;
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(decision).toBeDefined();
+      signatures.push(
+        JSON.stringify({
+          blocks: decision?.blocks.map(({ blockId, componentId, treatment }) => ({
+            blockId,
+            componentId,
+            treatment,
+          })),
+          dividerAfterBlockIds: decision?.dividerAfterBlockIds,
+          dividerComponentId: decision?.dividerComponentId,
+          footerComponentId: decision?.footer.componentId,
+          heroComponentId: decision?.hero.componentId,
+        }),
+      );
+    }
+
+    expect(new Set(signatures).size).toBe(AI_LAYOUT_STRUCTURE_STRATEGY_IDS.length);
+  });
+
+  it("rejects an unknown preferred template before calling the model", async () => {
+    const fetcher = vi.fn();
+    const service = new AiLayoutService(
+      options("secret-key"),
+      fetcher,
+      documents(),
+      resourceService(),
+    );
+
+    await expect(
+      service.generate(ownerUserId, articleId, {
+        baseDocumentVersion: 7,
+        mode: "original",
+        preferredTemplateId: "missing-template",
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      apiError: { code: "AI_LAYOUT_TEMPLATE_NOT_FOUND" },
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("places an explicitly selected template first while still returning six diverse options", async () => {
+    const fetcher = vi.fn().mockResolvedValue(modelResponse(validModelDecision()));
+    const service = new AiLayoutService(
+      options("secret-key"),
+      fetcher,
+      documents(),
+      resourceService(),
+    );
+
+    const result = await service.generate(ownerUserId, articleId, {
+      baseDocumentVersion: 7,
+      mode: "original",
+      preferredTemplateId: "chapter-magazine-visual",
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(result.candidates).toHaveLength(6);
+    expect(result.candidates[0]).toMatchObject({
+      recommended: true,
+      templateId: "chapter-magazine-visual",
+      templateVersion: 1,
+    });
+    expect(result.decision).toEqual(result.candidates[0]?.decision);
+    expect(new Set(result.candidates.map((candidate) => candidate.structureFingerprint)).size).toBe(
+      6,
+    );
+  });
+
+  it("does not recommend image-dependent templates for a text-only article", async () => {
+    const fetcher = vi.fn().mockResolvedValue(modelResponse(validModelDecision("warm-paper")));
+    const service = new AiLayoutService(
+      options("secret-key"),
+      fetcher,
+      documents(documentWithoutImages()),
+      resourceService(),
+    );
+
+    const result = await service.generate(ownerUserId, articleId, {
+      baseDocumentVersion: 7,
+      mode: "original",
+    });
+
+    const definitions = new Map(
+      AI_LAYOUT_TEMPLATES.map((template) => [template.templateId, template]),
+    );
+    expect(
+      result.candidates.every((candidate) => {
+        const template = definitions.get(candidate.templateId ?? "");
+        return template !== undefined && template.minimumSourceImages === 0;
+      }),
+    ).toBe(true);
+    expect(
+      result.candidates.every((candidate) => candidate.decision.imagePlacements?.length === 0),
+    ).toBe(true);
+  });
+
+  it("honors an image-oriented template on text-only input via an explicit text-first fallback", async () => {
+    const fetcher = vi.fn().mockResolvedValue(modelResponse(validModelDecision("warm-paper")));
+    const service = new AiLayoutService(
+      options("secret-key"),
+      fetcher,
+      documents(documentWithoutImages()),
+      resourceService(),
+    );
+
+    const result = await service.generate(ownerUserId, articleId, {
+      baseDocumentVersion: 7,
+      mode: "original",
+      preferredTemplateId: "documentary-visual-visual",
+    });
+
+    expect(result.candidates[0]?.templateId).toBe("documentary-visual-visual");
+    expect(result.candidates[0]?.differenceHighlights).toContain(
+      "原稿图片不足，已安全降级为文本节奏",
+    );
+    expect(result.candidates[0]?.decision.imagePlacements).toEqual([]);
+    expect(result.candidates[0]?.decision.blocks.some((block) => block.treatment === "image")).toBe(
+      false,
+    );
+  });
+
   it("reports an unavailable model and refuses to fake AI output", async () => {
     const fetcher = vi.fn();
     const service = new AiLayoutService(options(null), fetcher, documents(), resourceService());
@@ -321,14 +615,11 @@ describe("AiLayoutService", () => {
     expect(result.decision.blocks).toHaveLength(documentV1Fixture.content.content.length);
     expect(result.decision.dividerAfterBlockIds).not.toContain("unknown");
     expect(result.candidates).toHaveLength(6);
-    expect(result.candidates.map((candidate) => candidate.profileId)).toEqual([
-      "editorial-index",
-      "briefing-cards",
-      "evidence-led",
-      "minimal-longread",
-      "documentary-visual",
-      "action-roadmap",
-    ]);
+    expect(result.candidates.every((candidate) => candidate.templateId !== undefined)).toBe(true);
+    expect(new Set(result.candidates.map((candidate) => candidate.templateId)).size).toBe(6);
+    expect(new Set(result.candidates.map((candidate) => candidate.structureFingerprint)).size).toBe(
+      6,
+    );
     expect(new Set(result.candidates.map((candidate) => candidate.decision.languageId)).size).toBe(
       6,
     );
@@ -338,22 +629,21 @@ describe("AiLayoutService", () => {
     expect(
       new Set(
         result.candidates.map((candidate) =>
-          candidate.decision.blocks
-            .filter((block) => block.treatment !== "body")
-            .map((block) => `${block.treatment}:${block.componentId ?? "none"}`)
-            .join("|"),
+          [
+            candidate.decision.hero.componentId,
+            candidate.decision.footer.componentId,
+            candidate.decision.dividerComponentId,
+            candidate.decision.rhythm,
+            candidate.decision.visualIntensity,
+            candidate.decision.dividerAfterBlockIds.join(","),
+            ...candidate.decision.blocks
+              .filter((block) => block.treatment !== "body")
+              .map((block) => `${block.treatment}:${block.componentId ?? "none"}`),
+          ].join("|"),
         ),
       ).size,
     ).toBe(6);
     expect(new Set(result.candidates.map((candidate) => candidate.candidateId)).size).toBe(6);
-    const specialLimits = new Map([
-      ["editorial-index", { cards: 2, data: 1, quotes: 2 }],
-      ["briefing-cards", { cards: 3, data: 1, quotes: 2 }],
-      ["evidence-led", { cards: 3, data: 3, quotes: 1 }],
-      ["minimal-longread", { cards: 1, data: 1, quotes: 1 }],
-      ["documentary-visual", { cards: 1, data: 1, quotes: 2 }],
-      ["action-roadmap", { cards: 3, data: 1, quotes: 1 }],
-    ]);
     for (const candidate of result.candidates) {
       expect(candidate.decision.blocks.map((block) => block.blockId)).toEqual(sourceBlockIds);
       const imageDecision = candidate.decision.blocks.find(
@@ -361,23 +651,17 @@ describe("AiLayoutService", () => {
       );
       expect(imageDecision).toMatchObject({ treatment: "image" });
       expect(imageDecision?.componentId).not.toBeNull();
-      const limits = specialLimits.get(candidate.profileId);
-      if (limits === undefined) throw new Error("candidate profile limit is required");
       const cards = candidate.decision.blocks.filter(
         (block) => block.treatment === "data" || block.treatment === "callout",
       );
-      expect(cards.length).toBeLessThanOrEqual(limits.cards);
+      expect(cards.length).toBeLessThanOrEqual(3);
       expect(
         candidate.decision.blocks.filter((block) => block.treatment === "data").length,
-      ).toBeLessThanOrEqual(limits.data);
+      ).toBeLessThanOrEqual(2);
       expect(
         candidate.decision.blocks.filter((block) => block.treatment === "quote").length,
-      ).toBeLessThanOrEqual(limits.quotes);
+      ).toBeLessThanOrEqual(3);
     }
-    expect(
-      result.candidates.find((candidate) => candidate.profileId === "documentary-visual")?.decision
-        .visualAssets,
-    ).toEqual([]);
     expect(sourceDocument).toEqual(originalDocument);
     expect(result.decision).toEqual(result.candidates[0]?.decision);
   });

@@ -16,6 +16,7 @@ import { CurrentSession } from "../auth/auth.decorators.js";
 import type { AuthenticatedSession } from "../auth/auth.types.js";
 import {
   AiLayoutStatusDto,
+  AiLayoutTemplateCatalogResponseDto,
   GenerateAiLayoutDto,
   GenerateAiLayoutResponseDto,
 } from "./ai-layout.dto.js";
@@ -33,6 +34,13 @@ export class AiLayoutController {
   @ApiOkResponse({ type: AiLayoutStatusDto })
   status() {
     return this.aiLayout.status();
+  }
+
+  @Get("ai-layout/templates")
+  @ApiOperation({ summary: "获取可指定和可复用的 AI 排版模板目录" })
+  @ApiOkResponse({ type: AiLayoutTemplateCatalogResponseDto })
+  templates() {
+    return this.aiLayout.templates();
   }
 
   @Post("articles/:articleId/ai-layout/plan")

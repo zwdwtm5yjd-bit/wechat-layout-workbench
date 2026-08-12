@@ -206,13 +206,95 @@ export const AI_LAYOUT_CANDIDATE_PROFILE_IDS = [
 
 export type AiLayoutCandidateProfileId = (typeof AI_LAYOUT_CANDIDATE_PROFILE_IDS)[number];
 
+/**
+ * Stable catalog identifier. The server validates IDs against the active catalog so new
+ * templates can be published without expanding a client-side string-literal union.
+ */
+export type AiLayoutTemplateId = string;
+
+export const AI_LAYOUT_TEMPLATE_CONTENT_CLASSES = [
+  "government",
+  "technical",
+  "data",
+  "narrative",
+] as const;
+
+export type AiLayoutTemplateContentClass = (typeof AI_LAYOUT_TEMPLATE_CONTENT_CLASSES)[number];
+
+export const AI_LAYOUT_TEMPLATE_IMAGE_POLICIES = [
+  "source-priority",
+  "optional",
+  "text-first",
+] as const;
+
+export type AiLayoutTemplateImagePolicy = (typeof AI_LAYOUT_TEMPLATE_IMAGE_POLICIES)[number];
+
+export const AI_LAYOUT_TEMPLATE_CATALOG_CATEGORY_IDS = [
+  "official-report",
+  "data-business",
+  "knowledge-guide",
+  "story-people",
+  "brand-event",
+] as const;
+
+export type AiLayoutTemplateCatalogCategoryId =
+  (typeof AI_LAYOUT_TEMPLATE_CATALOG_CATEGORY_IDS)[number];
+
+export const AI_LAYOUT_STRUCTURE_STRATEGY_IDS = [
+  "editorial-index",
+  "briefing-cards",
+  "evidence-led",
+  "minimal-longread",
+  "documentary-visual",
+  "action-roadmap",
+  "timeline-milestones",
+  "quote-led",
+  "chapter-magazine",
+  "checklist-guide",
+] as const;
+
+export type AiLayoutStructureStrategyId = (typeof AI_LAYOUT_STRUCTURE_STRATEGY_IDS)[number];
+
+export interface AiLayoutTemplateSummary {
+  readonly catalogCategoryId: AiLayoutTemplateCatalogCategoryId;
+  readonly categoryLabel: string;
+  readonly contentClasses: readonly AiLayoutTemplateContentClass[];
+  readonly defaultLanguageId: AiLayoutDesignLanguageId;
+  readonly description: string;
+  readonly imagePolicy: AiLayoutTemplateImagePolicy;
+  readonly minimumSourceImages: number;
+  readonly name: string;
+  readonly preferredLanguageIds: readonly AiLayoutDesignLanguageId[];
+  readonly previewKey: string;
+  readonly profileId: AiLayoutCandidateProfileId;
+  readonly rhythm: AiLayoutRhythm;
+  readonly sourceImageFallback: "text-first";
+  readonly strategyId: AiLayoutStructureStrategyId;
+  readonly structureLabel: string;
+  readonly tags: readonly string[];
+  readonly templateId: AiLayoutTemplateId;
+  readonly version: number;
+  readonly visualIntensity: AiLayoutVisualIntensity;
+}
+
+export interface AiLayoutTemplateCatalogResult {
+  readonly catalogVersion: string;
+  readonly templates: readonly AiLayoutTemplateSummary[];
+}
+
 export interface AiLayoutCandidate {
   readonly candidateId: string;
   readonly decision: AiLayoutDecision;
   readonly differenceHighlights: readonly string[];
   readonly profileId: AiLayoutCandidateProfileId;
   readonly recommended: boolean;
+  /** Optional while older stored/generated candidates remain readable. */
+  readonly structureFingerprint?: string;
   readonly structureLabel: string;
+  /** Optional while older stored/generated candidates remain readable. */
+  readonly templateId?: AiLayoutTemplateId;
+  /** Optional while older stored/generated candidates remain readable. */
+  readonly templateVersion?: number;
 }
 
 export interface AiLayoutStatus {
@@ -233,6 +315,7 @@ export interface GenerateAiLayoutInput {
   readonly baseDocumentVersion: number;
   readonly mode: AiLayoutMode;
   readonly preferredLanguageId?: AiLayoutDesignLanguageId;
+  readonly preferredTemplateId?: AiLayoutTemplateId;
   readonly providerId?: AiLayoutProviderId;
   readonly styleBrief?: string;
 }

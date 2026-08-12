@@ -6,6 +6,8 @@ import type {
   AiLayoutDecision,
   AiLayoutDesignLanguageId,
   AiLayoutStatus,
+  AiLayoutTemplateCatalogResult,
+  AiLayoutTemplateSummary,
   GenerateAiLayoutResult,
 } from "@wechat-layout/api-contracts";
 import { documentV1Fixture } from "@wechat-layout/document-schema/fixtures";
@@ -15,7 +17,11 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { generateAiLayout, getAiLayoutStatus } from "../lib/ai-layout/client";
+import { generateAiLayout, getAiLayoutStatus, getAiLayoutTemplates } from "../lib/ai-layout/client";
+import {
+  AI_LAYOUT_TEMPLATE_PREFERENCES_STORAGE_KEY,
+  parseAiLayoutTemplatePreferences,
+} from "../lib/ai-layout/template-preferences";
 import { createResourceAccessUrl, listResources, uploadResource } from "../lib/resources/client";
 import { EditorDeliveryActions } from "./editor-delivery-actions";
 
@@ -26,6 +32,35 @@ vi.mock("next/navigation", () => ({
 vi.mock("../lib/ai-layout/client", () => ({
   generateAiLayout: vi.fn(),
   getAiLayoutStatus: vi.fn(),
+  getAiLayoutTemplates: vi.fn(),
+}));
+
+vi.mock("./ai-template-library", () => ({
+  AiTemplateLibrary: ({
+    favoriteTemplateIds,
+    onSelectTemplate,
+    onToggleFavorite,
+    recentTemplateIds,
+    selectedTemplateId,
+  }: {
+    readonly favoriteTemplateIds: readonly string[];
+    readonly onSelectTemplate: (templateId: string | null) => void;
+    readonly onToggleFavorite: (templateId: string) => void;
+    readonly recentTemplateIds: readonly string[];
+    readonly selectedTemplateId: string | null;
+  }) => (
+    <div>
+      <button onClick={() => onSelectTemplate("editorial-index-classic")} type="button">
+        选择政务头版模板
+      </button>
+      <button onClick={() => onToggleFavorite("editorial-index-classic")} type="button">
+        收藏政务头版模板
+      </button>
+      <span>{selectedTemplateId === null ? "未选模板" : `已选 ${selectedTemplateId}`}</span>
+      <span>{`模板收藏 ${favoriteTemplateIds.length}`}</span>
+      <span>{`最近模板 ${recentTemplateIds.join(",")}`}</span>
+    </div>
+  ),
 }));
 
 vi.mock("../lib/resources/client", async () => {
@@ -67,6 +102,33 @@ const candidateProfiles = [
   string,
   AiLayoutDesignLanguageId,
 ])[];
+
+const selectedTemplate = {
+  catalogCategoryId: "official-report",
+  categoryLabel: "政务报告",
+  contentClasses: ["government"],
+  defaultLanguageId: "crimson-editorial",
+  description: "报刊式导读与章节索引",
+  imagePolicy: "optional",
+  minimumSourceImages: 0,
+  name: "政务头版",
+  preferredLanguageIds: ["crimson-editorial"],
+  previewKey: "editorial-index-classic",
+  profileId: "editorial-index",
+  rhythm: "balanced",
+  sourceImageFallback: "text-first",
+  strategyId: "editorial-index",
+  structureLabel: "政务头版",
+  tags: ["政务", "导读"],
+  templateId: "editorial-index-classic",
+  version: 1,
+  visualIntensity: "balanced",
+} as const satisfies AiLayoutTemplateSummary;
+
+const templateCatalog = {
+  catalogVersion: "2026.08.1",
+  templates: [selectedTemplate],
+} as const satisfies AiLayoutTemplateCatalogResult;
 
 function decision(
   languageId: AiLayoutDesignLanguageId,
@@ -144,6 +206,9 @@ const candidates = candidateProfiles.map(
     profileId,
     recommended: index === 0,
     structureLabel,
+    ...(index === 0
+      ? { templateId: selectedTemplate.templateId, templateVersion: selectedTemplate.version }
+      : {}),
   }),
 );
 
@@ -186,6 +251,7 @@ afterEach(() => {
 
 beforeEach(() => {
   vi.mocked(getAiLayoutStatus).mockResolvedValue(providerStatus);
+  vi.mocked(getAiLayoutTemplates).mockResolvedValue(templateCatalog);
   vi.mocked(generateAiLayout).mockResolvedValue(generationResult);
   vi.mocked(listResources).mockResolvedValue({ items: [], page: 1, pageSize: 100, total: 0 });
   vi.mocked(createResourceAccessUrl).mockResolvedValue({
@@ -246,6 +312,57 @@ describe("EditorDeliveryActions AI candidate comparison", () => {
     expect(within(firstCard).getByText(/\d+ 个章节/u).className).toContain("text-[11px]");
   });
 
+  it("sends the selected catalog template while still returning six AI candidates", async () => {
+    renderWithQueryClient(
+      <EditorDeliveryActions
+        articleId={documentV1Fixture.articleId}
+        document={structuredClone(documentV1Fixture)}
+        documentVersion={1}
+        onApplyLayout={vi.fn().mockResolvedValue(undefined)}
+        onPrepareImages={vi.fn().mockResolvedValue({
+          document: structuredClone(documentV1Fixture),
+          documentVersion: 1,
+        })}
+        saveStatus="saved"
+        themes={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "智能排版" }));
+    fireEvent.click(screen.getByRole("tab", { name: /AI 原创/u }));
+    expect(await screen.findByText("未选模板")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "选择政务头版模板" }));
+    expect(screen.getByText("已选 editorial-index-classic")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "收藏政务头版模板" }));
+    expect(screen.getByText("模板收藏 1")).toBeTruthy();
+
+    const generateButton = screen.getByRole("button", { name: "生成6套AI方案" });
+    await waitFor(() => expect(generateButton.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(generateButton);
+
+    await waitFor(() =>
+      expect(generateAiLayout).toHaveBeenCalledWith(
+        documentV1Fixture.articleId,
+        expect.objectContaining({
+          mode: "original",
+          preferredTemplateId: "editorial-index-classic",
+        }),
+      ),
+    );
+    expect(await screen.findByText("已生成 6 套可对比方案")).toBeTruthy();
+    expect(screen.getAllByRole("article", { name: /候选方案$/u })).toHaveLength(6);
+    expect(screen.getByText("模板 · 政务头版 · editorial-index-classic")).toBeTruthy();
+    expect(screen.getByText("最近模板 editorial-index-classic")).toBeTruthy();
+    expect(
+      parseAiLayoutTemplatePreferences(
+        window.localStorage.getItem(AI_LAYOUT_TEMPLATE_PREFERENCES_STORAGE_KEY),
+      ),
+    ).toMatchObject({
+      favoriteTemplateIds: ["editorial-index-classic"],
+      recentTemplateIds: ["editorial-index-classic"],
+    });
+  });
+
   it("prevents a rapid double click from consuming two AI requests", async () => {
     let resolveGeneration: (result: GenerateAiLayoutResult) => void = () => undefined;
     vi.mocked(generateAiLayout).mockReturnValue(
@@ -280,6 +397,45 @@ describe("EditorDeliveryActions AI candidate comparison", () => {
     await waitFor(() => expect(generateAiLayout).toHaveBeenCalledTimes(1));
     resolveGeneration(generationResult);
     expect(await screen.findByText("已生成 6 套可对比方案")).toBeTruthy();
+  });
+
+  it("discards an AI response when the generation settings change in flight", async () => {
+    let resolveGeneration: (result: GenerateAiLayoutResult) => void = () => undefined;
+    vi.mocked(generateAiLayout).mockReturnValue(
+      new Promise((resolve) => {
+        resolveGeneration = resolve;
+      }),
+    );
+    renderWithQueryClient(
+      <EditorDeliveryActions
+        articleId={documentV1Fixture.articleId}
+        document={structuredClone(documentV1Fixture)}
+        documentVersion={1}
+        onApplyLayout={vi.fn().mockResolvedValue(undefined)}
+        onPrepareImages={vi.fn().mockResolvedValue({
+          document: structuredClone(documentV1Fixture),
+          documentVersion: 1,
+        })}
+        saveStatus="saved"
+        themes={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "智能排版" }));
+    fireEvent.click(screen.getByRole("tab", { name: /AI 原创/u }));
+    const generateButton = await screen.findByRole("button", { name: "生成6套AI方案" });
+    await waitFor(() => expect(generateButton.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(generateButton);
+    await waitFor(() => expect(generateAiLayout).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("tab", { name: /AI 定制/u }));
+    await act(async () => {
+      resolveGeneration(generationResult);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(screen.queryByText("已生成 6 套可对比方案")).toBeNull());
+    expect(screen.queryAllByRole("article", { name: /候选方案$/u })).toHaveLength(0);
   });
 
   it("announces favorite pinning and removal to assistive technology", async () => {

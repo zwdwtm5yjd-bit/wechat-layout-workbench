@@ -139,6 +139,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/ai-layout/templates": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取可指定和可复用的 AI 排版模板目录 */
+    get: operations["AiLayoutController_templates"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/articles": {
     parameters: {
       query?: never;
@@ -1007,6 +1024,24 @@ export interface components {
       /** @example true */
       success: boolean;
     };
+    AiLayoutCandidateResponseDto: {
+      candidateId: string;
+      decision: Record<string, never>;
+      differenceHighlights: string[];
+      /** @enum {string} */
+      profileId:
+        | "editorial-index"
+        | "briefing-cards"
+        | "evidence-led"
+        | "minimal-longread"
+        | "documentary-visual"
+        | "action-roadmap";
+      recommended: boolean;
+      structureFingerprint: string;
+      structureLabel: string;
+      templateId: string;
+      templateVersion: number;
+    };
     AiLayoutModelOptionDto: {
       available: boolean;
       description: string;
@@ -1023,6 +1058,93 @@ export interface components {
       models: components["schemas"]["AiLayoutModelOptionDto"][];
       /** @enum {string} */
       provider: "auto" | "deepseek" | "qwen" | "kimi";
+    };
+    AiLayoutTemplateCatalogResponseDto: {
+      catalogVersion: string;
+      templates: components["schemas"]["AiLayoutTemplateSummaryDto"][];
+    };
+    AiLayoutTemplateSummaryDto: {
+      /** @enum {string} */
+      catalogCategoryId:
+        "official-report" | "data-business" | "knowledge-guide" | "story-people" | "brand-event";
+      categoryLabel: string;
+      contentClasses: ("government" | "technical" | "data" | "narrative")[];
+      /** @enum {string} */
+      defaultLanguageId:
+        | "minimal-blue"
+        | "warm-paper"
+        | "night-cyan"
+        | "forest-green"
+        | "crimson-editorial"
+        | "ink-gold"
+        | "civic-blue"
+        | "news-editorial"
+        | "annual-report"
+        | "data-dashboard"
+        | "monochrome-finance"
+        | "future-purple"
+        | "cyber-neon"
+        | "jade-oriental"
+        | "seasonal-poetry"
+        | "academic-journal"
+        | "playful-notebook"
+        | "event-poster";
+      description: string;
+      /** @enum {string} */
+      imagePolicy: "source-priority" | "optional" | "text-first";
+      minimumSourceImages: number;
+      name: string;
+      preferredLanguageIds: (
+        | "minimal-blue"
+        | "warm-paper"
+        | "night-cyan"
+        | "forest-green"
+        | "crimson-editorial"
+        | "ink-gold"
+        | "civic-blue"
+        | "news-editorial"
+        | "annual-report"
+        | "data-dashboard"
+        | "monochrome-finance"
+        | "future-purple"
+        | "cyber-neon"
+        | "jade-oriental"
+        | "seasonal-poetry"
+        | "academic-journal"
+        | "playful-notebook"
+        | "event-poster"
+      )[];
+      previewKey: string;
+      /** @enum {string} */
+      profileId:
+        | "editorial-index"
+        | "briefing-cards"
+        | "evidence-led"
+        | "minimal-longread"
+        | "documentary-visual"
+        | "action-roadmap";
+      /** @enum {string} */
+      rhythm: "compact" | "balanced" | "airy";
+      /** @enum {string} */
+      sourceImageFallback: "text-first";
+      /** @enum {string} */
+      strategyId:
+        | "editorial-index"
+        | "briefing-cards"
+        | "evidence-led"
+        | "minimal-longread"
+        | "documentary-visual"
+        | "action-roadmap"
+        | "timeline-milestones"
+        | "quote-led"
+        | "chapter-magazine"
+        | "checklist-guide";
+      structureLabel: string;
+      tags: string[];
+      templateId: string;
+      version: number;
+      /** @enum {string} */
+      visualIntensity: "restrained" | "balanced" | "bold";
     };
     ApiErrorOpenApiModel: {
       /** @example VALIDATION_FAILED */
@@ -1617,13 +1739,14 @@ export interface components {
         | "academic-journal"
         | "playful-notebook"
         | "event-poster";
+      preferredTemplateId?: string;
       /** @enum {string} */
       providerId?: "auto" | "deepseek" | "qwen" | "kimi";
       styleBrief?: string;
     };
     GenerateAiLayoutResponseDto: {
       available: boolean;
-      candidates: Record<string, never>[];
+      candidates: components["schemas"]["AiLayoutCandidateResponseDto"][];
       decision: Record<string, never>;
       /** @enum {string} */
       defaultProviderId: "auto" | "deepseek" | "qwen" | "kimi";
@@ -2683,6 +2806,32 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AiLayoutStatusDto"];
+        };
+      };
+      /** @description 会话不存在、已到期或已撤销 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AiLayoutController_templates: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AiLayoutTemplateCatalogResponseDto"];
         };
       };
       /** @description 会话不存在、已到期或已撤销 */

@@ -1,5 +1,6 @@
 import type {
   AiLayoutStatus,
+  AiLayoutTemplateCatalogResult,
   GenerateAiLayoutInput,
   GenerateAiLayoutResult,
 } from "@wechat-layout/api-contracts";
@@ -58,6 +59,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export function getAiLayoutStatus(): Promise<AiLayoutStatus> {
   return request<AiLayoutStatus>("/api/v1/ai-layout/status");
+}
+
+export function getAiLayoutTemplates(): Promise<AiLayoutTemplateCatalogResult> {
+  return request<AiLayoutTemplateCatalogResult>("/api/v1/ai-layout/templates");
 }
 
 export async function generateAiLayout(

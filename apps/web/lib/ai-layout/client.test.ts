@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import * as authClient from "../auth/client";
-import { generateAiLayout, getAiLayoutStatus } from "./client";
+import { generateAiLayout, getAiLayoutStatus, getAiLayoutTemplates } from "./client";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -59,6 +59,7 @@ describe("AI layout client", () => {
       baseDocumentVersion: 7,
       mode: "described",
       providerId: "deepseek",
+      preferredTemplateId: "civic-editorial-01",
       styleBrief: "克制的政务杂志感",
     });
     const request = fetcher.mock.calls[0]?.[1] as RequestInit;
@@ -67,7 +68,30 @@ describe("AI layout client", () => {
       baseDocumentVersion: 7,
       mode: "described",
       providerId: "deepseek",
+      preferredTemplateId: "civic-editorial-01",
       styleBrief: "克制的政务杂志感",
     });
+  });
+
+  it("loads the independently browsable AI template catalog", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: { catalogVersion: "v1", templates: [] },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    await expect(getAiLayoutTemplates()).resolves.toEqual({
+      catalogVersion: "v1",
+      templates: [],
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://127.0.0.1:3001/api/v1/ai-layout/templates",
+      expect.objectContaining({ credentials: "include" }),
+    );
   });
 });

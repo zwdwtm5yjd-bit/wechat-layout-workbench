@@ -1,5 +1,4 @@
 import {
-  AI_LAYOUT_CANDIDATE_PROFILE_IDS,
   AI_LAYOUT_COMPONENT_IDS,
   AI_LAYOUT_DESIGN_LANGUAGE_IDS,
   AI_LAYOUT_DIVIDER_COMPONENT_IDS,
@@ -16,7 +15,6 @@ import {
   AI_LAYOUT_VISUAL_INTENSITIES,
   type AiLayoutBlockDecision,
   type AiLayoutCandidate,
-  type AiLayoutCandidateProfileId,
   type AiLayoutComponentId,
   type AiLayoutConcreteProviderId,
   type AiLayoutDecision,
@@ -49,6 +47,13 @@ import {
   type AiLayoutProviderRuntimeOptions,
   type AiLayoutRuntimeOptions,
 } from "./ai-layout.constants.js";
+import {
+  AI_LAYOUT_TEMPLATE_CATALOG_VERSION,
+  AI_LAYOUT_TEMPLATES,
+  aiLayoutTemplate,
+  aiLayoutTemplateCatalog,
+  type AiLayoutTemplateDefinition,
+} from "./ai-layout.templates.js";
 
 type Fetcher = typeof globalThis.fetch;
 type TopLevelBlock = DocNode["content"][number];
@@ -1073,161 +1078,7 @@ function sanitizeDecision(
   };
 }
 
-interface CandidateProfileDefinition {
-  readonly components: Readonly<Partial<Record<AiLayoutTreatment, AiLayoutComponentId>>>;
-  readonly conceptLead: string;
-  readonly differenceHighlights: readonly string[];
-  readonly dividerComponentId: AiLayoutDecision["dividerComponentId"];
-  readonly footerComponentId: AiLayoutDecision["footer"]["componentId"];
-  readonly heroComponentId: AiLayoutDecision["hero"]["componentId"];
-  readonly id: AiLayoutCandidateProfileId;
-  readonly label: string;
-  readonly maxCards: number;
-  readonly maxDataCards: number;
-  readonly maxQuotes: number;
-  readonly rhythm: AiLayoutDecision["rhythm"];
-  readonly visualIntensity: AiLayoutDecision["visualIntensity"];
-}
-
-const candidateProfileById: Readonly<
-  Record<AiLayoutCandidateProfileId, CandidateProfileDefinition>
-> = {
-  "editorial-index": {
-    components: {
-      title: "cmp_head_level1_underlined_003",
-      section: "cmp_head_level2_leftbar_002",
-      quote: "cmp_quote_standard_leftline_001",
-      data: "cmp_notice_checklist_action_005",
-      callout: "cmp_notice_risk_red_004",
-      image: "cmp_image_border_documentary_003",
-    },
-    conceptLead: "先用报刊式导读建立阅读索引，再以左线章节和克制引语推进长文。",
-    differenceHighlights: ["报刊式首屏与本文看点", "左线章节 + 纪实图片", "连续正文为主，装饰克制"],
-    dividerComponentId: "cmp_divider_solid_clean_001",
-    footerComponentId: "cmp_notice_checklist_action_005",
-    heroComponentId: "cmp_gov_red_gold_banner_001",
-    id: "editorial-index",
-    label: "报刊导读型",
-    maxCards: 2,
-    maxDataCards: 1,
-    maxQuotes: 2,
-    rhythm: "compact",
-    visualIntensity: "restrained",
-  },
-  "briefing-cards": {
-    components: {
-      title: "cmp_head_level1_frame_006",
-      section: "cmp_head_level2_pill_005",
-      quote: "cmp_quote_conclusion_card_003",
-      data: "cmp_notice_info_blue_001",
-      callout: "cmp_notice_story_intro_006",
-      image: "cmp_image_rounded_caption_002",
-    },
-    conceptLead: "把关键判断拆成简报卡片，使用框题、胶囊章节和结论盒形成分组节奏。",
-    differenceHighlights: ["框题首屏 + 胶囊章节", "关键判断转为简报卡片", "圆角配图 + 结论盒收束"],
-    dividerComponentId: "cmp_divider_ornament_dots_004",
-    footerComponentId: "cmp_notice_story_intro_006",
-    heroComponentId: "cmp_hero_ink_mountain_001",
-    id: "briefing-cards",
-    label: "简报卡片型",
-    maxCards: 3,
-    maxDataCards: 1,
-    maxQuotes: 2,
-    rhythm: "airy",
-    visualIntensity: "balanced",
-  },
-  "evidence-led": {
-    components: {
-      title: "cmp_head_level1_numbered_002",
-      section: "cmp_head_level2_underlined_003",
-      quote: "cmp_quote_document_source_004",
-      data: "cmp_notice_success_green_002",
-      callout: "cmp_notice_warning_amber_003",
-      image: "cmp_image_centered_numbered_004",
-    },
-    conceptLead: "以编号章节、数据证据卡和图注序号组织事实，让数字与成果成为视觉主线。",
-    differenceHighlights: ["编号章节建立进度感", "数字段落转为证据卡", "图片编号 + 来源式引用"],
-    dividerComponentId: "cmp_divider_dashed_subtle_002",
-    footerComponentId: "cmp_notice_success_green_002",
-    heroComponentId: "cmp_tech_orbit_hero_001",
-    id: "evidence-led",
-    label: "数据证据型",
-    maxCards: 3,
-    maxDataCards: 3,
-    maxQuotes: 1,
-    rhythm: "balanced",
-    visualIntensity: "bold",
-  },
-  "minimal-longread": {
-    components: {
-      title: "cmp_head_level1_centered_004",
-      section: "cmp_head_level2_plain_004",
-      quote: "cmp_quote_highlight_center_006",
-      data: "cmp_notice_info_blue_001",
-      callout: "cmp_notice_story_intro_006",
-      image: "cmp_image_fullwidth_clean_001",
-    },
-    conceptLead: "以长段落、大留白和少量金句保持沉浸阅读，只在真正转折处建立层级。",
-    differenceHighlights: ["连续长读为主", "大留白 + 素净小标", "特殊卡片不超过 1 张"],
-    dividerComponentId: "cmp_divider_solid_clean_001",
-    footerComponentId: "cmp_notice_info_blue_001",
-    heroComponentId: "cmp_intro_bamboo_note_002",
-    id: "minimal-longread",
-    label: "极简长读型",
-    maxCards: 1,
-    maxDataCards: 1,
-    maxQuotes: 1,
-    rhythm: "airy",
-    visualIntensity: "restrained",
-  },
-  "documentary-visual": {
-    components: {
-      title: "cmp_head_mist_mountains_007",
-      section: "cmp_head_cloud_scroll_008",
-      quote: "cmp_quote_postcard_warm_005",
-      data: "cmp_notice_success_green_002",
-      callout: "cmp_notice_story_intro_006",
-      image: "cmp_image_polaroid_caption_005",
-    },
-    conceptLead: "让原稿照片成为叙事节点，用图注、短引语和舒展章节串联现场故事。",
-    differenceHighlights: ["原稿图片优先", "拍立得图注节奏", "临近图片的短段落转为叙事引语"],
-    dividerComponentId: "cmp_divider_ornament_center_003",
-    footerComponentId: "cmp_notice_story_intro_006",
-    heroComponentId: "cmp_intro_leaf_story_003",
-    id: "documentary-visual",
-    label: "纪实图文型",
-    maxCards: 1,
-    maxDataCards: 1,
-    maxQuotes: 2,
-    rhythm: "airy",
-    visualIntensity: "balanced",
-  },
-  "action-roadmap": {
-    components: {
-      title: "cmp_head_level1_ribbon_005",
-      section: "cmp_head_level2_marker_006",
-      quote: "cmp_quote_conclusion_card_003",
-      data: "cmp_notice_success_green_002",
-      callout: "cmp_notice_checklist_action_005",
-      image: "cmp_image_centered_numbered_004",
-    },
-    conceptLead: "把目标、动作、责任和结果组织成路线图，用步骤章节和行动清单推进阅读。",
-    differenceHighlights: ["步骤序号建立路线", "动作段落转为清单", "数据与结论作为里程碑"],
-    dividerComponentId: "cmp_divider_dashed_subtle_002",
-    footerComponentId: "cmp_notice_checklist_action_005",
-    heroComponentId: "cmp_tech_orbit_hero_001",
-    id: "action-roadmap",
-    label: "行动路线型",
-    maxCards: 3,
-    maxDataCards: 1,
-    maxQuotes: 1,
-    rhythm: "compact",
-    visualIntensity: "bold",
-  },
-};
-
-const candidateProfiles: readonly CandidateProfileDefinition[] =
-  AI_LAYOUT_CANDIDATE_PROFILE_IDS.map((profileId) => candidateProfileById[profileId]);
+type CandidateTemplateDefinition = AiLayoutTemplateDefinition;
 
 type CandidateContentClass = "government" | "technical" | "data" | "narrative";
 
@@ -1285,22 +1136,10 @@ function candidateContentClass(text: string): CandidateContentClass {
   return "narrative";
 }
 
-function candidateLanguages(
-  baseLanguageId: AiLayoutDesignLanguageId,
-  blocks: readonly TopLevelBlock[],
-): readonly AiLayoutDesignLanguageId[] {
-  const text = blocks.map(textFromNode).join(" ");
-  const ordered = candidateLanguageOrder[candidateContentClass(text)];
-  return [baseLanguageId, ...ordered.filter((languageId) => languageId !== baseLanguageId)].slice(
-    0,
-    candidateProfiles.length,
-  );
-}
-
 function profileBlocks(
   baseBlocks: readonly AiLayoutBlockDecision[],
   sourceBlocks: readonly TopLevelBlock[],
-  profile: CandidateProfileDefinition,
+  profile: CandidateTemplateDefinition,
 ): readonly AiLayoutBlockDecision[] {
   const sourceById = new Map(sourceBlocks.map((block) => [block.attrs.blockId, block]));
   const sourceIndexById = new Map(sourceBlocks.map((block, index) => [block.attrs.blockId, index]));
@@ -1319,7 +1158,7 @@ function profileBlocks(
     if (source?.type === "bulletList" || source?.type === "orderedList") treatment = "list";
     if (source?.type === "paragraph" && treatment === "body") {
       if (
-        profile.id === "editorial-index" &&
+        profile.strategyId === "editorial-index" &&
         promotedSections < 2 &&
         text.length >= 4 &&
         text.length <= 64 &&
@@ -1328,7 +1167,7 @@ function profileBlocks(
         treatment = "section";
         promotedSections += 1;
       } else if (
-        profile.id === "briefing-cards" &&
+        profile.strategyId === "briefing-cards" &&
         promotedCallouts < 2 &&
         text.length >= 24 &&
         text.length <= 240 &&
@@ -1336,7 +1175,7 @@ function profileBlocks(
       ) {
         treatment = promotedCallouts === 0 ? "callout" : "quote";
         promotedCallouts += 1;
-      } else if (profile.id === "evidence-led") {
+      } else if (profile.strategyId === "evidence-led") {
         const numbers = text.match(/\d+(?:\.\d+)?(?:%|万|亿|倍|年|个|项|人|件)?/gu) ?? [];
         if (promotedCallouts < 3 && text.length <= 420 && numbers.length >= 2) {
           treatment = "data";
@@ -1346,7 +1185,7 @@ function profileBlocks(
           promotedQuotes += 1;
         }
       } else if (
-        profile.id === "minimal-longread" &&
+        profile.strategyId === "minimal-longread" &&
         promotedQuotes < 1 &&
         text.length >= 28 &&
         text.length <= 140 &&
@@ -1354,7 +1193,7 @@ function profileBlocks(
       ) {
         treatment = "quote";
         promotedQuotes += 1;
-      } else if (profile.id === "documentary-visual") {
+      } else if (profile.strategyId === "documentary-visual") {
         const nearImage = imageIndexes.some(
           (imageIndex) => Math.abs(imageIndex - sourceIndex) <= 2,
         );
@@ -1368,7 +1207,7 @@ function profileBlocks(
           treatment = "quote";
           promotedQuotes += 1;
         }
-      } else if (profile.id === "action-roadmap") {
+      } else if (profile.strategyId === "action-roadmap") {
         const numbers = text.match(/\d+(?:\.\d+)?(?:%|万|亿|倍|年|个|项|人|件)?/gu) ?? [];
         if (promotedCallouts < 1 && text.length <= 420 && numbers.length >= 2) {
           treatment = "data";
@@ -1384,18 +1223,113 @@ function profileBlocks(
           treatment = "callout";
           promotedCallouts += 1;
         }
+      } else if (profile.strategyId === "timeline-milestones") {
+        if (
+          promotedCallouts < profile.maxCards &&
+          text.length >= 12 &&
+          text.length <= 300 &&
+          /(?:19|20)\d{2}|(?:首先|随后|同年|次年|阶段|从前|目前|未来|至今|月|季度|年度)/u.test(text)
+        ) {
+          treatment = /\d/u.test(text) ? "data" : "callout";
+          promotedCallouts += 1;
+        }
+      } else if (
+        profile.strategyId === "quote-led" &&
+        promotedQuotes < profile.maxQuotes &&
+        text.length >= 16 &&
+        text.length <= 180 &&
+        (/[“”"「」]/u.test(text) ||
+          sourceIndex % profile.promotionStride === profile.promotionOffset)
+      ) {
+        treatment = "quote";
+        promotedQuotes += 1;
+      } else if (profile.strategyId === "chapter-magazine") {
+        if (
+          promotedSections < 3 &&
+          text.length >= 4 &&
+          text.length <= 72 &&
+          (headingSignal(text) || sourceIndex % profile.promotionStride === profile.promotionOffset)
+        ) {
+          treatment = "section";
+          promotedSections += 1;
+        } else if (
+          promotedQuotes < profile.maxQuotes &&
+          text.length >= 28 &&
+          text.length <= 160 &&
+          sourceIndex % profile.promotionStride === profile.promotionOffset
+        ) {
+          treatment = "quote";
+          promotedQuotes += 1;
+        }
+      } else if (
+        profile.strategyId === "checklist-guide" &&
+        promotedCallouts < profile.maxCards &&
+        text.length >= 12 &&
+        text.length <= 320 &&
+        /(?:第一|第二|第三|首先|其次|最后|步骤|注意|建议|需要|应当|检查|准备|打开|选择|完成)/u.test(
+          text,
+        )
+      ) {
+        treatment = "callout";
+        promotedCallouts += 1;
+      }
+    }
+    if (source?.type === "paragraph" && treatment === "body") {
+      const isVariantBeat =
+        sourceIndex % profile.promotionStride === profile.promotionOffset % profile.promotionStride;
+      if (
+        profile.variantId === "compact" &&
+        promotedCallouts < profile.maxCards &&
+        isVariantBeat &&
+        text.length >= 18 &&
+        text.length <= 300
+      ) {
+        treatment = "callout";
+        promotedCallouts += 1;
+      } else if (profile.variantId === "visual") {
+        const nearImage = imageIndexes.some(
+          (imageIndex) => Math.abs(imageIndex - sourceIndex) <= 2,
+        );
+        if (
+          promotedQuotes < profile.maxQuotes &&
+          nearImage &&
+          text.length >= 16 &&
+          text.length <= 180
+        ) {
+          treatment = "quote";
+          promotedQuotes += 1;
+        }
+      } else if (
+        profile.variantId === "narrative" &&
+        promotedQuotes < profile.maxQuotes &&
+        isVariantBeat &&
+        text.length >= 24 &&
+        text.length <= 180
+      ) {
+        treatment = "quote";
+        promotedQuotes += 1;
+      } else if (
+        profile.variantId === "modular" &&
+        promotedCallouts < profile.maxCards &&
+        isVariantBeat &&
+        text.length >= 18 &&
+        text.length <= 360
+      ) {
+        const numbers = text.match(/\d+(?:\.\d+)?(?:%|万|亿|倍|年|个|项|人|件)?/gu) ?? [];
+        treatment = numbers.length >= 2 ? "data" : "callout";
+        promotedCallouts += 1;
       }
     }
     if (
       source?.type === "paragraph" &&
-      profile.id === "minimal-longread" &&
+      profile.strategyId === "minimal-longread" &&
       (treatment === "data" || treatment === "callout")
     ) {
       treatment = "body";
     }
     if (
       source?.type === "paragraph" &&
-      profile.id === "documentary-visual" &&
+      profile.strategyId === "documentary-visual" &&
       (treatment === "data" || treatment === "callout")
     ) {
       treatment = "body";
@@ -1404,7 +1338,7 @@ function profileBlocks(
     return {
       ...decision,
       componentId: compatibleComponentId(treatment, componentId),
-      reason: `${decision.reason}；${profile.label}采用${treatment}表达`.slice(0, 120),
+      reason: `${decision.reason}；${profile.name}采用${treatment}表达`.slice(0, 120),
       treatment,
     };
   });
@@ -1412,7 +1346,7 @@ function profileBlocks(
 
 function finalizedProfileBlocks(
   blocks: readonly AiLayoutBlockDecision[],
-  profile: CandidateProfileDefinition,
+  profile: CandidateTemplateDefinition,
 ): readonly AiLayoutBlockDecision[] {
   let cards = 0;
   let dataCards = 0;
@@ -1442,28 +1376,22 @@ function finalizedProfileBlocks(
 
 function candidateDividerAnchors(
   blocks: readonly AiLayoutBlockDecision[],
-  profileId: AiLayoutCandidateProfileId,
+  policy: AiLayoutTemplateDefinition["dividerPolicy"],
 ): readonly string[] {
   const sections = blocks.filter((block) => block.treatment === "section");
-  if (profileId === "briefing-cards") {
+  if (policy === "alternating-sections") {
     return sections
       .filter((_, index) => index % 2 === 1)
       .map((block) => block.blockId)
       .slice(0, 3);
   }
-  if (profileId === "evidence-led") {
+  if (policy === "evidence") {
     const evidence = blocks.filter(
       (block) => block.treatment === "data" || block.treatment === "callout",
     );
     return (evidence.length > 0 ? evidence : sections).map((block) => block.blockId).slice(0, 3);
   }
-  if (profileId === "minimal-longread") {
-    return sections
-      .filter((_, index) => index % 2 === 1)
-      .map((block) => block.blockId)
-      .slice(0, 2);
-  }
-  if (profileId === "documentary-visual") {
+  if (policy === "visual-beats") {
     const visualBeats = blocks.filter(
       (block) => block.treatment === "image" || block.treatment === "quote",
     );
@@ -1471,7 +1399,7 @@ function candidateDividerAnchors(
       .map((block) => block.blockId)
       .slice(0, 3);
   }
-  if (profileId === "action-roadmap") {
+  if (policy === "milestones") {
     const milestones = blocks.filter(
       (block) => block.treatment === "data" || block.treatment === "callout",
     );
@@ -1482,41 +1410,145 @@ function candidateDividerAnchors(
   return sections.map((block) => block.blockId).slice(0, 3);
 }
 
+function candidateLanguages(
+  baseLanguageId: AiLayoutDesignLanguageId,
+  blocks: readonly TopLevelBlock[],
+): readonly AiLayoutDesignLanguageId[] {
+  const text = blocks.map(textFromNode).join(" ");
+  const ordered = candidateLanguageOrder[candidateContentClass(text)];
+  return [baseLanguageId, ...ordered.filter((languageId) => languageId !== baseLanguageId)].slice(
+    0,
+    6,
+  );
+}
+
+function contentSignals(blocks: readonly TopLevelBlock[]): Readonly<{
+  contentClass: CandidateContentClass;
+  hasActions: boolean;
+  hasDates: boolean;
+  hasQuotes: boolean;
+  numericSignals: number;
+  text: string;
+}> {
+  const text = blocks.map(textFromNode).join(" ");
+  return {
+    contentClass: candidateContentClass(text),
+    hasActions: /(?:下一步|推动|落实|建立|完善|步骤|应当|需要)/u.test(text),
+    hasDates: /(?:19|20)\d{2}|月|季度|年度|阶段/u.test(text),
+    hasQuotes: /[“”"「」]/u.test(text),
+    numericSignals: text.match(/\d+(?:\.\d+)?(?:%|万|亿|倍|年|个|项|人|件)?/gu)?.length ?? 0,
+    text,
+  };
+}
+
+function templateScore(
+  template: AiLayoutTemplateDefinition,
+  signals: ReturnType<typeof contentSignals>,
+  sourceImageCount: number,
+): number {
+  let score = template.contentClasses.includes(signals.contentClass) ? 50 : 0;
+  const classIndex = template.contentClasses.indexOf(signals.contentClass);
+  if (classIndex >= 0) score += (3 - classIndex) * 4;
+  if (sourceImageCount > 0 && template.imagePolicy === "source-priority") score += 14;
+  if (sourceImageCount === 0 && template.imagePolicy === "text-first") score += 8;
+  if (signals.numericSignals >= 6 && template.strategyId === "evidence-led") score += 18;
+  if (signals.hasActions && ["action-roadmap", "checklist-guide"].includes(template.strategyId)) {
+    score += 16;
+  }
+  if (signals.hasDates && template.strategyId === "timeline-milestones") score += 18;
+  if (signals.hasQuotes && template.strategyId === "quote-led") score += 18;
+  score += template.positiveSignals.filter((signal) => signals.text.includes(signal)).length * 5;
+  if (sourceImageCount < template.minimumSourceImages) score -= 1_000;
+  return score;
+}
+
+function selectedTemplates(
+  sourceBlocks: readonly TopLevelBlock[],
+  sourceImages: readonly SourceImageContext[],
+  preferredTemplate: AiLayoutTemplateDefinition | undefined,
+): readonly AiLayoutTemplateDefinition[] {
+  const signals = contentSignals(sourceBlocks);
+  const ranked = AI_LAYOUT_TEMPLATES.map((template, catalogIndex) => ({
+    catalogIndex,
+    score: templateScore(template, signals, sourceImages.length),
+    template,
+  }))
+    .filter(
+      ({ template }) =>
+        template.minimumSourceImages <= sourceImages.length ||
+        template.templateId === preferredTemplate?.templateId,
+    )
+    .sort((left, right) => right.score - left.score || left.catalogIndex - right.catalogIndex);
+  const selected: AiLayoutTemplateDefinition[] = [];
+  if (preferredTemplate !== undefined) selected.push(preferredTemplate);
+  const usedStrategies = new Set(selected.map((template) => template.strategyId));
+  const usedFingerprints = new Set(selected.map((template) => template.structuralFingerprint));
+  const usedHeroes = new Set(selected.map((template) => template.heroComponentId));
+  for (const { template } of ranked) {
+    if (selected.length >= 6) break;
+    if (usedFingerprints.has(template.structuralFingerprint)) continue;
+    if (usedStrategies.has(template.strategyId)) continue;
+    if (selected.length < 5 && usedHeroes.has(template.heroComponentId)) continue;
+    selected.push(template);
+    usedStrategies.add(template.strategyId);
+    usedFingerprints.add(template.structuralFingerprint);
+    usedHeroes.add(template.heroComponentId);
+  }
+  for (const { template } of ranked) {
+    if (selected.length >= 6) break;
+    if (usedFingerprints.has(template.structuralFingerprint)) continue;
+    selected.push(template);
+    usedFingerprints.add(template.structuralFingerprint);
+  }
+  return selected;
+}
+
 function buildLayoutCandidates(
   base: AiLayoutDecision,
   sourceBlocks: readonly TopLevelBlock[],
   sourceImages: readonly SourceImageContext[],
   placementBlocks: readonly TopLevelBlock[],
+  preferredTemplate: AiLayoutTemplateDefinition | undefined,
 ): readonly AiLayoutCandidate[] {
+  const templates = selectedTemplates(sourceBlocks, sourceImages, preferredTemplate);
   const languages = candidateLanguages(base.languageId, sourceBlocks);
-  return candidateProfiles.map((profile, index) => {
-    const languageId = languages[index] ?? base.languageId;
-    const rawBlocks = profileBlocks(base.blocks, sourceBlocks, profile);
-    const designSuffix = `·${profile.label}`;
+  return templates.map((template, index) => {
+    const languageId = languages[index] ?? template.defaultLanguageId;
+    const rawBlocks = profileBlocks(base.blocks, sourceBlocks, template);
+    const designSuffix = `·${template.name}`;
     const raw: AiLayoutDecision = {
       ...base,
       blocks: rawBlocks,
-      concept: `${profile.conceptLead}${base.concept}`.slice(0, 240),
+      concept: `${template.conceptLead}${base.concept}`.slice(0, 240),
       designName: `${base.designName.slice(0, 50 - designSuffix.length)}${designSuffix}`,
       designTokens: defaultDesignTokens[languageId],
-      dividerAfterBlockIds: candidateDividerAnchors(rawBlocks, profile.id),
-      dividerComponentId: profile.dividerComponentId,
-      footer: { ...base.footer, componentId: profile.footerComponentId },
-      hero: { ...base.hero, componentId: profile.heroComponentId },
+      dividerAfterBlockIds: candidateDividerAnchors(rawBlocks, template.dividerPolicy),
+      dividerComponentId: template.dividerComponentId,
+      footer: {
+        ...base.footer,
+        componentId: template.footerComponentId,
+        title: `${template.name}·${base.footer.title}`.slice(0, 40),
+      },
+      hero: {
+        ...base.hero,
+        componentId: template.heroComponentId,
+        eyebrow: `${template.name}·${base.hero.eyebrow}`.slice(0, 36),
+      },
       languageId,
-      rhythm: profile.rhythm,
+      rhythm: template.rhythm,
       variantSeed: (base.variantSeed + index * 2713) % 10_000,
       visualAssets: [],
-      visualIntensity: profile.visualIntensity,
+      visualIntensity: template.visualIntensity,
     };
     const sanitized = sanitizeDecision(raw, sourceBlocks, sourceImages, placementBlocks);
-    const blocks = finalizedProfileBlocks(sanitized.blocks, profile);
+    const blocks = finalizedProfileBlocks(sanitized.blocks, template);
     const fallbackAssets = visualAssetFallbacks(blocks, languageId);
-    const prioritizeSourceImages = profile.id === "documentary-visual" && sourceImages.length > 0;
+    const prioritizeSourceImages =
+      template.imagePolicy === "source-priority" && sourceImages.length > 0;
     const decision: AiLayoutDecision = {
       ...sanitized,
       blocks,
-      dividerAfterBlockIds: candidateDividerAnchors(blocks, profile.id),
+      dividerAfterBlockIds: candidateDividerAnchors(blocks, template.dividerPolicy),
       visualAssets: prioritizeSourceImages
         ? []
         : fallbackAssets.length > 0
@@ -1524,12 +1556,18 @@ function buildLayoutCandidates(
           : sanitizedVisualAssets(base.visualAssets, blocks, sourceBlocks, languageId),
     };
     return {
-      candidateId: `${profile.id}:${languageId}:${String(decision.variantSeed)}`,
+      candidateId: `${template.templateId}@${String(template.version)}:${languageId}:${String(decision.variantSeed)}`,
       decision,
-      differenceHighlights: profile.differenceHighlights,
-      profileId: profile.id,
+      differenceHighlights:
+        sourceImages.length < template.minimumSourceImages
+          ? [...template.differenceHighlights, "原稿图片不足，已安全降级为文本节奏"]
+          : template.differenceHighlights,
+      profileId: template.profileId,
       recommended: index === 0,
-      structureLabel: profile.label,
+      structureFingerprint: template.structuralFingerprint,
+      structureLabel: template.structureLabel,
+      templateId: template.templateId,
+      templateVersion: template.version,
     };
   });
 }
@@ -1600,6 +1638,13 @@ export class AiLayoutService {
         model: provider.model,
       })),
       provider: this.options.defaultProviderId,
+    };
+  }
+
+  templates() {
+    return {
+      catalogVersion: AI_LAYOUT_TEMPLATE_CATALOG_VERSION,
+      templates: aiLayoutTemplateCatalog(),
     };
   }
 
@@ -1722,6 +1767,17 @@ export class AiLayoutService {
     articleId: string,
     input: GenerateAiLayoutInput,
   ): Promise<GenerateAiLayoutResult> {
+    const preferredTemplate =
+      input.preferredTemplateId === undefined
+        ? undefined
+        : aiLayoutTemplate(input.preferredTemplateId);
+    if (input.preferredTemplateId !== undefined && preferredTemplate === undefined) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, {
+        code: "AI_LAYOUT_TEMPLATE_NOT_FOUND",
+        message: "指定的 AI 排版模板不存在或已下线",
+        retryable: false,
+      });
+    }
     const requestedProvider = input.providerId ?? this.options.defaultProviderId;
     const providers = this.providersFor(requestedProvider);
     if (providers.length === 0) {
@@ -1761,7 +1817,7 @@ export class AiLayoutService {
     const brief = input.styleBrief?.trim() || "没有额外风格要求";
     const instructions = [
       "你是微信公众号文章的资深视觉编辑。你不是在挑模板，而是在阅读全文后设计这篇文章独有的阅读结构。",
-      "这次请只生成一份可复用的内容语义骨架：系统会在不重复调用模型的前提下，将它派生为“报刊导读、简报卡片、数据证据、极简长读、纪实图文、行动路线”六套结构和组件都不同的候选成稿。",
+      "这次请只生成一份可复用的内容语义骨架：系统会在不重复调用模型的前提下，从五十套版本化模板中按内容匹配与结构多样性派生六套候选成稿。",
       "必须保持原文事实与文字不变，只能通过 blockId 决定视觉角色；不要编造数据、图片、引用、人物或段落。",
       "title/section 只给真正承担标题作用的短文本；lead 只选一段；quote 最多 3 段；data/callout 合计最多 3 段。",
       "长文必须建立完整阅读路径：选 2–4 个真正的主章节为 section；每章之间保留连续正文，不要把普通段落都做成卡片。系统会用这些 section 自动生成“本文看点”导航。",
@@ -1795,6 +1851,7 @@ export class AiLayoutService {
       request: {
         mode: input.mode,
         preferredLanguageId: preferred,
+        preferredTemplateId: input.preferredTemplateId ?? null,
         styleBrief: brief,
         variationCue: Math.floor(Math.random() * 10_000),
       },
@@ -1811,7 +1868,13 @@ export class AiLayoutService {
           sourceImages,
           allBlocks,
         );
-        const candidates = buildLayoutCandidates(baseDecision, blocks, sourceImages, allBlocks);
+        const candidates = buildLayoutCandidates(
+          baseDecision,
+          blocks,
+          sourceImages,
+          allBlocks,
+          preferredTemplate,
+        );
         return {
           ...this.providerStatus(provider),
           candidates,

@@ -6,6 +6,7 @@ import {
   type AiLayoutCandidateProfileId,
   type AiLayoutDecision,
   type AiLayoutProviderId,
+  type AiLayoutTemplateId,
 } from "@wechat-layout/api-contracts";
 import type { DocumentV1 } from "@wechat-layout/document-schema";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -21,8 +22,17 @@ import {
   type LayoutDesignMode,
   type LayoutPlan,
 } from "../lib/layout-planner";
-import { generateAiLayout, getAiLayoutStatus } from "../lib/ai-layout/client";
+import { generateAiLayout, getAiLayoutStatus, getAiLayoutTemplates } from "../lib/ai-layout/client";
 import { compareAiLayoutCandidate } from "../lib/ai-layout/candidate-comparison";
+import { recommendAiLayoutTemplates } from "../lib/ai-layout/template-catalog";
+import {
+  AI_LAYOUT_TEMPLATE_PREFERENCES_STORAGE_KEY,
+  parseAiLayoutTemplatePreferences,
+  recordRecentAiLayoutTemplate,
+  serializeAiLayoutTemplatePreferences,
+  toggleAiLayoutTemplateFavorite,
+  type AiLayoutTemplatePreferences,
+} from "../lib/ai-layout/template-preferences";
 import {
   countRealContentImages,
   createImagePreparationTasks,
@@ -66,6 +76,7 @@ import { Dialog } from "radix-ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AiLayoutCandidatePreview } from "./ai-layout-candidate-preview";
+import { AiTemplateLibrary } from "./ai-template-library";
 import { WechatCopyPanel } from "./wechat-copy-panel";
 
 interface EditorDeliveryActionsProps {
@@ -121,6 +132,10 @@ export function EditorDeliveryActions({
   const [languageFamily, setLanguageFamily] = useState<DesignLanguageFamily | "all">("all");
   const [providerId, setProviderId] = useState<AiLayoutProviderId>("auto");
   const [styleBrief, setStyleBrief] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<AiLayoutTemplateId | null>(null);
+  const [templatePreferences, setTemplatePreferences] = useState<AiLayoutTemplatePreferences>(() =>
+    parseAiLayoutTemplatePreferences(null),
+  );
   const [aiCandidates, setAiCandidates] = useState<readonly AiLayoutCandidate[]>([]);
   const [favoriteProfileIds, setFavoriteProfileIds] = useState<
     readonly AiLayoutCandidateProfileId[]
@@ -137,6 +152,7 @@ export function EditorDeliveryActions({
   const [resourcePickerTaskId, setResourcePickerTaskId] = useState<string | null>(null);
   const [copiedSearchTaskId, setCopiedSearchTaskId] = useState<string | null>(null);
   const candidateSectionRef = useRef<HTMLElement | null>(null);
+  const candidateRequestGenerationRef = useRef(0);
   const imageTaskSavingRef = useRef(false);
   const generatingCandidatesRef = useRef(false);
   const [renderOutput, setRenderOutput] = useState<RenderOutput | null>(null);
@@ -145,12 +161,39 @@ export function EditorDeliveryActions({
     queryFn: getAiLayoutStatus,
     staleTime: 60_000,
   });
+  const aiTemplatesQuery = useQuery({
+    queryKey: ["ai-layout-templates"],
+    queryFn: getAiLayoutTemplates,
+    enabled: layoutOpen && layoutMode !== "preset",
+    staleTime: 5 * 60_000,
+  });
+  const aiTemplates = aiTemplatesQuery.data?.templates ?? [];
+  const aiTemplateById = useMemo(
+    () => new Map(aiTemplates.map((template) => [template.templateId, template] as const)),
+    [aiTemplates],
+  );
+  const analysis = useMemo(() => analyzeDocumentLayout(document), [document]);
+  const realContentImageCount = useMemo(() => countRealContentImages(document), [document]);
+  const recommendedTemplateIds = useMemo(
+    () =>
+      recommendAiLayoutTemplates(aiTemplates, {
+        articleTypeLabel: analysis.gene.articleTypeLabel,
+        emotionLabel: analysis.gene.emotionLabel,
+        keywords: analysis.gene.keywords,
+        sourceImageCount: realContentImageCount,
+      }).map((template) => template.templateId),
+    [
+      aiTemplates,
+      analysis.gene.articleTypeLabel,
+      analysis.gene.emotionLabel,
+      analysis.gene.keywords,
+      realContentImageCount,
+    ],
+  );
   const aiAvailable = aiStatusQuery.data?.available === true;
   const selectedModel = aiStatusQuery.data?.models.find((model) => model.id === providerId);
   const selectedProviderAvailable =
     providerId === "auto" ? aiAvailable : selectedModel?.available === true;
-  const analysis = useMemo(() => analyzeDocumentLayout(document), [document]);
-  const realContentImageCount = useMemo(() => countRealContentImages(document), [document]);
   const imagePreparationTasks = useMemo(() => createImagePreparationTasks(document), [document]);
   const resolvedImageTaskCount = imagePreparationTasks.filter(
     (task) => imageTaskResolutions[task.taskId] !== undefined,
@@ -255,6 +298,38 @@ export function EditorDeliveryActions({
   }, []);
 
   useEffect(() => {
+    setTemplatePreferences(
+      parseAiLayoutTemplatePreferences(
+        window.localStorage.getItem(AI_LAYOUT_TEMPLATE_PREFERENCES_STORAGE_KEY),
+      ),
+    );
+  }, []);
+
+  useEffect(() => {
+    const catalog = aiTemplatesQuery.data;
+    if (catalog === undefined) return;
+    const allowedTemplateIds = new Set(catalog.templates.map((template) => template.templateId));
+    setTemplatePreferences((current) => {
+      const next = {
+        ...parseAiLayoutTemplatePreferences(
+          serializeAiLayoutTemplatePreferences(current),
+          allowedTemplateIds,
+        ),
+        catalogVersion: catalog.catalogVersion,
+      };
+      try {
+        window.localStorage.setItem(
+          AI_LAYOUT_TEMPLATE_PREFERENCES_STORAGE_KEY,
+          serializeAiLayoutTemplatePreferences(next),
+        );
+      } catch {
+        // Storage can be disabled. Keep preferences for this browser session.
+      }
+      return next;
+    });
+  }, [aiTemplatesQuery.data]);
+
+  useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
       if (isEditingTarget(event.target) || !(event.metaKey || event.ctrlKey)) {
         return;
@@ -280,9 +355,20 @@ export function EditorDeliveryActions({
   }, [documentVersion]);
 
   useEffect(() => {
+    candidateRequestGenerationRef.current += 1;
     setAiCandidates([]);
     setCandidateError(null);
-  }, [documentVersion, layoutMode, providerId, styleBrief]);
+  }, [documentVersion, layoutMode, providerId, selectedTemplateId, styleBrief]);
+
+  useEffect(() => {
+    if (
+      selectedTemplateId !== null &&
+      aiTemplatesQuery.data !== undefined &&
+      !aiTemplateById.has(selectedTemplateId)
+    ) {
+      setSelectedTemplateId(null);
+    }
+  }, [aiTemplateById, aiTemplatesQuery.data, selectedTemplateId]);
 
   useEffect(() => {
     const validTaskIds = new Set(imagePreparationTasks.map((task) => task.taskId));
@@ -374,6 +460,8 @@ export function EditorDeliveryActions({
       return;
     }
     generatingCandidatesRef.current = true;
+    const requestGeneration = candidateRequestGenerationRef.current + 1;
+    candidateRequestGenerationRef.current = requestGeneration;
     setGeneratingCandidates(true);
     setCandidateError(null);
     try {
@@ -385,23 +473,60 @@ export function EditorDeliveryActions({
         brief: styleBrief,
         mode: layoutMode,
       })[0];
+      if (selectedTemplateId !== null) {
+        setTemplatePreferences((current) => {
+          const next = recordRecentAiLayoutTemplate(
+            current,
+            selectedTemplateId,
+            aiTemplatesQuery.data?.catalogVersion,
+          );
+          try {
+            window.localStorage.setItem(
+              AI_LAYOUT_TEMPLATE_PREFERENCES_STORAGE_KEY,
+              serializeAiLayoutTemplatePreferences(next),
+            );
+          } catch {
+            // Storage can be disabled. Keep preferences for this browser session.
+          }
+          return next;
+        });
+      }
       const generated = await generateAiLayout(articleId, {
         baseDocumentVersion: effectiveVersion,
         mode: layoutMode,
         ...(sourcePlan === undefined ? {} : { preferredLanguageId: sourcePlan.languageId }),
+        ...(selectedTemplateId === null ? {} : { preferredTemplateId: selectedTemplateId }),
         providerId,
         ...(layoutMode === "described" ? { styleBrief: styleBrief.trim() } : {}),
       });
       if (generated.candidates.length === 0) {
         throw new Error("AI 未返回可用的候选方案，请重新生成");
       }
+      if (candidateRequestGenerationRef.current !== requestGeneration) return;
       setAiCandidates(generated.candidates.slice(0, 6));
     } catch (error) {
-      setCandidateError(error instanceof Error ? error.message : "AI 候选方案生成失败");
+      if (candidateRequestGenerationRef.current === requestGeneration) {
+        setCandidateError(error instanceof Error ? error.message : "AI 候选方案生成失败");
+      }
     } finally {
       generatingCandidatesRef.current = false;
       setGeneratingCandidates(false);
     }
+  };
+
+  const toggleTemplateFavorite = (templateId: AiLayoutTemplateId): void => {
+    setTemplatePreferences((current) => {
+      const next = toggleAiLayoutTemplateFavorite(current, templateId);
+      try {
+        window.localStorage.setItem(
+          AI_LAYOUT_TEMPLATE_PREFERENCES_STORAGE_KEY,
+          serializeAiLayoutTemplatePreferences(next),
+        );
+      } catch {
+        // Storage can be disabled. Keep preferences for this browser session.
+      }
+      return next;
+    });
   };
 
   const toggleFavoriteProfile = (
@@ -890,7 +1015,10 @@ export function EditorDeliveryActions({
                         : "border-line bg-panel hover:border-line-strong"
                     }`}
                     key={mode}
-                    onClick={() => setLayoutMode(mode)}
+                    onClick={() => {
+                      candidateRequestGenerationRef.current += 1;
+                      setLayoutMode(mode);
+                    }}
                     role="tab"
                     type="button"
                   >
@@ -925,6 +1053,7 @@ export function EditorDeliveryActions({
                       }`}
                       disabled={!aiAvailable}
                       onClick={() => {
+                        candidateRequestGenerationRef.current += 1;
                         setProviderId("auto");
                         window.localStorage.setItem("wechat-layout-ai-provider", "auto");
                       }}
@@ -951,6 +1080,7 @@ export function EditorDeliveryActions({
                         disabled={!model.available}
                         key={model.id}
                         onClick={() => {
+                          candidateRequestGenerationRef.current += 1;
                           setProviderId(model.id);
                           window.localStorage.setItem("wechat-layout-ai-provider", model.id);
                         }}
@@ -979,7 +1109,10 @@ export function EditorDeliveryActions({
                   <textarea
                     className="mt-2 min-h-20 w-full resize-y rounded-control border border-line bg-panel px-3 py-2 text-[11px] leading-5 text-ink outline-none focus:border-accent"
                     maxLength={300}
-                    onChange={(event) => setStyleBrief(event.currentTarget.value)}
+                    onChange={(event) => {
+                      candidateRequestGenerationRef.current += 1;
+                      setStyleBrief(event.currentTarget.value);
+                    }}
                     placeholder="例如：温暖的杂志感，米白底色，标题有手工纸气质，金句突出但不要太花。"
                     value={styleBrief}
                   />
@@ -994,6 +1127,27 @@ export function EditorDeliveryActions({
                   不再使用内容指纹假装 AI，也不会插入占位图集。
                 </div>
               ) : null}
+              {layoutMode === "preset" ? null : (
+                <AiTemplateLibrary
+                  errorMessage={
+                    aiTemplatesQuery.isError && aiTemplatesQuery.data === undefined
+                      ? "AI 模板库暂时无法读取，仍可不选模板直接生成。"
+                      : null
+                  }
+                  favoriteTemplateIds={templatePreferences.favoriteTemplateIds}
+                  loading={aiTemplatesQuery.isPending}
+                  onSelectTemplate={(templateId) => {
+                    candidateRequestGenerationRef.current += 1;
+                    setSelectedTemplateId(templateId);
+                  }}
+                  onToggleFavorite={toggleTemplateFavorite}
+                  recentTemplateIds={templatePreferences.recentTemplateIds}
+                  recommendedTemplateIds={recommendedTemplateIds}
+                  selectedTemplateId={selectedTemplateId}
+                  sourceImageCount={realContentImageCount}
+                  templates={aiTemplates}
+                />
+              )}
               {layoutMode === "preset" || selectedProviderAvailable ? null : (
                 <div className="mt-4 rounded-control border border-warning/25 bg-warning-soft p-4 text-[10px] leading-5 text-warning">
                   {providerId === "auto"
@@ -1126,6 +1280,10 @@ export function EditorDeliveryActions({
                 {visibleLayoutPlans.map((plan) => {
                   const applying = applyingPlanId === plan.id;
                   const candidate = aiCandidateByPlanId.get(plan.id);
+                  const candidateTemplate =
+                    candidate?.templateId === undefined
+                      ? undefined
+                      : aiTemplateById.get(candidate.templateId);
                   const recommended =
                     layoutMode === "preset" ? plan.recommended : candidate?.recommended === true;
                   const comparison =
@@ -1207,6 +1365,15 @@ export function EditorDeliveryActions({
                           ? `${plan.languageName} · ${plan.tone}`
                           : `${candidate.structureLabel} · ${plan.languageName}`}
                       </p>
+                      {candidate?.templateId === undefined ? null : (
+                        <p
+                          className="mt-1 truncate font-mono text-[9px] text-faint"
+                          title={`${candidateTemplate?.name ?? candidate.structureLabel} · ${candidate.templateId}`}
+                        >
+                          模板 · {candidateTemplate?.name ?? candidate.structureLabel} ·{" "}
+                          {candidate.templateId}
+                        </p>
+                      )}
                       <p className="mt-3 text-[11px] leading-5 text-muted">{plan.description}</p>
                       {comparison === null ? (
                         <p className="mt-2 rounded-md bg-panel-muted px-2.5 py-2 text-[9px] leading-4 text-faint">
