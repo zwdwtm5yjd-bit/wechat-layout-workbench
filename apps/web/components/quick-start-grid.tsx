@@ -77,7 +77,7 @@ export function QuickStartGrid() {
         <span>
           <span className="block text-[15px] font-semibold">开始制作公众号文章</span>
           <span className="mt-1 block text-[11px] leading-5 text-indigo-100/75">
-            粘贴原稿后，依次检查结构、选择 3 套成稿方案、补充图片，最后预览并复制到公众号。
+            粘贴原稿后，依次检查结构、对比 6 种成稿方向、补充图片，最后预览并复制到公众号。
           </span>
           <span className="mt-3 flex flex-wrap gap-2 text-[9px] text-indigo-100/65">
             {["1 导入原稿", "2 检查结构", "3 选择成稿", "4 完善并发布"].map((step) => (

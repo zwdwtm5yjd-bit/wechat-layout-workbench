@@ -1,4 +1,5 @@
 import {
+  AI_LAYOUT_CANDIDATE_PROFILE_IDS,
   AI_LAYOUT_COMPONENT_IDS,
   AI_LAYOUT_DESIGN_LANGUAGE_IDS,
   AI_LAYOUT_DIVIDER_COMPONENT_IDS,
@@ -876,12 +877,17 @@ interface CandidateProfileDefinition {
   readonly heroComponentId: AiLayoutDecision["hero"]["componentId"];
   readonly id: AiLayoutCandidateProfileId;
   readonly label: string;
+  readonly maxCards: number;
+  readonly maxDataCards: number;
+  readonly maxQuotes: number;
   readonly rhythm: AiLayoutDecision["rhythm"];
   readonly visualIntensity: AiLayoutDecision["visualIntensity"];
 }
 
-const candidateProfiles: readonly CandidateProfileDefinition[] = [
-  {
+const candidateProfileById: Readonly<
+  Record<AiLayoutCandidateProfileId, CandidateProfileDefinition>
+> = {
+  "editorial-index": {
     components: {
       title: "cmp_head_level1_underlined_003",
       section: "cmp_head_level2_leftbar_002",
@@ -897,10 +903,13 @@ const candidateProfiles: readonly CandidateProfileDefinition[] = [
     heroComponentId: "cmp_gov_red_gold_banner_001",
     id: "editorial-index",
     label: "报刊导读型",
+    maxCards: 2,
+    maxDataCards: 1,
+    maxQuotes: 2,
     rhythm: "compact",
     visualIntensity: "restrained",
   },
-  {
+  "briefing-cards": {
     components: {
       title: "cmp_head_level1_frame_006",
       section: "cmp_head_level2_pill_005",
@@ -916,10 +925,13 @@ const candidateProfiles: readonly CandidateProfileDefinition[] = [
     heroComponentId: "cmp_hero_ink_mountain_001",
     id: "briefing-cards",
     label: "简报卡片型",
+    maxCards: 3,
+    maxDataCards: 1,
+    maxQuotes: 2,
     rhythm: "airy",
     visualIntensity: "balanced",
   },
-  {
+  "evidence-led": {
     components: {
       title: "cmp_head_level1_numbered_002",
       section: "cmp_head_level2_underlined_003",
@@ -935,37 +947,149 @@ const candidateProfiles: readonly CandidateProfileDefinition[] = [
     heroComponentId: "cmp_tech_orbit_hero_001",
     id: "evidence-led",
     label: "数据证据型",
+    maxCards: 3,
+    maxDataCards: 3,
+    maxQuotes: 1,
     rhythm: "balanced",
     visualIntensity: "bold",
   },
-];
+  "minimal-longread": {
+    components: {
+      title: "cmp_head_level1_centered_004",
+      section: "cmp_head_level2_plain_004",
+      quote: "cmp_quote_highlight_center_006",
+      data: "cmp_notice_info_blue_001",
+      callout: "cmp_notice_story_intro_006",
+      image: "cmp_image_fullwidth_clean_001",
+    },
+    conceptLead: "以长段落、大留白和少量金句保持沉浸阅读，只在真正转折处建立层级。",
+    differenceHighlights: ["连续长读为主", "大留白 + 素净小标", "特殊卡片不超过 1 张"],
+    dividerComponentId: "cmp_divider_solid_clean_001",
+    footerComponentId: "cmp_notice_info_blue_001",
+    heroComponentId: "cmp_intro_bamboo_note_002",
+    id: "minimal-longread",
+    label: "极简长读型",
+    maxCards: 1,
+    maxDataCards: 1,
+    maxQuotes: 1,
+    rhythm: "airy",
+    visualIntensity: "restrained",
+  },
+  "documentary-visual": {
+    components: {
+      title: "cmp_head_mist_mountains_007",
+      section: "cmp_head_cloud_scroll_008",
+      quote: "cmp_quote_postcard_warm_005",
+      data: "cmp_notice_success_green_002",
+      callout: "cmp_notice_story_intro_006",
+      image: "cmp_image_polaroid_caption_005",
+    },
+    conceptLead: "让原稿照片成为叙事节点，用图注、短引语和舒展章节串联现场故事。",
+    differenceHighlights: ["原稿图片优先", "拍立得图注节奏", "临近图片的短段落转为叙事引语"],
+    dividerComponentId: "cmp_divider_ornament_center_003",
+    footerComponentId: "cmp_notice_story_intro_006",
+    heroComponentId: "cmp_intro_leaf_story_003",
+    id: "documentary-visual",
+    label: "纪实图文型",
+    maxCards: 1,
+    maxDataCards: 1,
+    maxQuotes: 2,
+    rhythm: "airy",
+    visualIntensity: "balanced",
+  },
+  "action-roadmap": {
+    components: {
+      title: "cmp_head_level1_ribbon_005",
+      section: "cmp_head_level2_marker_006",
+      quote: "cmp_quote_conclusion_card_003",
+      data: "cmp_notice_success_green_002",
+      callout: "cmp_notice_checklist_action_005",
+      image: "cmp_image_centered_numbered_004",
+    },
+    conceptLead: "把目标、动作、责任和结果组织成路线图，用步骤章节和行动清单推进阅读。",
+    differenceHighlights: ["步骤序号建立路线", "动作段落转为清单", "数据与结论作为里程碑"],
+    dividerComponentId: "cmp_divider_dashed_subtle_002",
+    footerComponentId: "cmp_notice_checklist_action_005",
+    heroComponentId: "cmp_tech_orbit_hero_001",
+    id: "action-roadmap",
+    label: "行动路线型",
+    maxCards: 3,
+    maxDataCards: 1,
+    maxQuotes: 1,
+    rhythm: "compact",
+    visualIntensity: "bold",
+  },
+};
+
+const candidateProfiles: readonly CandidateProfileDefinition[] =
+  AI_LAYOUT_CANDIDATE_PROFILE_IDS.map((profileId) => candidateProfileById[profileId]);
+
+type CandidateContentClass = "government" | "technical" | "data" | "narrative";
+
+const candidateLanguageOrder: Readonly<
+  Record<CandidateContentClass, readonly AiLayoutDesignLanguageId[]>
+> = {
+  government: [
+    "crimson-editorial",
+    "civic-blue",
+    "news-editorial",
+    "annual-report",
+    "jade-oriental",
+    "minimal-blue",
+  ],
+  technical: [
+    "minimal-blue",
+    "future-purple",
+    "data-dashboard",
+    "cyber-neon",
+    "civic-blue",
+    "annual-report",
+  ],
+  data: [
+    "data-dashboard",
+    "annual-report",
+    "monochrome-finance",
+    "academic-journal",
+    "civic-blue",
+    "minimal-blue",
+  ],
+  narrative: [
+    "warm-paper",
+    "news-editorial",
+    "seasonal-poetry",
+    "forest-green",
+    "jade-oriental",
+    "academic-journal",
+  ],
+};
+
+function candidateContentClass(text: string): CandidateContentClass {
+  if (/(?:党委|党建|政务|纪检|巡察|监督|廉洁|纪律|整改|国企)/u.test(text)) {
+    return "government";
+  }
+  const numericSignals = text.match(/\d+(?:\.\d+)?(?:%|万|亿|倍|年|个|项|人|件)?/gu)?.length ?? 0;
+  if (
+    numericSignals >= 6 &&
+    /(?:数据|指标|同比|环比|增长|占比|统计|营收|利润|用户|报告)/u.test(text)
+  ) {
+    return "data";
+  }
+  if (/(?:AI|人工智能|技术|系统|产品|开发|算法|数字化)/iu.test(text)) {
+    return "technical";
+  }
+  return "narrative";
+}
 
 function candidateLanguages(
   baseLanguageId: AiLayoutDesignLanguageId,
   blocks: readonly TopLevelBlock[],
 ): readonly AiLayoutDesignLanguageId[] {
   const text = blocks.map(textFromNode).join(" ");
-  const isGovernment = /(?:党委|党建|政务|纪检|巡察|监督|廉洁|纪律|整改|国企)/u.test(text);
-  const isTechnical = /(?:AI|人工智能|技术|系统|产品|开发|算法|数字化)/iu.test(text);
-  const numericSignals = text.match(/\d+(?:\.\d+)?(?:%|万|亿|倍|年|个|项|人|件)?/gu)?.length ?? 0;
-  const ordered = isGovernment
-    ? ([
-        "crimson-editorial",
-        "civic-blue",
-        numericSignals >= 5 ? "annual-report" : "news-editorial",
-        baseLanguageId,
-      ] as const)
-    : numericSignals >= 6
-      ? ([baseLanguageId, "data-dashboard", "annual-report", "academic-journal"] as const)
-      : isTechnical
-        ? ([baseLanguageId, "minimal-blue", "data-dashboard", "future-purple"] as const)
-        : ([baseLanguageId, "warm-paper", "news-editorial", "academic-journal"] as const);
-  const unique = [...new Set<AiLayoutDesignLanguageId>(ordered)];
-  for (const fallback of AI_LAYOUT_DESIGN_LANGUAGE_IDS) {
-    if (!unique.includes(fallback)) unique.push(fallback);
-    if (unique.length >= candidateProfiles.length) break;
-  }
-  return unique.slice(0, candidateProfiles.length);
+  const ordered = candidateLanguageOrder[candidateContentClass(text)];
+  return [baseLanguageId, ...ordered.filter((languageId) => languageId !== baseLanguageId)].slice(
+    0,
+    candidateProfiles.length,
+  );
 }
 
 function profileBlocks(
@@ -974,13 +1098,20 @@ function profileBlocks(
   profile: CandidateProfileDefinition,
 ): readonly AiLayoutBlockDecision[] {
   const sourceById = new Map(sourceBlocks.map((block) => [block.attrs.blockId, block]));
+  const sourceIndexById = new Map(sourceBlocks.map((block, index) => [block.attrs.blockId, index]));
+  const imageIndexes = sourceBlocks.flatMap((block, index) =>
+    block.type === "imageBlock" ? [index] : [],
+  );
   let promotedCallouts = 0;
   let promotedQuotes = 0;
   let promotedSections = 0;
   return baseBlocks.map((decision, index) => {
     const source = sourceById.get(decision.blockId);
+    const sourceIndex = sourceIndexById.get(decision.blockId) ?? index;
     const text = source === undefined ? "" : textFromNode(source).replaceAll(/\s+/gu, " ").trim();
     let treatment = decision.treatment;
+    if (source?.type === "imageBlock") treatment = "image";
+    if (source?.type === "bulletList" || source?.type === "orderedList") treatment = "list";
     if (source?.type === "paragraph" && treatment === "body") {
       if (
         profile.id === "editorial-index" &&
@@ -1009,13 +1140,96 @@ function profileBlocks(
           treatment = "quote";
           promotedQuotes += 1;
         }
+      } else if (
+        profile.id === "minimal-longread" &&
+        promotedQuotes < 1 &&
+        text.length >= 28 &&
+        text.length <= 140 &&
+        sourceIndex % 4 === 2
+      ) {
+        treatment = "quote";
+        promotedQuotes += 1;
+      } else if (profile.id === "documentary-visual") {
+        const nearImage = imageIndexes.some(
+          (imageIndex) => Math.abs(imageIndex - sourceIndex) <= 2,
+        );
+        const fallbackNarrativeBeat = imageIndexes.length === 0 && sourceIndex % 4 === 2;
+        if (
+          promotedQuotes < 2 &&
+          text.length >= 16 &&
+          text.length <= 180 &&
+          (nearImage || fallbackNarrativeBeat)
+        ) {
+          treatment = "quote";
+          promotedQuotes += 1;
+        }
+      } else if (profile.id === "action-roadmap") {
+        const numbers = text.match(/\d+(?:\.\d+)?(?:%|万|亿|倍|年|个|项|人|件)?/gu) ?? [];
+        if (promotedCallouts < 1 && text.length <= 420 && numbers.length >= 2) {
+          treatment = "data";
+          promotedCallouts += 1;
+        } else if (
+          promotedCallouts < 3 &&
+          text.length >= 18 &&
+          text.length <= 300 &&
+          /(?:下一步|首先|其次|最后|一是|二是|三是|要|应|需|推动|落实|建立|完善|完成|责任|目标|计划|机制|措施)/u.test(
+            text,
+          )
+        ) {
+          treatment = "callout";
+          promotedCallouts += 1;
+        }
       }
+    }
+    if (
+      source?.type === "paragraph" &&
+      profile.id === "minimal-longread" &&
+      (treatment === "data" || treatment === "callout")
+    ) {
+      treatment = "body";
+    }
+    if (
+      source?.type === "paragraph" &&
+      profile.id === "documentary-visual" &&
+      (treatment === "data" || treatment === "callout")
+    ) {
+      treatment = "body";
     }
     const componentId = profile.components[treatment] ?? null;
     return {
       ...decision,
       componentId: compatibleComponentId(treatment, componentId),
       reason: `${decision.reason}；${profile.label}采用${treatment}表达`.slice(0, 120),
+      treatment,
+    };
+  });
+}
+
+function finalizedProfileBlocks(
+  blocks: readonly AiLayoutBlockDecision[],
+  profile: CandidateProfileDefinition,
+): readonly AiLayoutBlockDecision[] {
+  let cards = 0;
+  let dataCards = 0;
+  let quotes = 0;
+  return blocks.map((decision) => {
+    let treatment = decision.treatment;
+    if (treatment === "quote") {
+      if (quotes >= profile.maxQuotes) treatment = "body";
+      else quotes += 1;
+    } else if (treatment === "data") {
+      if (cards >= profile.maxCards || dataCards >= profile.maxDataCards) treatment = "body";
+      else {
+        cards += 1;
+        dataCards += 1;
+      }
+    } else if (treatment === "callout") {
+      if (cards >= profile.maxCards) treatment = "body";
+      else cards += 1;
+    }
+    return {
+      ...decision,
+      componentId: compatibleComponentId(treatment, profile.components[treatment] ?? null),
       treatment,
     };
   });
@@ -1037,6 +1251,28 @@ function candidateDividerAnchors(
       (block) => block.treatment === "data" || block.treatment === "callout",
     );
     return (evidence.length > 0 ? evidence : sections).map((block) => block.blockId).slice(0, 3);
+  }
+  if (profileId === "minimal-longread") {
+    return sections
+      .filter((_, index) => index % 2 === 1)
+      .map((block) => block.blockId)
+      .slice(0, 2);
+  }
+  if (profileId === "documentary-visual") {
+    const visualBeats = blocks.filter(
+      (block) => block.treatment === "image" || block.treatment === "quote",
+    );
+    return (visualBeats.length > 0 ? visualBeats : sections)
+      .map((block) => block.blockId)
+      .slice(0, 3);
+  }
+  if (profileId === "action-roadmap") {
+    const milestones = blocks.filter(
+      (block) => block.treatment === "data" || block.treatment === "callout",
+    );
+    return (milestones.length > 0 ? milestones : sections)
+      .map((block) => block.blockId)
+      .slice(0, 4);
   }
   return sections.map((block) => block.blockId).slice(0, 3);
 }
@@ -1067,14 +1303,18 @@ function buildLayoutCandidates(
       visualIntensity: profile.visualIntensity,
     };
     const sanitized = sanitizeDecision(raw, sourceBlocks);
-    const blocks = sanitized.blocks;
+    const blocks = finalizedProfileBlocks(sanitized.blocks, profile);
     const fallbackAssets = visualAssetFallbacks(blocks, languageId);
+    const prioritizeSourceImages =
+      profile.id === "documentary-visual" &&
+      sourceBlocks.some((sourceBlock) => sourceBlock.type === "imageBlock");
     const decision: AiLayoutDecision = {
       ...sanitized,
       blocks,
       dividerAfterBlockIds: candidateDividerAnchors(blocks, profile.id),
-      visualAssets:
-        fallbackAssets.length > 0
+      visualAssets: prioritizeSourceImages
+        ? []
+        : fallbackAssets.length > 0
           ? fallbackAssets
           : sanitizedVisualAssets(base.visualAssets, blocks, sourceBlocks, languageId),
     };
@@ -1313,7 +1553,7 @@ export class AiLayoutService {
     const brief = input.styleBrief?.trim() || "没有额外风格要求";
     const instructions = [
       "你是微信公众号文章的资深视觉编辑。你不是在挑模板，而是在阅读全文后设计这篇文章独有的阅读结构。",
-      "这次请只生成一份可复用的内容语义骨架：系统会在不重复调用模型的前提下，将它派生为“报刊导读、简报卡片、数据证据”三套结构和组件都不同的候选成稿。",
+      "这次请只生成一份可复用的内容语义骨架：系统会在不重复调用模型的前提下，将它派生为“报刊导读、简报卡片、数据证据、极简长读、纪实图文、行动路线”六套结构和组件都不同的候选成稿。",
       "必须保持原文事实与文字不变，只能通过 blockId 决定视觉角色；不要编造数据、图片、引用、人物或段落。",
       "title/section 只给真正承担标题作用的短文本；lead 只选一段；quote 最多 3 段；data/callout 合计最多 3 段。",
       "长文必须建立完整阅读路径：选 2–4 个真正的主章节为 section；每章之间保留连续正文，不要把普通段落都做成卡片。系统会用这些 section 自动生成“本文看点”导航。",

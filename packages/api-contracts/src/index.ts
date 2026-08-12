@@ -182,6 +182,9 @@ export const AI_LAYOUT_CANDIDATE_PROFILE_IDS = [
   "editorial-index",
   "briefing-cards",
   "evidence-led",
+  "minimal-longread",
+  "documentary-visual",
+  "action-roadmap",
 ] as const;
 
 export type AiLayoutCandidateProfileId = (typeof AI_LAYOUT_CANDIDATE_PROFILE_IDS)[number];

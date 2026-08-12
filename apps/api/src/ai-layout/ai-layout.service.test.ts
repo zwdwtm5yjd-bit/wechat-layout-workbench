@@ -1,3 +1,5 @@
+import type { AiLayoutDesignLanguageId } from "@wechat-layout/api-contracts";
+import type { DocumentV1 } from "@wechat-layout/document-schema";
 import { documentV1Fixture } from "@wechat-layout/document-schema/fixtures";
 import { describe, expect, it, vi } from "vitest";
 
@@ -21,14 +23,24 @@ const designTokens = {
   titleAlign: "center",
 } as const;
 
-function documents(): DocumentService {
+function documents(
+  document: DocumentV1 = { ...structuredClone(documentV1Fixture), articleId },
+): DocumentService {
   return {
     get: vi.fn().mockResolvedValue({
       articleId,
-      document: { ...structuredClone(documentV1Fixture), articleId },
+      document,
       documentVersion: 7,
     }),
   } as unknown as DocumentService;
+}
+
+function documentWithBodyText(text: string): DocumentV1 {
+  const document: DocumentV1 = { ...structuredClone(documentV1Fixture), articleId };
+  const paragraph = document.content.content.find((node) => node.type === "paragraph");
+  if (paragraph?.type !== "paragraph") throw new Error("fixture paragraph is required");
+  paragraph.content = [{ type: "text", text }];
+  return document;
 }
 
 function options(
@@ -50,6 +62,66 @@ function options(
     ...overrides,
   };
 }
+
+const candidateLanguageCases = [
+  {
+    baseLanguageId: "crimson-editorial",
+    expected: [
+      "crimson-editorial",
+      "civic-blue",
+      "news-editorial",
+      "annual-report",
+      "jade-oriental",
+      "minimal-blue",
+    ],
+    label: "government",
+    text: "党委党建和纪检巡察监督工作要推动整改落实，服务国企高质量发展。",
+  },
+  {
+    baseLanguageId: "future-purple",
+    expected: [
+      "future-purple",
+      "minimal-blue",
+      "data-dashboard",
+      "cyber-neon",
+      "civic-blue",
+      "annual-report",
+    ],
+    label: "technical",
+    text: "人工智能技术团队正在开发数字化产品系统，并持续优化核心算法。",
+  },
+  {
+    baseLanguageId: "monochrome-finance",
+    expected: [
+      "monochrome-finance",
+      "data-dashboard",
+      "annual-report",
+      "academic-journal",
+      "civic-blue",
+      "minimal-blue",
+    ],
+    label: "data",
+    text: "数据报告显示：2024年营收100亿元，同比增长12%，用户达到300万人，完成项目45项，利润增长8%。",
+  },
+  {
+    baseLanguageId: "event-poster",
+    expected: [
+      "event-poster",
+      "warm-paper",
+      "news-editorial",
+      "seasonal-poetry",
+      "forest-green",
+      "jade-oriental",
+    ],
+    label: "narrative",
+    text: "春日傍晚，我们沿着河岸慢慢走，看见风吹过树梢，也记下人与城市相遇的故事。",
+  },
+] as const satisfies readonly {
+  readonly baseLanguageId: AiLayoutDesignLanguageId;
+  readonly expected: readonly AiLayoutDesignLanguageId[];
+  readonly label: string;
+  readonly text: string;
+}[];
 
 describe("AiLayoutService", () => {
   it("reports an unavailable model and refuses to fake AI output", async () => {
@@ -121,7 +193,10 @@ describe("AiLayoutService", () => {
         { status: 200, headers: { "Content-Type": "application/json" } },
       ),
     );
-    const service = new AiLayoutService(options("secret-key"), fetcher, documents());
+    const sourceDocument: DocumentV1 = { ...structuredClone(documentV1Fixture), articleId };
+    const originalDocument = structuredClone(sourceDocument);
+    const sourceBlockIds = sourceDocument.content.content.map((block) => block.attrs.blockId);
+    const service = new AiLayoutService(options("secret-key"), fetcher, documents(sourceDocument));
     const result = await service.generate(ownerUserId, articleId, {
       baseDocumentVersion: 7,
       mode: "original",
@@ -139,18 +214,21 @@ describe("AiLayoutService", () => {
     expect(result.decision.languageId).toBe("crimson-editorial");
     expect(result.decision.blocks).toHaveLength(documentV1Fixture.content.content.length);
     expect(result.decision.dividerAfterBlockIds).not.toContain("unknown");
-    expect(result.candidates).toHaveLength(3);
+    expect(result.candidates).toHaveLength(6);
     expect(result.candidates.map((candidate) => candidate.profileId)).toEqual([
       "editorial-index",
       "briefing-cards",
       "evidence-led",
+      "minimal-longread",
+      "documentary-visual",
+      "action-roadmap",
     ]);
     expect(new Set(result.candidates.map((candidate) => candidate.decision.languageId)).size).toBe(
-      3,
+      6,
     );
     expect(
       new Set(result.candidates.map((candidate) => candidate.decision.hero.componentId)).size,
-    ).toBe(3);
+    ).toBeGreaterThanOrEqual(5);
     expect(
       new Set(
         result.candidates.map((candidate) =>
@@ -160,9 +238,102 @@ describe("AiLayoutService", () => {
             .join("|"),
         ),
       ).size,
-    ).toBe(3);
+    ).toBe(6);
+    expect(new Set(result.candidates.map((candidate) => candidate.candidateId)).size).toBe(6);
+    const specialLimits = new Map([
+      ["editorial-index", { cards: 2, data: 1, quotes: 2 }],
+      ["briefing-cards", { cards: 3, data: 1, quotes: 2 }],
+      ["evidence-led", { cards: 3, data: 3, quotes: 1 }],
+      ["minimal-longread", { cards: 1, data: 1, quotes: 1 }],
+      ["documentary-visual", { cards: 1, data: 1, quotes: 2 }],
+      ["action-roadmap", { cards: 3, data: 1, quotes: 1 }],
+    ]);
+    for (const candidate of result.candidates) {
+      expect(candidate.decision.blocks.map((block) => block.blockId)).toEqual(sourceBlockIds);
+      const imageDecision = candidate.decision.blocks.find(
+        (block) => block.blockId === "block_image",
+      );
+      expect(imageDecision).toMatchObject({ treatment: "image" });
+      expect(imageDecision?.componentId).not.toBeNull();
+      const limits = specialLimits.get(candidate.profileId);
+      if (limits === undefined) throw new Error("candidate profile limit is required");
+      const cards = candidate.decision.blocks.filter(
+        (block) => block.treatment === "data" || block.treatment === "callout",
+      );
+      expect(cards.length).toBeLessThanOrEqual(limits.cards);
+      expect(
+        candidate.decision.blocks.filter((block) => block.treatment === "data").length,
+      ).toBeLessThanOrEqual(limits.data);
+      expect(
+        candidate.decision.blocks.filter((block) => block.treatment === "quote").length,
+      ).toBeLessThanOrEqual(limits.quotes);
+    }
+    expect(
+      result.candidates.find((candidate) => candidate.profileId === "documentary-visual")?.decision
+        .visualAssets,
+    ).toEqual([]);
+    expect(sourceDocument).toEqual(originalDocument);
     expect(result.decision).toEqual(result.candidates[0]?.decision);
   });
+
+  it.each(candidateLanguageCases)(
+    "keeps the model choice and orders $label candidate languages explicitly",
+    async (testCase) => {
+      const modelDecision = {
+        languageId: testCase.baseLanguageId,
+        designName: "内容语言测试",
+        concept: "从内容类型派生六种明确的视觉语言。",
+        designTokens,
+        rhythm: "balanced",
+        variantSeed: 3189,
+        visualAssets: [
+          {
+            afterBlockId: "block_paragraph",
+            reason: "在导语后建立视觉锚点",
+            resourceId: "builtin_visual_static_022",
+          },
+        ],
+        visualIntensity: "balanced",
+        dividerComponentId: "cmp_divider_solid_clean_001",
+        hero: {
+          componentId: "cmp_intro_bamboo_note_002",
+          eyebrow: "ARTICLE",
+          title: "内容决定排版",
+          footer: "阅读 · 结构",
+        },
+        footer: {
+          componentId: "cmp_notice_story_intro_006",
+          title: "阅读小结",
+          text: "记住文章的核心判断",
+        },
+        dividerAfterBlockIds: [],
+        blocks: [],
+      };
+      const fetcher = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            output: [{ content: [{ type: "output_text", text: JSON.stringify(modelDecision) }] }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+      const service = new AiLayoutService(
+        options("secret-key"),
+        fetcher,
+        documents(documentWithBodyText(testCase.text)),
+      );
+
+      const result = await service.generate(ownerUserId, articleId, {
+        baseDocumentVersion: 7,
+        mode: "original",
+      });
+
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(result.candidates.map((candidate) => candidate.decision.languageId)).toEqual(
+        testCase.expected,
+      );
+    },
+  );
 
   it("uses Kimi-compatible chat completions and accepts fenced JSON safely", async () => {
     const modelDecision = {
@@ -261,7 +432,7 @@ describe("AiLayoutService", () => {
     expect(requestBody.messages[0]?.content).toContain("JSON Schema");
     expect(result.provider).toBe("kimi");
     expect(result.decision.designName).toContain("纸上脉络");
-    expect(result.candidates).toHaveLength(3);
+    expect(result.candidates).toHaveLength(6);
   });
 
   it("automatically falls back to the next configured model", async () => {

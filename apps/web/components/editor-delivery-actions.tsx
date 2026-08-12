@@ -3,6 +3,7 @@
 import {
   AI_LAYOUT_PROVIDER_IDS,
   type AiLayoutCandidate,
+  type AiLayoutCandidateProfileId,
   type AiLayoutDecision,
   type AiLayoutProviderId,
 } from "@wechat-layout/api-contracts";
@@ -21,6 +22,14 @@ import {
   type LayoutPlan,
 } from "../lib/layout-planner";
 import { generateAiLayout, getAiLayoutStatus } from "../lib/ai-layout/client";
+import { compareAiLayoutCandidate } from "../lib/ai-layout/candidate-comparison";
+import {
+  AI_LAYOUT_FAVORITES_STORAGE_KEY,
+  orderAiLayoutCandidates,
+  parseAiLayoutFavorites,
+  serializeAiLayoutFavorites,
+  toggleAiLayoutFavorite,
+} from "../lib/ai-layout/favorites";
 import type { OfficialTheme } from "../lib/themes/client";
 import {
   CheckCircle2,
@@ -33,12 +42,14 @@ import {
   ImagePlus,
   ShieldAlert,
   Sparkles,
+  Star,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
 import { useEffect, useMemo, useState } from "react";
 
+import { AiLayoutCandidatePreview } from "./ai-layout-candidate-preview";
 import { WechatCopyPanel } from "./wechat-copy-panel";
 
 interface EditorDeliveryActionsProps {
@@ -83,6 +94,9 @@ export function EditorDeliveryActions({
   const [providerId, setProviderId] = useState<AiLayoutProviderId>("auto");
   const [styleBrief, setStyleBrief] = useState("");
   const [aiCandidates, setAiCandidates] = useState<readonly AiLayoutCandidate[]>([]);
+  const [favoriteProfileIds, setFavoriteProfileIds] = useState<
+    readonly AiLayoutCandidateProfileId[]
+  >([]);
   const [candidateError, setCandidateError] = useState<string | null>(null);
   const [generatingCandidates, setGeneratingCandidates] = useState(false);
   const [renderOutput, setRenderOutput] = useState<RenderOutput | null>(null);
@@ -104,11 +118,11 @@ export function EditorDeliveryActions({
     if (layoutMode === "preset" || aiCandidates.length === 0) return [];
     const sourcePlan = layoutPlans[0];
     if (sourcePlan === undefined) return [];
-    return aiCandidates.map((candidate) => ({
+    return orderAiLayoutCandidates(aiCandidates, favoriteProfileIds).map((candidate) => ({
       candidate,
       plan: layoutPlanFromAiDecision(document, themes, sourcePlan, candidate.decision),
     }));
-  }, [aiCandidates, document, layoutMode, layoutPlans, themes]);
+  }, [aiCandidates, document, favoriteProfileIds, layoutMode, layoutPlans, themes]);
   const visibleLayoutPlans = useMemo(
     () =>
       layoutMode !== "preset"
@@ -135,6 +149,16 @@ export function EditorDeliveryActions({
     const stored = window.localStorage.getItem("wechat-layout-ai-provider");
     if (AI_LAYOUT_PROVIDER_IDS.some((candidate) => candidate === stored)) {
       setProviderId(stored as AiLayoutProviderId);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      setFavoriteProfileIds(
+        parseAiLayoutFavorites(window.localStorage.getItem(AI_LAYOUT_FAVORITES_STORAGE_KEY)),
+      );
+    } catch {
+      setFavoriteProfileIds([]);
     }
   }, []);
 
@@ -189,15 +213,30 @@ export function EditorDeliveryActions({
         providerId,
         ...(layoutMode === "described" ? { styleBrief: styleBrief.trim() } : {}),
       });
-      if (generated.candidates.length < 3) {
-        throw new Error("AI 未返回完整的三套候选方案，请重新生成");
+      if (generated.candidates.length === 0) {
+        throw new Error("AI 未返回可用的候选方案，请重新生成");
       }
-      setAiCandidates(generated.candidates.slice(0, 3));
+      setAiCandidates(generated.candidates.slice(0, 6));
     } catch (error) {
       setCandidateError(error instanceof Error ? error.message : "AI 候选方案生成失败");
     } finally {
       setGeneratingCandidates(false);
     }
+  };
+
+  const toggleFavoriteProfile = (profileId: AiLayoutCandidateProfileId): void => {
+    setFavoriteProfileIds((current) => {
+      const next = toggleAiLayoutFavorite(current, profileId);
+      try {
+        window.localStorage.setItem(
+          AI_LAYOUT_FAVORITES_STORAGE_KEY,
+          serializeAiLayoutFavorites(next),
+        );
+      } catch {
+        // Storage can be disabled by the browser. Keep the favorite for this session.
+      }
+      return next;
+    });
   };
 
   const groupedIssues = useMemo(() => {
@@ -279,7 +318,7 @@ export function EditorDeliveryActions({
       <Dialog.Root onOpenChange={setLayoutOpen} open={layoutOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50 bg-zinc-950/25 backdrop-blur-[2px]" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 max-h-[92vh] w-[min(980px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-card border border-line bg-panel p-6 shadow-raised">
+          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 max-h-[92vh] w-[min(1180px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-card border border-line bg-panel p-6 shadow-raised">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <Dialog.Title className="text-base font-semibold text-ink">
@@ -460,10 +499,12 @@ export function EditorDeliveryActions({
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-[11px] font-semibold text-ink">
-                      {aiCandidates.length >= 3 ? "已生成 3 套可选成稿" : "一次生成 3 套不同方向"}
+                      {aiCandidates.length > 0
+                        ? `已生成 ${aiCandidates.length} 套可对比方案`
+                        : "一次生成 6 种结构方向"}
                     </p>
                     <p className="mt-1 text-[9px] leading-4 text-muted">
-                      模型只阅读全文一次，再用三种结构表达派生候选，不会为每张卡重复消耗额度。
+                      模型只阅读全文一次，再派生六种结构表达，不会为每张卡重复消耗额度。
                     </p>
                   </div>
                   <button
@@ -483,24 +524,30 @@ export function EditorDeliveryActions({
                       <Sparkles aria-hidden="true" size={13} />
                     )}
                     {generatingCandidates
-                      ? "正在设计3套方案…"
-                      : aiCandidates.length >= 3
-                        ? "重新生成3套"
-                        : "生成3套AI方案"}
+                      ? "正在设计6种方向…"
+                      : aiCandidates.length > 0
+                        ? "重新生成6套"
+                        : "生成6套AI方案"}
                   </button>
                 </div>
-                <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                  {[
-                    ["报刊导读", "导读索引 · 左线章节 · 纪实配图"],
-                    ["简报卡片", "框题首屏 · 判断卡片 · 结论盒"],
-                    ["数据证据", "编号章节 · 数据卡 · 图片序号"],
-                  ].map(([label, description]) => (
-                    <div className="rounded-control bg-panel-muted px-3 py-2" key={label}>
-                      <p className="text-[9px] font-semibold text-ink">{label}</p>
-                      <p className="mt-1 text-[8px] leading-4 text-faint">{description}</p>
-                    </div>
-                  ))}
-                </div>
+                {aiCandidates.length === 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {["报刊导读", "简报卡片", "数据证据", "极简长读", "纪实图文", "行动路线"].map(
+                      (label) => (
+                        <span
+                          className="rounded-full border border-line bg-panel-muted px-2.5 py-1 text-[8px] font-medium text-muted"
+                          key={label}
+                        >
+                          {label}
+                        </span>
+                      ),
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-[8px] leading-4 text-faint">
+                    下方统一对比首屏结构、章节、重点卡、图片策略和阅读节奏；星标会在当前浏览器置顶喜欢的方向。
+                  </p>
+                )}
                 {candidateError === null ? null : (
                   <p className="mt-3 rounded-control bg-danger-soft px-3 py-2 text-[9px] leading-4 text-danger">
                     {candidateError}
@@ -553,27 +600,62 @@ export function EditorDeliveryActions({
                 const candidate = aiCandidateByPlanId.get(plan.id);
                 const recommended =
                   layoutMode === "preset" ? plan.recommended : candidate?.recommended === true;
+                const comparison =
+                  candidate === undefined ? null : compareAiLayoutCandidate(candidate);
+                const favorite =
+                  candidate === undefined
+                    ? false
+                    : favoriteProfileIds.includes(candidate.profileId);
                 return (
                   <article
-                    className={`relative overflow-hidden rounded-card border bg-panel p-4 ${
+                    className={`flex min-h-full flex-col overflow-hidden rounded-card border bg-panel p-4 ${
                       recommended ? "border-accent ring-2 ring-accent/10" : "border-line"
                     }`}
                     key={plan.id}
                   >
-                    {recommended ? (
-                      <span className="absolute top-3 right-3 rounded-full bg-accent-soft px-2 py-1 text-[9px] font-semibold text-accent">
-                        {layoutMode === "preset" ? "内容匹配推荐" : "AI 首选方向"}
-                      </span>
-                    ) : null}
-                    <div className="flex gap-1.5">
-                      {plan.accentColors.slice(0, 3).map((color) => (
-                        <span
-                          className="h-2 w-8 rounded-full"
-                          key={color}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
+                    <div className="flex min-h-7 items-center justify-between gap-2">
+                      <div className="flex gap-1.5">
+                        {plan.accentColors.slice(0, 3).map((color) => (
+                          <span
+                            className="h-2 w-8 rounded-full"
+                            key={color}
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {candidate === undefined ? null : (
+                          <button
+                            aria-label={favorite ? "取消收藏这个结构" : "收藏这个结构"}
+                            aria-pressed={favorite}
+                            className={`grid size-7 place-items-center rounded-full transition ${
+                              favorite
+                                ? "bg-warning-soft text-warning"
+                                : "bg-panel-muted text-faint hover:text-warning"
+                            }`}
+                            onClick={() => toggleFavoriteProfile(candidate.profileId)}
+                            title={favorite ? "已在当前浏览器收藏" : "收藏并置顶"}
+                            type="button"
+                          >
+                            <Star
+                              aria-hidden="true"
+                              fill={favorite ? "currentColor" : "none"}
+                              size={13}
+                            />
+                          </button>
+                        )}
+                        {recommended ? (
+                          <span className="rounded-full bg-accent-soft px-2 py-1 text-[8px] font-semibold text-accent">
+                            {layoutMode === "preset" ? "内容匹配" : "AI 首选"}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
+                    {candidate === undefined ? null : (
+                      <div className="mt-3">
+                        <AiLayoutCandidatePreview candidate={candidate} plan={plan} />
+                      </div>
+                    )}
                     <p className="mt-4 text-[14px] font-semibold text-ink">{plan.designName}</p>
                     <p className="mt-1 text-[10px] font-medium text-accent">
                       {candidate === undefined
@@ -581,16 +663,42 @@ export function EditorDeliveryActions({
                         : `${candidate.structureLabel} · ${plan.languageName}`}
                     </p>
                     <p className="mt-3 text-[11px] leading-5 text-muted">{plan.description}</p>
-                    <p className="mt-2 rounded-md bg-panel-muted px-2.5 py-2 text-[9px] leading-4 text-faint">
-                      {plan.reasoning}
-                    </p>
-                    <ul className="mt-3 space-y-1.5 text-[10px] text-muted">
-                      {(candidate?.differenceHighlights ?? plan.highlights).map((highlight) => (
-                        <li className="flex items-center gap-1.5" key={highlight}>
-                          <Sparkles aria-hidden="true" className="text-accent" size={10} />
-                          {highlight}
-                        </li>
-                      ))}
+                    {comparison === null ? (
+                      <p className="mt-2 rounded-md bg-panel-muted px-2.5 py-2 text-[9px] leading-4 text-faint">
+                        {plan.reasoning}
+                      </p>
+                    ) : (
+                      <div className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-control bg-line">
+                        {[
+                          ["章节组织", `${comparison.sectionCount} 个章节`],
+                          ["重点强调", `${comparison.emphasisCount} 个卡片`],
+                          ["图片策略", `${comparison.imageStrategy} · ${comparison.imageCount} 张`],
+                          [
+                            "阅读感受",
+                            `${comparison.rhythmLabel} · ${comparison.visualIntensityLabel}`,
+                          ],
+                        ].map(([label, value]) => (
+                          <div className="bg-panel-muted px-2.5 py-2" key={label}>
+                            <p className="text-[7px] text-faint">{label}</p>
+                            <p
+                              className="mt-1 truncate text-[9px] font-semibold text-ink"
+                              title={value}
+                            >
+                              {value}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <ul className="mt-3 flex-1 space-y-1.5 text-[10px] text-muted">
+                      {(candidate?.differenceHighlights ?? plan.highlights)
+                        .slice(0, candidate === undefined ? undefined : 2)
+                        .map((highlight) => (
+                          <li className="flex items-center gap-1.5" key={highlight}>
+                            <Sparkles aria-hidden="true" className="text-accent" size={10} />
+                            {highlight}
+                          </li>
+                        ))}
                     </ul>
                     <button
                       className="mt-5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-control bg-accent text-[11px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
