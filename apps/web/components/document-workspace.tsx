@@ -81,6 +81,7 @@ interface LayoutDraftState {
 interface MutableLayoutDraft {
   document: DocumentV1;
   readonly mode: LayoutDraftMode;
+  revision: number;
 }
 
 export function DocumentWorkspace({ articleId }: { readonly articleId: string }) {
@@ -128,6 +129,7 @@ export function DocumentWorkspace({ articleId }: { readonly articleId: string })
 
 function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
   const layoutDraftRef = useRef<MutableLayoutDraft | null>(null);
+  const savingLayoutDraftRef = useRef(false);
   const [controller, setController] = useState<DocumentAutosaveController | null>(null);
   const [activeDocument, setActiveDocument] = useState<DocumentV1>(() =>
     normalizeDocument(initial.document),
@@ -140,6 +142,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
   const [applyingPlanId, setApplyingPlanId] = useState<string | null>(null);
   const [layoutDraft, setLayoutDraft] = useState<LayoutDraftState | null>(null);
   const [savingLayoutDraft, setSavingLayoutDraft] = useState(false);
+  const [layoutSaveNotice, setLayoutSaveNotice] = useState<string | null>(null);
   const themesQuery = useQuery({
     queryKey: ["themes"],
     queryFn: () => listThemes(),
@@ -185,7 +188,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
           const draftMode =
             draft.saveMode === "manual" ? layoutDraftModeFromOrigin(draft.transactionOrigin) : null;
           if (draftMode !== null) {
-            layoutDraftRef.current = { document: restoredDocument, mode: draftMode };
+            layoutDraftRef.current = { document: restoredDocument, mode: draftMode, revision: 0 };
             setLayoutDraft({
               designName: "恢复的智能排版",
               mode: draftMode,
@@ -217,6 +220,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
     await controller.discardLocalDraft(initial.documentVersion, initial.lastSavedAt);
     layoutDraftRef.current = null;
     setLayoutDraft(null);
+    setLayoutSaveNotice(null);
     setRecoveredDraft(null);
     setActiveDocument(normalizeDocument(initial.document));
   };
@@ -230,6 +234,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
     const currentLayoutDraft = layoutDraftRef.current;
     if (currentLayoutDraft !== null) {
       currentLayoutDraft.document = document;
+      currentLayoutDraft.revision += 1;
       void controller
         .queue(
           document as unknown as DocumentJson,
@@ -250,7 +255,8 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
   };
 
   const discardLayoutDraft = async (): Promise<void> => {
-    if (controller === null || savingLayoutDraft) return;
+    if (controller === null || savingLayoutDraftRef.current) return;
+    savingLayoutDraftRef.current = true;
     setEditorError(null);
     setSavingLayoutDraft(true);
     try {
@@ -258,35 +264,58 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
       await controller.discardLocalDraft(persisted.documentVersion, persisted.lastSavedAt);
       layoutDraftRef.current = null;
       setLayoutDraft(null);
+      setLayoutSaveNotice(null);
       setRecoveredDraft(null);
       setActiveDocument(normalizeDocument(persisted.document));
       setLastTransactionId(persisted.lastTransactionId);
     } catch (error) {
       setEditorError(error instanceof Error ? error.message : "无法放弃本次手动调整");
     } finally {
+      savingLayoutDraftRef.current = false;
       setSavingLayoutDraft(false);
     }
   };
 
   const saveLayoutDraft = async (): Promise<void> => {
-    if (controller === null || layoutDraftRef.current === null || savingLayoutDraft) return;
+    const savingDraft = layoutDraftRef.current;
+    if (controller === null || savingDraft === null || savingLayoutDraftRef.current) return;
+    const savingRevision = savingDraft.revision;
+    const hasNewerLayoutDraft = (): boolean =>
+      layoutDraftRef.current !== savingDraft || savingDraft.revision !== savingRevision;
+
+    savingLayoutDraftRef.current = true;
     setEditorError(null);
+    setLayoutSaveNotice(null);
     setSavingLayoutDraft(true);
     try {
       await controller.flushNow();
       const current = controller.getSnapshot();
       if (current.status !== "saved") {
+        if (hasNewerLayoutDraft()) {
+          setLayoutSaveNotice(
+            "保存期间检测到新的调整；新草稿仍保留在本机，请等待保存状态稳定后再次保存。",
+          );
+          return;
+        }
         throw new Error(current.errorMessage ?? "当前排版草稿尚未保存，请稍后重试");
       }
       const persisted = await getArticleDocument(initial.articleId);
+      setLastTransactionId(persisted.lastTransactionId);
+      if (hasNewerLayoutDraft()) {
+        setLayoutSaveNotice(
+          "点击保存后又产生了新的调整：刚才的版本已保存，新调整仍保留在本机，请再次点击保存。",
+        );
+        return;
+      }
       layoutDraftRef.current = null;
       setLayoutDraft(null);
+      setLayoutSaveNotice(null);
       setRecoveredDraft(null);
       setActiveDocument(normalizeDocument(persisted.document));
-      setLastTransactionId(persisted.lastTransactionId);
     } catch (error) {
       setEditorError(error instanceof Error ? error.message : "排版草稿保存失败");
     } finally {
+      savingLayoutDraftRef.current = false;
       setSavingLayoutDraft(false);
     }
   };
@@ -304,6 +333,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
     if (currentLayoutDraft !== null) {
       try {
         currentLayoutDraft.document = document;
+        currentLayoutDraft.revision += 1;
         await controller.queue(
           document as unknown as DocumentJson,
           initial.schemaVersion,
@@ -339,6 +369,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
   const handleSnapshotRestored = async (result: RestoreSnapshotResult) => {
     layoutDraftRef.current = null;
     setLayoutDraft(null);
+    setLayoutSaveNotice(null);
     if (controller === null) {
       setSnapshot({
         status: "saved",
@@ -482,7 +513,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
       const persistedDocument = normalizeDocument(persisted.document);
       await controller.discardLocalDraft(persisted.documentVersion, persisted.lastSavedAt);
       const draftMode = aiDecision === null ? "rule" : "ai";
-      layoutDraftRef.current = { document: persistedDocument, mode: draftMode };
+      layoutDraftRef.current = { document: persistedDocument, mode: draftMode, revision: 0 };
       setLayoutDraft({
         designName: resolvedPlan.designName,
         mode: draftMode,
@@ -584,6 +615,11 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
               {layoutDraft.outcome}
               。所有区块均已解锁，可修改文字、拖动区块和调整样式；后续调整只保存在本机，确认后再手动保存。
             </p>
+            {layoutSaveNotice === null ? null : (
+              <p className="mt-1.5 font-medium leading-5 text-warning" role="status">
+                {layoutSaveNotice}
+              </p>
+            )}
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             <button
@@ -606,7 +642,7 @@ function DocumentSession({ initial }: { readonly initial: ArticleDocument }) {
               ) : (
                 <Save aria-hidden="true" size={13} />
               )}
-              手动保存成稿
+              {savingLayoutDraft ? "正在保存当前版本…" : "手动保存成稿"}
             </button>
           </div>
         </section>

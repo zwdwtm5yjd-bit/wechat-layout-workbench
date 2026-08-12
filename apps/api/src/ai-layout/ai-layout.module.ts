@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { loadServerEnvironment, revealSecret } from "@wechat-layout/config/server";
 
 import { DocumentModule } from "../documents/document.module.js";
+import { ResourceModule } from "../resources/resource.module.js";
 import {
   AI_LAYOUT_FETCH,
   AI_LAYOUT_OPTIONS,
@@ -11,7 +12,7 @@ import { AiLayoutController } from "./ai-layout.controller.js";
 import { AiLayoutService } from "./ai-layout.service.js";
 
 @Module({
-  imports: [DocumentModule],
+  imports: [DocumentModule, ResourceModule],
   controllers: [AiLayoutController],
   providers: [
     AiLayoutService,

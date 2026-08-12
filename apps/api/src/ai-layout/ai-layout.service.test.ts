@@ -1,9 +1,15 @@
 import type { AiLayoutDesignLanguageId } from "@wechat-layout/api-contracts";
-import type { DocumentV1 } from "@wechat-layout/document-schema";
+import type {
+  DocumentV1,
+  HeadingNode,
+  ImageBlockNode,
+  ParagraphNode,
+} from "@wechat-layout/document-schema";
 import { documentV1Fixture } from "@wechat-layout/document-schema/fixtures";
 import { describe, expect, it, vi } from "vitest";
 
 import type { DocumentService } from "../documents/document.service.js";
+import type { ResourceService } from "../resources/resource.service.js";
 import type { AiLayoutRuntimeOptions } from "./ai-layout.constants.js";
 import { AiLayoutService } from "./ai-layout.service.js";
 
@@ -41,6 +47,87 @@ function documentWithBodyText(text: string): DocumentV1 {
   if (paragraph?.type !== "paragraph") throw new Error("fixture paragraph is required");
   paragraph.content = [{ type: "text", text }];
   return document;
+}
+
+function resourceService(filenames: Readonly<Record<string, string>> = {}): ResourceService {
+  return {
+    get: vi.fn().mockImplementation((_ownerUserId: string, resourceId: string) =>
+      Promise.resolve({
+        id: resourceId,
+        displayName: null,
+        originalFilename: filenames[resourceId] ?? null,
+        resourceType: "image",
+        status: "active",
+      }),
+    ),
+  } as unknown as ResourceService;
+}
+
+function sourceImageResourceId(index: number): string {
+  return `019c0000-0000-7000-8000-${String(index).padStart(12, "0")}`;
+}
+
+function imageDirectorDocument(): {
+  readonly document: DocumentV1;
+  readonly filenames: Readonly<Record<string, string>>;
+  readonly imageBlockIds: readonly string[];
+  readonly resourceIds: readonly string[];
+} {
+  const document: DocumentV1 = { ...structuredClone(documentV1Fixture), articleId };
+  const paragraphTemplate = documentV1Fixture.content.content.find(
+    (node) => node.type === "paragraph",
+  );
+  const imageTemplate = documentV1Fixture.content.content.find(
+    (node) => node.type === "imageBlock",
+  );
+  const headingTemplate = documentV1Fixture.content.content.find((node) => node.type === "heading");
+  if (
+    paragraphTemplate?.type !== "paragraph" ||
+    imageTemplate?.type !== "imageBlock" ||
+    headingTemplate?.type !== "heading"
+  ) {
+    throw new Error("image director fixtures are required");
+  }
+  const imageAfterParagraphs = new Set([5, 20, 40, 60, 80, 100, 120, 125, 130, 135]);
+  const content: DocumentV1["content"]["content"] = [];
+  const heading: HeadingNode = structuredClone(headingTemplate);
+  heading.attrs = { ...heading.attrs, blockId: "director_heading" };
+  heading.content = [{ type: "text", text: "现场故事与成果回顾" }];
+  content.push(heading);
+  const imageBlockIds: string[] = [];
+  const resourceIds: string[] = [];
+  const filenames: Record<string, string> = {};
+  let imageIndex = 0;
+  for (let index = 0; index < 140; index += 1) {
+    const paragraph: ParagraphNode = structuredClone(paragraphTemplate);
+    paragraph.attrs = {
+      blockId: `director_text_${String(index).padStart(3, "0")}`,
+      locked: false,
+      semanticRole: "body",
+    };
+    paragraph.content = [{ type: "text", text: `第 ${String(index)} 段现场文字与工作进展。` }];
+    content.push(paragraph);
+    if (!imageAfterParagraphs.has(index)) continue;
+    imageIndex += 1;
+    const resourceId = sourceImageResourceId(imageIndex);
+    const imageBlockId = `director_image_${String(imageIndex).padStart(2, "0")}`;
+    const image: ImageBlockNode = structuredClone(imageTemplate);
+    image.attrs = {
+      ...image.attrs,
+      alt: `现场照片 ${String(imageIndex)}`,
+      blockId: imageBlockId,
+      caption: `原始图注 ${String(imageIndex)}`,
+      elementKind: "image",
+      resourceId,
+    };
+    delete image.attrs.originalResourceId;
+    content.push(image);
+    imageBlockIds.push(imageBlockId);
+    resourceIds.push(resourceId);
+    filenames[resourceId] = `photo-${String(imageIndex).padStart(2, "0")}.jpg`;
+  }
+  document.content = { type: "doc", content };
+  return { document, filenames, imageBlockIds, resourceIds };
 }
 
 function options(
@@ -126,7 +213,7 @@ const candidateLanguageCases = [
 describe("AiLayoutService", () => {
   it("reports an unavailable model and refuses to fake AI output", async () => {
     const fetcher = vi.fn();
-    const service = new AiLayoutService(options(null), fetcher, documents());
+    const service = new AiLayoutService(options(null), fetcher, documents(), resourceService());
 
     expect(service.status()).toMatchObject({
       available: false,
@@ -194,9 +281,18 @@ describe("AiLayoutService", () => {
       ),
     );
     const sourceDocument: DocumentV1 = { ...structuredClone(documentV1Fixture), articleId };
+    const sourceImage = sourceDocument.content.content.find((block) => block.type === "imageBlock");
+    if (sourceImage?.type !== "imageBlock") throw new Error("fixture image is required");
+    const fixtureImageResourceId = sourceImageResourceId(99);
+    sourceImage.attrs.resourceId = fixtureImageResourceId;
     const originalDocument = structuredClone(sourceDocument);
     const sourceBlockIds = sourceDocument.content.content.map((block) => block.attrs.blockId);
-    const service = new AiLayoutService(options("secret-key"), fetcher, documents(sourceDocument));
+    const service = new AiLayoutService(
+      options("secret-key"),
+      fetcher,
+      documents(sourceDocument),
+      resourceService({ [fixtureImageResourceId]: "fixture-photo.jpg" }),
+    );
     const result = await service.generate(ownerUserId, articleId, {
       baseDocumentVersion: 7,
       mode: "original",
@@ -211,7 +307,17 @@ describe("AiLayoutService", () => {
     const request = fetcher.mock.calls[0]?.[1] as RequestInit;
     expect(request.headers).toMatchObject({ Authorization: "Bearer secret-key" });
     expect(String(request.body)).toContain("wechat_article_layout_decision");
+    expect(String(request.body)).toContain("imagePlacements");
     expect(result.decision.languageId).toBe("crimson-editorial");
+    expect(result.decision.imagePlacements).toEqual([
+      {
+        afterBlockId: null,
+        imageBlockId: "block_image",
+        mode: "keep-original",
+        reason: "信息不足或锚点无效，保持原图位置",
+        resourceId: fixtureImageResourceId,
+      },
+    ]);
     expect(result.decision.blocks).toHaveLength(documentV1Fixture.content.content.length);
     expect(result.decision.dividerAfterBlockIds).not.toContain("unknown");
     expect(result.candidates).toHaveLength(6);
@@ -276,6 +382,181 @@ describe("AiLayoutService", () => {
     expect(result.decision).toEqual(result.candidates[0]?.decision);
   });
 
+  it("directs up to eight real source images and rejects invented placements", async () => {
+    const source = imageDirectorDocument();
+    const originalDocument = structuredClone(source.document);
+    const sampledImageBlockIds = [
+      source.imageBlockIds[0],
+      source.imageBlockIds[1],
+      source.imageBlockIds[3],
+      source.imageBlockIds[4],
+      source.imageBlockIds[5],
+      source.imageBlockIds[6],
+      source.imageBlockIds[8],
+      source.imageBlockIds[9],
+    ] as const;
+    const sampledResourceIds = [
+      source.resourceIds[0],
+      source.resourceIds[1],
+      source.resourceIds[3],
+      source.resourceIds[4],
+      source.resourceIds[5],
+      source.resourceIds[6],
+      source.resourceIds[8],
+      source.resourceIds[9],
+    ] as const;
+    const modelDecision = {
+      languageId: "warm-paper",
+      designName: "现场图文导演",
+      concept: "依据原图的已有语义安排阅读节奏。",
+      designTokens,
+      rhythm: "airy",
+      variantSeed: 6412,
+      imagePlacements: [
+        {
+          afterBlockId: "director_text_010",
+          imageBlockId: sampledImageBlockIds[0],
+          mode: "after-text",
+          reason: "放在对应的现场叙述之后",
+          resourceId: sampledResourceIds[0],
+        },
+        {
+          afterBlockId: "director_text_020",
+          imageBlockId: sampledImageBlockIds[1],
+          mode: "after-text",
+          reason: "伪造了资源关系",
+          resourceId: sampledResourceIds[2],
+        },
+        {
+          afterBlockId: sampledImageBlockIds[0],
+          imageBlockId: sampledImageBlockIds[2],
+          mode: "after-text",
+          reason: "错误地锚定到图片",
+          resourceId: sampledResourceIds[2],
+        },
+        {
+          afterBlockId: "invented_text_block",
+          imageBlockId: sampledImageBlockIds[3],
+          mode: "after-text",
+          reason: "错误地锚定到未知区块",
+          resourceId: sampledResourceIds[3],
+        },
+        {
+          afterBlockId: null,
+          imageBlockId: sampledImageBlockIds[4],
+          mode: "keep-original",
+          reason: "信息不足，保持原位",
+          resourceId: sampledResourceIds[4],
+        },
+        {
+          afterBlockId: "director_text_100",
+          imageBlockId: sampledImageBlockIds[5],
+          mode: "after-text",
+          reason: "伪造为内置素材",
+          resourceId: "builtin_visual_static_022",
+        },
+      ],
+      visualAssets: [
+        {
+          afterBlockId: "director_text_001",
+          reason: "在导语后建立装饰锚点",
+          resourceId: "builtin_visual_static_022",
+        },
+      ],
+      visualIntensity: "balanced",
+      dividerComponentId: "cmp_divider_ornament_dots_004",
+      hero: {
+        componentId: "cmp_intro_leaf_story_003",
+        eyebrow: "PHOTO STORY",
+        title: "现场图文导演",
+        footer: "原图 · 原文",
+      },
+      footer: {
+        componentId: "cmp_notice_story_intro_006",
+        title: "现场回看",
+        text: "以原图和原文完成叙事",
+      },
+      dividerAfterBlockIds: [],
+      blocks: [],
+    };
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          output: [{ content: [{ type: "output_text", text: JSON.stringify(modelDecision) }] }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    const resources = resourceService(source.filenames);
+    const service = new AiLayoutService(
+      options("secret-key"),
+      fetcher,
+      documents(source.document),
+      resources,
+    );
+
+    const result = await service.generate(ownerUserId, articleId, {
+      baseDocumentVersion: 7,
+      mode: "original",
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    const request = fetcher.mock.calls[0]?.[1] as RequestInit;
+    const requestBody = JSON.parse(String(request.body)) as { readonly input: string };
+    const modelInput = JSON.parse(requestBody.input) as {
+      readonly article: {
+        readonly blocks: readonly Readonly<Record<string, unknown>>[];
+        readonly sourceImages: readonly Readonly<Record<string, unknown>>[];
+      };
+    };
+    expect(modelInput.article.blocks).toHaveLength(120);
+    expect(modelInput.article.blocks.map((block) => block.blockId)).not.toContain(
+      source.imageBlockIds[9],
+    );
+    expect(modelInput.article.sourceImages).toHaveLength(8);
+    expect(modelInput.article.sourceImages.map((image) => image.imageBlockId)).toEqual(
+      sampledImageBlockIds,
+    );
+    expect(modelInput.article.sourceImages.at(-1)).toMatchObject({
+      alt: "现场照片 10",
+      caption: "原始图注 10",
+      filename: "photo-10.jpg",
+      imageBlockId: source.imageBlockIds[9],
+      resourceId: source.resourceIds[9],
+    });
+    expect(modelInput.article.sourceImages[0]).toMatchObject({
+      followingText: expect.objectContaining({ blockId: "director_text_006" }),
+      nearbyHeading: expect.objectContaining({ blockId: "director_heading" }),
+      precedingText: expect.objectContaining({ blockId: "director_text_005" }),
+    });
+    expect(resources.get).toHaveBeenCalledTimes(8);
+
+    const placements = result.decision.imagePlacements ?? [];
+    expect(placements).toHaveLength(8);
+    expect(placements.map((placement) => placement.imageBlockId)).toEqual(sampledImageBlockIds);
+    expect(placements[0]).toMatchObject({
+      afterBlockId: "director_text_010",
+      mode: "after-text",
+      resourceId: sampledResourceIds[0],
+    });
+    expect(placements[4]).toMatchObject({
+      afterBlockId: null,
+      mode: "keep-original",
+      reason: "信息不足，保持原位",
+    });
+    for (const placement of placements.slice(1).filter((_, index) => index !== 3)) {
+      expect(placement).toMatchObject({ afterBlockId: null, mode: "keep-original" });
+    }
+    expect(
+      placements.every((placement) => !placement.resourceId.startsWith("builtin_visual_")),
+    ).toBe(true);
+    expect(placements[0]).not.toHaveProperty("caption");
+    expect(source.document).toEqual(originalDocument);
+    for (const candidate of result.candidates) {
+      expect(candidate.decision.imagePlacements).toEqual(placements);
+    }
+  });
+
   it.each(candidateLanguageCases)(
     "keeps the model choice and orders $label candidate languages explicitly",
     async (testCase) => {
@@ -321,6 +602,7 @@ describe("AiLayoutService", () => {
         options("secret-key"),
         fetcher,
         documents(documentWithBodyText(testCase.text)),
+        resourceService(),
       );
 
       const result = await service.generate(ownerUserId, articleId, {
@@ -407,6 +689,7 @@ describe("AiLayoutService", () => {
       }),
       fetcher,
       documents(),
+      resourceService(),
     );
 
     const result = await service.generate(ownerUserId, articleId, {
@@ -498,6 +781,7 @@ describe("AiLayoutService", () => {
       }),
       fetcher,
       documents(),
+      resourceService(),
     );
 
     const result = await service.generate(ownerUserId, articleId, {

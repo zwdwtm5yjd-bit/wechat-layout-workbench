@@ -25,4 +25,20 @@ describe("assertValidPlannedLayout", () => {
 
     expect(() => assertValidPlannedLayout(previous, planned)).toThrow(LayoutValidationError);
   });
+
+  it("允许原稿图片改变位置但不允许替换图片资源", () => {
+    const previous: DocumentV1 = structuredClone(documentV1Fixture);
+    const imageIndex = previous.content.content.findIndex((node) => node.type === "imageBlock");
+    expect(imageIndex).toBeGreaterThanOrEqual(0);
+    const planned: DocumentV1 = structuredClone(previous);
+    const [image] = planned.content.content.splice(imageIndex, 1);
+    if (image === undefined || image.type !== "imageBlock")
+      throw new Error("fixture image missing");
+    planned.content.content.splice(1, 0, image);
+
+    expect(() => assertValidPlannedLayout(previous, planned)).not.toThrow();
+
+    image.attrs.resourceId = "01900000-0000-7000-8000-000000000099";
+    expect(() => assertValidPlannedLayout(previous, planned)).toThrow(/替换或改写了原稿图片/u);
+  });
 });

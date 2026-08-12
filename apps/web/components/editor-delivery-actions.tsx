@@ -97,6 +97,7 @@ export function EditorDeliveryActions({
   const [favoriteProfileIds, setFavoriteProfileIds] = useState<
     readonly AiLayoutCandidateProfileId[]
   >([]);
+  const [favoriteAnnouncement, setFavoriteAnnouncement] = useState("");
   const [candidateError, setCandidateError] = useState<string | null>(null);
   const [generatingCandidates, setGeneratingCandidates] = useState(false);
   const [renderOutput, setRenderOutput] = useState<RenderOutput | null>(null);
@@ -138,6 +139,7 @@ export function EditorDeliveryActions({
     () => new Map(aiCandidatePlans.map(({ candidate, plan }) => [plan.id, candidate])),
     [aiCandidatePlans],
   );
+  const comparisonBoardVisible = layoutMode !== "preset" && aiCandidatePlans.length > 0;
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("guide") === "1") {
@@ -224,19 +226,26 @@ export function EditorDeliveryActions({
     }
   };
 
-  const toggleFavoriteProfile = (profileId: AiLayoutCandidateProfileId): void => {
-    setFavoriteProfileIds((current) => {
-      const next = toggleAiLayoutFavorite(current, profileId);
-      try {
-        window.localStorage.setItem(
-          AI_LAYOUT_FAVORITES_STORAGE_KEY,
-          serializeAiLayoutFavorites(next),
-        );
-      } catch {
-        // Storage can be disabled by the browser. Keep the favorite for this session.
-      }
-      return next;
-    });
+  const toggleFavoriteProfile = (
+    profileId: AiLayoutCandidateProfileId,
+    structureLabel: string,
+  ): void => {
+    const wasFavorite = favoriteProfileIds.includes(profileId);
+    const next = toggleAiLayoutFavorite(favoriteProfileIds, profileId);
+    setFavoriteProfileIds(next);
+    setFavoriteAnnouncement(
+      wasFavorite
+        ? `已取消收藏“${structureLabel}”，候选已按收藏和 AI 推荐重新排序。`
+        : `已收藏“${structureLabel}”并置顶候选列表。`,
+    );
+    try {
+      window.localStorage.setItem(
+        AI_LAYOUT_FAVORITES_STORAGE_KEY,
+        serializeAiLayoutFavorites(next),
+      );
+    } catch {
+      // Storage can be disabled by the browser. Keep the favorite for this session.
+    }
   };
 
   const groupedIssues = useMemo(() => {
@@ -318,8 +327,8 @@ export function EditorDeliveryActions({
       <Dialog.Root onOpenChange={setLayoutOpen} open={layoutOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50 bg-zinc-950/25 backdrop-blur-[2px]" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 max-h-[92vh] w-[min(1180px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-card border border-line bg-panel p-6 shadow-raised">
-            <div className="flex items-start justify-between gap-4">
+          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-24px)] w-[min(1180px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-card border border-line bg-panel shadow-raised sm:max-h-[92vh]">
+            <div className="relative z-30 flex shrink-0 items-start justify-between gap-4 border-b border-line bg-panel px-4 py-4 sm:px-6 sm:py-5">
               <div>
                 <Dialog.Title className="text-base font-semibold text-ink">
                   让内容决定排版
@@ -330,412 +339,458 @@ export function EditorDeliveryActions({
               </div>
               <Dialog.Close
                 aria-label="关闭快速排版"
-                className="grid size-8 place-items-center rounded-control text-faint hover:bg-hover"
+                className="grid size-9 shrink-0 place-items-center rounded-control text-faint hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 <X aria-hidden="true" size={15} />
               </Dialog.Close>
             </div>
-            <div className="mt-5 rounded-control border border-line bg-panel-muted p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[10px] font-semibold text-accent">
-                  {analysis.gene.articleTypeLabel}
-                </span>
-                <span className="rounded-full border border-line bg-panel px-2.5 py-1 text-[10px] text-muted">
-                  {analysis.gene.emotionLabel}
-                </span>
-                <span className="text-[10px] leading-5 text-muted">{analysis.gene.summary}</span>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-4">
-                {[
-                  ["正文", `${analysis.characterCount.toLocaleString("zh-CN")} 字`],
-                  ["章节", `${analysis.headingCount} 个标题`],
-                  ["现有图片", `${analysis.imageCount} 张`],
-                  ["建议补图", `${analysis.missingImageCount} 张`],
-                ].map(([label, value]) => (
-                  <div key={label}>
-                    <p className="text-[9px] text-faint">{label}</p>
-                    <p className="mt-1 text-[12px] font-semibold text-ink">{value}</p>
-                  </div>
-                ))}
-              </div>
-              {analysis.gene.structureSignals.length === 0 ? null : (
-                <p className="mt-3 text-[9px] leading-4 text-faint">
-                  结构线索：{analysis.gene.structureSignals.join(" · ")}
-                </p>
-              )}
-            </div>
-            <div
-              className="mt-5 grid gap-2 sm:grid-cols-3"
-              role="tablist"
-              aria-label="排版生成方式"
-            >
-              {(
-                [
-                  ["preset", "快速规则", "不用模型，从 18 种安全设计语言中选择"],
-                  ["described", "AI 定制", "说出感觉，由模型逐段设计"],
-                  ["original", "AI 原创", "模型阅读全文后自主设计"],
-                ] as const
-              ).map(([mode, label, description]) => (
-                <button
-                  aria-selected={layoutMode === mode}
-                  className={`rounded-control border p-3 text-left transition ${
-                    layoutMode === mode
-                      ? "border-accent bg-accent-soft ring-2 ring-accent/10"
-                      : "border-line bg-panel hover:border-line-strong"
-                  }`}
-                  key={mode}
-                  onClick={() => setLayoutMode(mode)}
-                  role="tab"
-                  type="button"
-                >
-                  <span className="block text-[11px] font-semibold text-ink">{label}</span>
-                  <span className="mt-1 block text-[9px] leading-4 text-muted">{description}</span>
-                </button>
-              ))}
-            </div>
-            {layoutMode === "preset" ? null : (
-              <section className="mt-4 rounded-control border border-line bg-panel-muted p-4">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="text-[10px] font-semibold text-ink">选择排版大模型</p>
-                    <p className="mt-1 text-[9px] leading-4 text-muted">
-                      自动选择会优先使用 DeepSeek，失败时依次切换通义千问和 Kimi。
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-success-soft px-2 py-1 text-[9px] font-medium text-success">
-                    {aiStatusQuery.data?.models.filter((model) => model.available).length ?? 0}{" "}
-                    个节点可用
+            <p aria-atomic="true" aria-live="polite" className="sr-only" role="status">
+              {favoriteAnnouncement}
+            </p>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5 sm:px-6 sm:pb-6">
+              <div className="mt-5 rounded-control border border-line bg-panel-muted p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[10px] font-semibold text-accent">
+                    {analysis.gene.articleTypeLabel}
                   </span>
+                  <span className="rounded-full border border-line bg-panel px-2.5 py-1 text-[10px] text-muted">
+                    {analysis.gene.emotionLabel}
+                  </span>
+                  <span className="text-[10px] leading-5 text-muted">{analysis.gene.summary}</span>
                 </div>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="mt-3 grid gap-3 sm:grid-cols-4">
+                  {[
+                    ["正文", `${analysis.characterCount.toLocaleString("zh-CN")} 字`],
+                    ["章节", `${analysis.headingCount} 个标题`],
+                    ["现有图片", `${analysis.imageCount} 张`],
+                    ["建议补图", `${analysis.missingImageCount} 张`],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <p className="text-[9px] text-faint">{label}</p>
+                      <p className="mt-1 text-[12px] font-semibold text-ink">{value}</p>
+                    </div>
+                  ))}
+                </div>
+                {analysis.gene.structureSignals.length === 0 ? null : (
+                  <p className="mt-3 text-[9px] leading-4 text-faint">
+                    结构线索：{analysis.gene.structureSignals.join(" · ")}
+                  </p>
+                )}
+              </div>
+              <div
+                className="mt-5 grid gap-2 sm:grid-cols-3"
+                role="tablist"
+                aria-label="排版生成方式"
+              >
+                {(
+                  [
+                    ["preset", "快速规则", "不用模型，从 18 种安全设计语言中选择"],
+                    ["described", "AI 定制", "说出感觉，由模型逐段设计"],
+                    ["original", "AI 原创", "模型阅读全文后自主设计"],
+                  ] as const
+                ).map(([mode, label, description]) => (
                   <button
-                    aria-pressed={providerId === "auto"}
+                    aria-selected={layoutMode === mode}
                     className={`rounded-control border p-3 text-left transition ${
-                      providerId === "auto"
-                        ? "border-accent bg-panel ring-2 ring-accent/10"
+                      layoutMode === mode
+                        ? "border-accent bg-accent-soft ring-2 ring-accent/10"
                         : "border-line bg-panel hover:border-line-strong"
                     }`}
-                    disabled={!aiAvailable}
-                    onClick={() => {
-                      setProviderId("auto");
-                      window.localStorage.setItem("wechat-layout-ai-provider", "auto");
-                    }}
+                    key={mode}
+                    onClick={() => setLayoutMode(mode)}
+                    role="tab"
                     type="button"
                   >
-                    <span className="flex items-center justify-between gap-2 text-[10px] font-semibold text-ink">
-                      自动选择
-                      <span className="rounded-full bg-accent-soft px-1.5 py-0.5 text-[8px] text-accent">
-                        推荐
-                      </span>
-                    </span>
-                    <span className="mt-1 block text-[8px] leading-4 text-muted">
-                      自动容灾，优先低成本节点
+                    <span className="block text-[11px] font-semibold text-ink">{label}</span>
+                    <span className="mt-1 block text-[9px] leading-4 text-muted">
+                      {description}
                     </span>
                   </button>
-                  {(aiStatusQuery.data?.models ?? []).map((model) => (
+                ))}
+              </div>
+              {layoutMode === "preset" ? null : (
+                <section className="mt-4 rounded-control border border-line bg-panel-muted p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] font-semibold text-ink">选择排版大模型</p>
+                      <p className="mt-1 text-[9px] leading-4 text-muted">
+                        自动选择会优先使用 DeepSeek，失败时依次切换通义千问和 Kimi。
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-success-soft px-2 py-1 text-[9px] font-medium text-success">
+                      {aiStatusQuery.data?.models.filter((model) => model.available).length ?? 0}{" "}
+                      个节点可用
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     <button
-                      aria-pressed={providerId === model.id}
-                      className={`rounded-control border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${
-                        providerId === model.id
+                      aria-pressed={providerId === "auto"}
+                      className={`rounded-control border p-3 text-left transition ${
+                        providerId === "auto"
                           ? "border-accent bg-panel ring-2 ring-accent/10"
                           : "border-line bg-panel hover:border-line-strong"
                       }`}
-                      disabled={!model.available}
-                      key={model.id}
+                      disabled={!aiAvailable}
                       onClick={() => {
-                        setProviderId(model.id);
-                        window.localStorage.setItem("wechat-layout-ai-provider", model.id);
+                        setProviderId("auto");
+                        window.localStorage.setItem("wechat-layout-ai-provider", "auto");
                       }}
                       type="button"
                     >
                       <span className="flex items-center justify-between gap-2 text-[10px] font-semibold text-ink">
-                        {model.label}
-                        <span
-                          className={`size-1.5 rounded-full ${model.available ? "bg-success" : "bg-faint"}`}
-                        />
+                        自动选择
+                        <span className="rounded-full bg-accent-soft px-1.5 py-0.5 text-[8px] text-accent">
+                          推荐
+                        </span>
                       </span>
                       <span className="mt-1 block text-[8px] leading-4 text-muted">
-                        {model.description}
-                      </span>
-                      <span className="mt-1 block truncate font-mono text-[7px] text-faint">
-                        {model.model}
+                        自动容灾，优先低成本节点
                       </span>
                     </button>
-                  ))}
-                </div>
-              </section>
-            )}
-            {layoutMode === "described" ? (
-              <label className="mt-4 block rounded-control border border-line bg-panel-muted p-4">
-                <span className="text-[10px] font-semibold text-ink">你想要什么感觉？</span>
-                <textarea
-                  className="mt-2 min-h-20 w-full resize-y rounded-control border border-line bg-panel px-3 py-2 text-[11px] leading-5 text-ink outline-none focus:border-accent"
-                  maxLength={300}
-                  onChange={(event) => setStyleBrief(event.currentTarget.value)}
-                  placeholder="例如：温暖的杂志感，米白底色，标题有手工纸气质，金句突出但不要太花。"
-                  value={styleBrief}
-                />
-                <span className="mt-1 block text-right text-[9px] text-faint">
-                  {styleBrief.length}/300
-                </span>
-              </label>
-            ) : null}
-            {layoutMode === "original" ? (
-              <div className="mt-4 rounded-control border border-accent/20 bg-accent-soft p-4 text-[10px] leading-5 text-muted">
-                模型会逐段决定哪些是标题、章节、导语、金句、数据卡和转场，再选择视觉语言。
-                不再使用内容指纹假装 AI，也不会插入占位图集。
-              </div>
-            ) : null}
-            {layoutMode === "preset" || selectedProviderAvailable ? null : (
-              <div className="mt-4 rounded-control border border-warning/25 bg-warning-soft p-4 text-[10px] leading-5 text-warning">
-                {providerId === "auto"
-                  ? "尚未连接可用的 AI 模型。"
-                  : `${selectedModel?.label ?? "所选模型"} 尚未配置。`}
-                请切换到已连接的模型后再生成。
-              </div>
-            )}
-            {layoutMode === "preset" ? null : (
-              <section className="mt-4 rounded-card border border-line bg-panel p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-semibold text-ink">
-                      {aiCandidates.length > 0
-                        ? `已生成 ${aiCandidates.length} 套可对比方案`
-                        : "一次生成 6 种结构方向"}
-                    </p>
-                    <p className="mt-1 text-[9px] leading-4 text-muted">
-                      模型只阅读全文一次，再派生六种结构表达，不会为每张卡重复消耗额度。
-                    </p>
-                  </div>
-                  <button
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-control bg-accent px-4 text-[10px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={
-                      saveStatus !== "saved" ||
-                      !selectedProviderAvailable ||
-                      generatingCandidates ||
-                      (layoutMode === "described" && styleBrief.trim().length < 3)
-                    }
-                    onClick={() => void generateCandidates()}
-                    type="button"
-                  >
-                    {generatingCandidates ? (
-                      <LoaderCircle aria-hidden="true" className="animate-spin" size={13} />
-                    ) : (
-                      <Sparkles aria-hidden="true" size={13} />
-                    )}
-                    {generatingCandidates
-                      ? "正在设计6种方向…"
-                      : aiCandidates.length > 0
-                        ? "重新生成6套"
-                        : "生成6套AI方案"}
-                  </button>
-                </div>
-                {aiCandidates.length === 0 ? (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {["报刊导读", "简报卡片", "数据证据", "极简长读", "纪实图文", "行动路线"].map(
-                      (label) => (
-                        <span
-                          className="rounded-full border border-line bg-panel-muted px-2.5 py-1 text-[8px] font-medium text-muted"
-                          key={label}
-                        >
-                          {label}
+                    {(aiStatusQuery.data?.models ?? []).map((model) => (
+                      <button
+                        aria-pressed={providerId === model.id}
+                        className={`rounded-control border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                          providerId === model.id
+                            ? "border-accent bg-panel ring-2 ring-accent/10"
+                            : "border-line bg-panel hover:border-line-strong"
+                        }`}
+                        disabled={!model.available}
+                        key={model.id}
+                        onClick={() => {
+                          setProviderId(model.id);
+                          window.localStorage.setItem("wechat-layout-ai-provider", model.id);
+                        }}
+                        type="button"
+                      >
+                        <span className="flex items-center justify-between gap-2 text-[10px] font-semibold text-ink">
+                          {model.label}
+                          <span
+                            className={`size-1.5 rounded-full ${model.available ? "bg-success" : "bg-faint"}`}
+                          />
                         </span>
-                      ),
-                    )}
+                        <span className="mt-1 block text-[8px] leading-4 text-muted">
+                          {model.description}
+                        </span>
+                        <span className="mt-1 block truncate font-mono text-[7px] text-faint">
+                          {model.model}
+                        </span>
+                      </button>
+                    ))}
                   </div>
-                ) : (
-                  <p className="mt-3 text-[8px] leading-4 text-faint">
-                    下方统一对比首屏结构、章节、重点卡、图片策略和阅读节奏；星标会在当前浏览器置顶喜欢的方向。
-                  </p>
-                )}
-                {candidateError === null ? null : (
-                  <p className="mt-3 rounded-control bg-danger-soft px-3 py-2 text-[9px] leading-4 text-danger">
-                    {candidateError}
-                  </p>
-                )}
-              </section>
-            )}
-            {layoutMode === "preset" ? (
-              <div className="mt-4 flex flex-wrap items-center gap-1.5 rounded-control border border-line bg-panel-muted p-2">
-                <button
-                  aria-pressed={languageFamily === "all"}
-                  className={`rounded-md px-3 py-1.5 text-[9px] font-medium transition ${
-                    languageFamily === "all"
-                      ? "bg-accent text-white"
-                      : "bg-panel text-muted hover:text-ink"
-                  }`}
-                  onClick={() => setLanguageFamily("all")}
-                  type="button"
-                >
-                  全部 · {layoutPlans.length}
-                </button>
-                {Object.entries(DESIGN_LANGUAGE_FAMILY_LABELS).map(([family, label]) => {
-                  const familyId = family as DesignLanguageFamily;
-                  const count = layoutPlans.filter(
-                    (plan) => DESIGN_LANGUAGE_FAMILY_BY_ID[plan.languageId] === familyId,
-                  ).length;
-                  return (
+                </section>
+              )}
+              {layoutMode === "described" ? (
+                <label className="mt-4 block rounded-control border border-line bg-panel-muted p-4">
+                  <span className="text-[10px] font-semibold text-ink">你想要什么感觉？</span>
+                  <textarea
+                    className="mt-2 min-h-20 w-full resize-y rounded-control border border-line bg-panel px-3 py-2 text-[11px] leading-5 text-ink outline-none focus:border-accent"
+                    maxLength={300}
+                    onChange={(event) => setStyleBrief(event.currentTarget.value)}
+                    placeholder="例如：温暖的杂志感，米白底色，标题有手工纸气质，金句突出但不要太花。"
+                    value={styleBrief}
+                  />
+                  <span className="mt-1 block text-right text-[9px] text-faint">
+                    {styleBrief.length}/300
+                  </span>
+                </label>
+              ) : null}
+              {layoutMode === "original" ? (
+                <div className="mt-4 rounded-control border border-accent/20 bg-accent-soft p-4 text-[10px] leading-5 text-muted">
+                  模型会逐段决定哪些是标题、章节、导语、金句、数据卡和转场，再选择视觉语言。
+                  不再使用内容指纹假装 AI，也不会插入占位图集。
+                </div>
+              ) : null}
+              {layoutMode === "preset" || selectedProviderAvailable ? null : (
+                <div className="mt-4 rounded-control border border-warning/25 bg-warning-soft p-4 text-[10px] leading-5 text-warning">
+                  {providerId === "auto"
+                    ? "尚未连接可用的 AI 模型。"
+                    : `${selectedModel?.label ?? "所选模型"} 尚未配置。`}
+                  请切换到已连接的模型后再生成。
+                </div>
+              )}
+              {layoutMode === "preset" ? null : (
+                <section className="mt-4 rounded-card border border-line bg-panel p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold text-ink">
+                        {aiCandidates.length > 0
+                          ? `已生成 ${aiCandidates.length} 套可对比方案`
+                          : "一次生成 6 种结构方向"}
+                      </p>
+                      <p className="mt-1 text-[9px] leading-4 text-muted">
+                        模型只阅读全文一次，再派生六种结构表达，不会为每张卡重复消耗额度。
+                      </p>
+                    </div>
                     <button
-                      aria-pressed={languageFamily === familyId}
-                      className={`rounded-md px-3 py-1.5 text-[9px] font-medium transition ${
-                        languageFamily === familyId
-                          ? "bg-accent text-white"
-                          : "bg-panel text-muted hover:text-ink"
-                      }`}
-                      key={familyId}
-                      onClick={() => setLanguageFamily(familyId)}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-control bg-accent px-4 text-[10px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
+                      disabled={
+                        saveStatus !== "saved" ||
+                        !selectedProviderAvailable ||
+                        generatingCandidates ||
+                        (layoutMode === "described" && styleBrief.trim().length < 3)
+                      }
+                      onClick={() => void generateCandidates()}
                       type="button"
                     >
-                      {label} · {count}
+                      {generatingCandidates ? (
+                        <LoaderCircle aria-hidden="true" className="animate-spin" size={13} />
+                      ) : (
+                        <Sparkles aria-hidden="true" size={13} />
+                      )}
+                      {generatingCandidates
+                        ? "正在设计6种方向…"
+                        : aiCandidates.length > 0
+                          ? "重新生成6套"
+                          : "生成6套AI方案"}
                     </button>
+                  </div>
+                  {aiCandidates.length === 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {["报刊导读", "简报卡片", "数据证据", "极简长读", "纪实图文", "行动路线"].map(
+                        (label) => (
+                          <span
+                            className="rounded-full border border-line bg-panel-muted px-2.5 py-1 text-[8px] font-medium text-muted"
+                            key={label}
+                          >
+                            {label}
+                          </span>
+                        ),
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-[10px] leading-5 text-muted">
+                      下方统一对比首屏结构、章节、重点卡、图片策略和阅读节奏；星标会在当前浏览器置顶喜欢的方向。
+                    </p>
+                  )}
+                  {candidateError === null ? null : (
+                    <p className="mt-3 rounded-control bg-danger-soft px-3 py-2 text-[9px] leading-4 text-danger">
+                      {candidateError}
+                    </p>
+                  )}
+                </section>
+              )}
+              {layoutMode === "preset" ? (
+                <div className="mt-4 flex flex-wrap items-center gap-1.5 rounded-control border border-line bg-panel-muted p-2">
+                  <button
+                    aria-pressed={languageFamily === "all"}
+                    className={`rounded-md px-3 py-1.5 text-[9px] font-medium transition ${
+                      languageFamily === "all"
+                        ? "bg-accent text-white"
+                        : "bg-panel text-muted hover:text-ink"
+                    }`}
+                    onClick={() => setLanguageFamily("all")}
+                    type="button"
+                  >
+                    全部 · {layoutPlans.length}
+                  </button>
+                  {Object.entries(DESIGN_LANGUAGE_FAMILY_LABELS).map(([family, label]) => {
+                    const familyId = family as DesignLanguageFamily;
+                    const count = layoutPlans.filter(
+                      (plan) => DESIGN_LANGUAGE_FAMILY_BY_ID[plan.languageId] === familyId,
+                    ).length;
+                    return (
+                      <button
+                        aria-pressed={languageFamily === familyId}
+                        className={`rounded-md px-3 py-1.5 text-[9px] font-medium transition ${
+                          languageFamily === familyId
+                            ? "bg-accent text-white"
+                            : "bg-panel text-muted hover:text-ink"
+                        }`}
+                        key={familyId}
+                        onClick={() => setLanguageFamily(familyId)}
+                        type="button"
+                      >
+                        {label} · {count}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+              {comparisonBoardVisible ? (
+                <div className="sticky top-0 z-20 -mx-1 mt-4 flex items-center justify-between gap-3 rounded-control border border-line bg-panel/95 px-3 py-2.5 shadow-subtle backdrop-blur">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold text-ink">六套结构预演</p>
+                    <p className="mt-0.5 text-[10px] leading-4 text-muted">
+                      <span className="lg:hidden">左右滑动逐套比较；</span>
+                      预演用于看结构方向，应用后才生成可继续编辑的成稿。
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-panel-muted px-2.5 py-1 text-[10px] font-medium text-muted">
+                    已收藏 {favoriteProfileIds.length}
+                  </span>
+                </div>
+              ) : null}
+              <div
+                className={
+                  comparisonBoardVisible
+                    ? "-mx-1 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-1 pb-3 lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0 lg:pb-0"
+                    : `mt-5 grid gap-3 ${visibleLayoutPlans.length === 1 ? "mx-auto max-w-xl" : "lg:grid-cols-3"}`
+                }
+                data-testid={comparisonBoardVisible ? "ai-candidate-comparison-track" : undefined}
+              >
+                {visibleLayoutPlans.map((plan) => {
+                  const applying = applyingPlanId === plan.id;
+                  const candidate = aiCandidateByPlanId.get(plan.id);
+                  const recommended =
+                    layoutMode === "preset" ? plan.recommended : candidate?.recommended === true;
+                  const comparison =
+                    candidate === undefined ? null : compareAiLayoutCandidate(candidate);
+                  const favorite =
+                    candidate === undefined
+                      ? false
+                      : favoriteProfileIds.includes(candidate.profileId);
+                  return (
+                    <article
+                      aria-label={
+                        candidate === undefined ? undefined : `${candidate.structureLabel}候选方案`
+                      }
+                      className={`flex min-h-full flex-col overflow-hidden rounded-card border bg-panel p-4 ${
+                        comparisonBoardVisible
+                          ? "w-[82vw] max-w-[360px] shrink-0 snap-center lg:w-auto lg:max-w-none lg:shrink lg:snap-none"
+                          : ""
+                      } ${recommended ? "border-accent ring-2 ring-accent/10" : "border-line"}`}
+                      key={plan.id}
+                    >
+                      <div className="flex min-h-7 items-center justify-between gap-2">
+                        <div className="flex gap-1.5">
+                          {plan.accentColors.slice(0, 3).map((color) => (
+                            <span
+                              className="h-2 w-8 rounded-full"
+                              key={color}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {candidate === undefined ? null : (
+                            <button
+                              aria-label={
+                                favorite
+                                  ? `取消收藏${candidate.structureLabel}结构`
+                                  : `收藏${candidate.structureLabel}结构并置顶`
+                              }
+                              aria-pressed={favorite}
+                              className={`grid size-7 place-items-center rounded-full transition ${
+                                favorite
+                                  ? "bg-warning-soft text-warning"
+                                  : "bg-panel-muted text-faint hover:text-warning"
+                              } focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent`}
+                              onClick={() =>
+                                toggleFavoriteProfile(candidate.profileId, candidate.structureLabel)
+                              }
+                              title={favorite ? "已在当前浏览器收藏" : "收藏并置顶"}
+                              type="button"
+                            >
+                              <Star
+                                aria-hidden="true"
+                                fill={favorite ? "currentColor" : "none"}
+                                size={13}
+                              />
+                            </button>
+                          )}
+                          {recommended ? (
+                            <span className="rounded-full bg-accent-soft px-2 py-1 text-[8px] font-semibold text-accent">
+                              {layoutMode === "preset" ? "内容匹配" : "AI 首选"}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                      {candidate === undefined ? null : (
+                        <div className="mt-3">
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <span className="rounded-full bg-accent-soft px-2 py-1 text-[10px] font-semibold text-accent">
+                              结构预演
+                            </span>
+                            <span className="text-[10px] text-faint">非最终成稿</span>
+                          </div>
+                          <AiLayoutCandidatePreview candidate={candidate} plan={plan} />
+                        </div>
+                      )}
+                      <p className="mt-4 text-[14px] font-semibold text-ink">{plan.designName}</p>
+                      <p className="mt-1 text-[10px] font-medium text-accent">
+                        {candidate === undefined
+                          ? `${plan.languageName} · ${plan.tone}`
+                          : `${candidate.structureLabel} · ${plan.languageName}`}
+                      </p>
+                      <p className="mt-3 text-[11px] leading-5 text-muted">{plan.description}</p>
+                      {comparison === null ? (
+                        <p className="mt-2 rounded-md bg-panel-muted px-2.5 py-2 text-[9px] leading-4 text-faint">
+                          {plan.reasoning}
+                        </p>
+                      ) : (
+                        <div className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-control bg-line">
+                          {[
+                            ["章节组织", `${comparison.sectionCount} 个章节`],
+                            ["重点强调", `${comparison.emphasisCount} 个卡片`],
+                            [
+                              "图片策略",
+                              `${comparison.imageStrategy} · ${comparison.imageCount} 张`,
+                            ],
+                            [
+                              "阅读感受",
+                              `${comparison.rhythmLabel} · ${comparison.visualIntensityLabel}`,
+                            ],
+                          ].map(([label, value]) => (
+                            <div className="bg-panel-muted px-2.5 py-2" key={label}>
+                              <p className="text-[10px] leading-4 text-faint">{label}</p>
+                              <p
+                                className="mt-1 break-words text-[11px] leading-4 font-semibold text-ink"
+                                title={value}
+                              >
+                                {value}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <ul className="mt-3 flex-1 space-y-1.5 text-[10px] text-muted">
+                        {(candidate?.differenceHighlights ?? plan.highlights)
+                          .slice(0, candidate === undefined ? undefined : 2)
+                          .map((highlight) => (
+                            <li className="flex items-center gap-1.5" key={highlight}>
+                              <Sparkles aria-hidden="true" className="text-accent" size={10} />
+                              {highlight}
+                            </li>
+                          ))}
+                      </ul>
+                      <button
+                        className="mt-5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-control bg-accent text-[11px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
+                        disabled={
+                          saveStatus !== "saved" ||
+                          applyingPlanId !== null ||
+                          plan.theme === null ||
+                          (layoutMode !== "preset" && !selectedProviderAvailable) ||
+                          (layoutMode === "described" && styleBrief.trim().length < 3)
+                        }
+                        onClick={() => {
+                          void onApplyLayout(plan, providerId, candidate?.decision)
+                            .then(() => setLayoutOpen(false))
+                            .catch(() => undefined);
+                        }}
+                        type="button"
+                      >
+                        {applying ? (
+                          <LoaderCircle aria-hidden="true" className="animate-spin" size={13} />
+                        ) : (
+                          <ImagePlus aria-hidden="true" size={13} />
+                        )}
+                        {applying
+                          ? "正在生成成稿…"
+                          : layoutMode !== "preset" && !selectedProviderAvailable
+                            ? "模型未连接"
+                            : layoutMode === "preset"
+                              ? "应用这套设计语言"
+                              : "应用这套 AI 候选"}
+                      </button>
+                    </article>
                   );
                 })}
               </div>
-            ) : null}
-            <div
-              className={`mt-5 grid gap-3 ${visibleLayoutPlans.length === 1 ? "mx-auto max-w-xl" : "lg:grid-cols-3"}`}
-            >
-              {visibleLayoutPlans.map((plan) => {
-                const applying = applyingPlanId === plan.id;
-                const candidate = aiCandidateByPlanId.get(plan.id);
-                const recommended =
-                  layoutMode === "preset" ? plan.recommended : candidate?.recommended === true;
-                const comparison =
-                  candidate === undefined ? null : compareAiLayoutCandidate(candidate);
-                const favorite =
-                  candidate === undefined
-                    ? false
-                    : favoriteProfileIds.includes(candidate.profileId);
-                return (
-                  <article
-                    className={`flex min-h-full flex-col overflow-hidden rounded-card border bg-panel p-4 ${
-                      recommended ? "border-accent ring-2 ring-accent/10" : "border-line"
-                    }`}
-                    key={plan.id}
-                  >
-                    <div className="flex min-h-7 items-center justify-between gap-2">
-                      <div className="flex gap-1.5">
-                        {plan.accentColors.slice(0, 3).map((color) => (
-                          <span
-                            className="h-2 w-8 rounded-full"
-                            key={color}
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {candidate === undefined ? null : (
-                          <button
-                            aria-label={favorite ? "取消收藏这个结构" : "收藏这个结构"}
-                            aria-pressed={favorite}
-                            className={`grid size-7 place-items-center rounded-full transition ${
-                              favorite
-                                ? "bg-warning-soft text-warning"
-                                : "bg-panel-muted text-faint hover:text-warning"
-                            }`}
-                            onClick={() => toggleFavoriteProfile(candidate.profileId)}
-                            title={favorite ? "已在当前浏览器收藏" : "收藏并置顶"}
-                            type="button"
-                          >
-                            <Star
-                              aria-hidden="true"
-                              fill={favorite ? "currentColor" : "none"}
-                              size={13}
-                            />
-                          </button>
-                        )}
-                        {recommended ? (
-                          <span className="rounded-full bg-accent-soft px-2 py-1 text-[8px] font-semibold text-accent">
-                            {layoutMode === "preset" ? "内容匹配" : "AI 首选"}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                    {candidate === undefined ? null : (
-                      <div className="mt-3">
-                        <AiLayoutCandidatePreview candidate={candidate} plan={plan} />
-                      </div>
-                    )}
-                    <p className="mt-4 text-[14px] font-semibold text-ink">{plan.designName}</p>
-                    <p className="mt-1 text-[10px] font-medium text-accent">
-                      {candidate === undefined
-                        ? `${plan.languageName} · ${plan.tone}`
-                        : `${candidate.structureLabel} · ${plan.languageName}`}
-                    </p>
-                    <p className="mt-3 text-[11px] leading-5 text-muted">{plan.description}</p>
-                    {comparison === null ? (
-                      <p className="mt-2 rounded-md bg-panel-muted px-2.5 py-2 text-[9px] leading-4 text-faint">
-                        {plan.reasoning}
-                      </p>
-                    ) : (
-                      <div className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-control bg-line">
-                        {[
-                          ["章节组织", `${comparison.sectionCount} 个章节`],
-                          ["重点强调", `${comparison.emphasisCount} 个卡片`],
-                          ["图片策略", `${comparison.imageStrategy} · ${comparison.imageCount} 张`],
-                          [
-                            "阅读感受",
-                            `${comparison.rhythmLabel} · ${comparison.visualIntensityLabel}`,
-                          ],
-                        ].map(([label, value]) => (
-                          <div className="bg-panel-muted px-2.5 py-2" key={label}>
-                            <p className="text-[7px] text-faint">{label}</p>
-                            <p
-                              className="mt-1 truncate text-[9px] font-semibold text-ink"
-                              title={value}
-                            >
-                              {value}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <ul className="mt-3 flex-1 space-y-1.5 text-[10px] text-muted">
-                      {(candidate?.differenceHighlights ?? plan.highlights)
-                        .slice(0, candidate === undefined ? undefined : 2)
-                        .map((highlight) => (
-                          <li className="flex items-center gap-1.5" key={highlight}>
-                            <Sparkles aria-hidden="true" className="text-accent" size={10} />
-                            {highlight}
-                          </li>
-                        ))}
-                    </ul>
-                    <button
-                      className="mt-5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-control bg-accent text-[11px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
-                      disabled={
-                        saveStatus !== "saved" ||
-                        applyingPlanId !== null ||
-                        plan.theme === null ||
-                        (layoutMode !== "preset" && !selectedProviderAvailable) ||
-                        (layoutMode === "described" && styleBrief.trim().length < 3)
-                      }
-                      onClick={() => {
-                        void onApplyLayout(plan, providerId, candidate?.decision)
-                          .then(() => setLayoutOpen(false))
-                          .catch(() => undefined);
-                      }}
-                      type="button"
-                    >
-                      {applying ? (
-                        <LoaderCircle aria-hidden="true" className="animate-spin" size={13} />
-                      ) : (
-                        <ImagePlus aria-hidden="true" size={13} />
-                      )}
-                      {applying
-                        ? "正在生成成稿…"
-                        : layoutMode !== "preset" && !selectedProviderAvailable
-                          ? "模型未连接"
-                          : layoutMode === "preset"
-                            ? "应用这套设计语言"
-                            : "应用这套 AI 候选"}
-                    </button>
-                  </article>
-                );
-              })}
+              <p className="mt-4 text-center text-[10px] text-faint">
+                应用前自动保存安全快照；应用后仍可拖动区块、局部改样式、上传并保存自己的素材。
+              </p>
             </div>
-            <p className="mt-4 text-center text-[10px] text-faint">
-              应用前自动保存安全快照；应用后仍可拖动区块、局部改样式、上传并保存自己的素材。
-            </p>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

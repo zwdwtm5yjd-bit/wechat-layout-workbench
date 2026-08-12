@@ -35,5 +35,6 @@ import { PostgresResourceRepository } from "./postgres-resource.repository.js";
       }),
     },
   ],
+  exports: [ResourceService],
 })
 export class ResourceModule {}

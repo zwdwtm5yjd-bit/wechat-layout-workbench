@@ -44,6 +44,15 @@ function candidate(): AiLayoutCandidate {
       },
       languageId: "warm-paper",
       rhythm: "airy",
+      imagePlacements: [
+        {
+          afterBlockId: "b",
+          imageBlockId: "d",
+          mode: "after-text",
+          reason: "图文语义匹配",
+          resourceId: "01900000-0000-7000-8000-000000000001",
+        },
+      ],
       variantSeed: 1,
       visualAssets: [],
       visualIntensity: "restrained",
@@ -55,7 +64,7 @@ describe("AI layout candidate comparison", () => {
   it("summarizes structure, images, rhythm and visual intensity", () => {
     expect(compareAiLayoutCandidate(candidate())).toEqual({
       emphasisCount: 1,
-      imageCount: 2,
+      imageCount: 1,
       imageStrategy: "大图叙事",
       rhythmLabel: "舒展长读",
       sectionCount: 1,

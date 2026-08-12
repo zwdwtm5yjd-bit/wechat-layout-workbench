@@ -39,12 +39,15 @@ export function compareAiLayoutCandidate(
   candidate: AiLayoutCandidate,
 ): AiLayoutCandidateComparison {
   const blocks = candidate.decision.blocks;
+  const imageCount =
+    candidate.decision.imagePlacements?.length ??
+    blocks.filter((block) => block.treatment === "image").length;
   return {
     emphasisCount: blocks.filter(
       (block) =>
         block.treatment === "quote" || block.treatment === "data" || block.treatment === "callout",
     ).length,
-    imageCount: blocks.filter((block) => block.treatment === "image").length,
+    imageCount,
     imageStrategy: IMAGE_STRATEGIES[candidate.profileId],
     rhythmLabel: RHYTHM_LABELS[candidate.decision.rhythm],
     sectionCount: blocks.filter((block) => block.treatment === "section").length,

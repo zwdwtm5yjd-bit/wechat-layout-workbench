@@ -6,6 +6,7 @@ import {
   AI_LAYOUT_HEADING1_COMPONENT_IDS,
   AI_LAYOUT_HEADING2_COMPONENT_IDS,
   AI_LAYOUT_HERO_COMPONENT_IDS,
+  AI_LAYOUT_IMAGE_PLACEMENT_MODES,
   AI_LAYOUT_IMAGE_COMPONENT_IDS,
   AI_LAYOUT_NOTICE_COMPONENT_IDS,
   AI_LAYOUT_QUOTE_COMPONENT_IDS,
@@ -21,6 +22,7 @@ import {
   type AiLayoutDecision,
   type AiLayoutDesignLanguageId,
   type AiLayoutDesignTokens,
+  type AiLayoutImagePlacementDecision,
   type AiLayoutProviderId,
   type AiLayoutStatus,
   type AiLayoutTreatment,
@@ -34,11 +36,13 @@ import {
   type VisualAssetStyle,
 } from "@wechat-layout/component-registry";
 import { HttpStatus, Inject, Injectable } from "@nestjs/common";
+import { isUuidV7 } from "@wechat-layout/database";
 import { parseDocument, type DocNode, type DocumentV1 } from "@wechat-layout/document-schema";
 import { z } from "zod";
 
 import { ApiException } from "../common/http/api.exception.js";
 import { DocumentService } from "../documents/document.service.js";
+import { ResourceService } from "../resources/resource.service.js";
 import {
   AI_LAYOUT_FETCH,
   AI_LAYOUT_OPTIONS,
@@ -78,6 +82,14 @@ const visualAssetDecisionSchema = z.strictObject({
   resourceId: z.string().regex(/^builtin_visual_static_\d{3}$/u),
 });
 
+const imagePlacementDecisionSchema = z.strictObject({
+  afterBlockId: z.string().min(1).max(160).nullable(),
+  imageBlockId: z.string().min(1).max(160),
+  mode: z.enum(AI_LAYOUT_IMAGE_PLACEMENT_MODES),
+  reason: z.string().min(1).max(120),
+  resourceId: z.string().min(1).max(160),
+});
+
 const decisionSchema = z.strictObject({
   blocks: z.array(blockDecisionSchema).max(160),
   concept: z.string().min(2).max(240),
@@ -96,6 +108,7 @@ const decisionSchema = z.strictObject({
     footer: z.string().min(1).max(80),
     title: z.string().min(1).max(56),
   }),
+  imagePlacements: z.array(imagePlacementDecisionSchema).max(8),
   languageId: z.enum(AI_LAYOUT_DESIGN_LANGUAGE_IDS),
   rhythm: z.enum(AI_LAYOUT_RHYTHMS),
   variantSeed: z.number().int().min(0).max(9_999),
@@ -115,6 +128,7 @@ const responseJsonSchema = {
     "dividerAfterBlockIds",
     "footer",
     "hero",
+    "imagePlacements",
     "languageId",
     "rhythm",
     "variantSeed",
@@ -196,6 +210,24 @@ const responseJsonSchema = {
         eyebrow: { type: "string", minLength: 1, maxLength: 36 },
         footer: { type: "string", minLength: 1, maxLength: 80 },
         title: { type: "string", minLength: 1, maxLength: 56 },
+      },
+    },
+    imagePlacements: {
+      type: "array",
+      maxItems: 8,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["afterBlockId", "imageBlockId", "mode", "reason", "resourceId"],
+        properties: {
+          afterBlockId: {
+            anyOf: [{ type: "string", minLength: 1, maxLength: 160 }, { type: "null" }],
+          },
+          imageBlockId: { type: "string", minLength: 1, maxLength: 160 },
+          mode: { type: "string", enum: AI_LAYOUT_IMAGE_PLACEMENT_MODES },
+          reason: { type: "string", minLength: 1, maxLength: 120 },
+          resourceId: { type: "string", minLength: 1, maxLength: 160 },
+        },
       },
     },
     languageId: { type: "string", enum: AI_LAYOUT_DESIGN_LANGUAGE_IDS },
@@ -731,6 +763,171 @@ function textFromNode(node: unknown): string {
   }`;
 }
 
+interface SourceTextContext {
+  readonly blockId: string;
+  readonly text: string;
+  readonly type: string;
+}
+
+interface SourceImageContext {
+  readonly alt: string | null;
+  readonly caption: string | null;
+  readonly filename: string | null;
+  readonly followingText: SourceTextContext | null;
+  readonly imageBlockId: string;
+  readonly nearbyHeading: SourceTextContext | null;
+  readonly originalOrderIndex: number;
+  readonly precedingText: SourceTextContext | null;
+  readonly resourceId: string;
+}
+
+function textContext(block: TopLevelBlock | undefined): SourceTextContext | null {
+  if (block === undefined || block.type === "imageBlock") return null;
+  const text = textFromNode(block).replaceAll(/\s+/gu, " ").trim();
+  if (text === "") return null;
+  return {
+    blockId: block.attrs.blockId,
+    text: text.slice(0, 320),
+    type: block.type,
+  };
+}
+
+function nearbyTextContext(
+  blocks: readonly TopLevelBlock[],
+  startIndex: number,
+  direction: -1 | 1,
+  predicate: (block: TopLevelBlock) => boolean = () => true,
+): SourceTextContext | null {
+  for (
+    let index = startIndex + direction;
+    index >= 0 && index < blocks.length;
+    index += direction
+  ) {
+    const block = blocks[index];
+    if (block === undefined || !predicate(block)) continue;
+    const context = textContext(block);
+    if (context !== null) return context;
+  }
+  return null;
+}
+
+function evenlySampledIndexes(length: number, maximum: number): readonly number[] {
+  if (length <= maximum) return Array.from({ length }, (_, index) => index);
+  return Array.from(
+    new Set(
+      Array.from({ length: maximum }, (_, index) =>
+        Math.round((index * (length - 1)) / (maximum - 1)),
+      ),
+    ),
+  );
+}
+
+async function sourceImageContexts(
+  ownerUserId: string,
+  blocks: readonly TopLevelBlock[],
+  resources: ResourceService,
+): Promise<readonly SourceImageContext[]> {
+  const originalImages = blocks.flatMap((block, originalOrderIndex) => {
+    if (
+      block.type !== "imageBlock" ||
+      block.attrs.elementKind === "sticker" ||
+      block.attrs.elementKind === "decoration" ||
+      !isUuidV7(block.attrs.resourceId)
+    ) {
+      return [];
+    }
+    return [{ block, originalOrderIndex }];
+  });
+  const sampled = evenlySampledIndexes(originalImages.length, 8).flatMap((index) => {
+    const image = originalImages[index];
+    return image === undefined ? [] : [image];
+  });
+  const contexts = await Promise.all(
+    sampled.map(async ({ block, originalOrderIndex }): Promise<SourceImageContext | null> => {
+      let filename: string | null = null;
+      try {
+        const resource = await resources.get(ownerUserId, block.attrs.resourceId);
+        if (resource.resourceType !== "image" || resource.status !== "active") return null;
+        filename = resource.originalFilename ?? resource.displayName;
+      } catch (error) {
+        if (error instanceof ApiException && error.getStatus() === HttpStatus.NOT_FOUND)
+          return null;
+        throw error;
+      }
+      return {
+        alt: block.attrs.alt?.trim() || null,
+        caption: block.attrs.caption?.trim() || null,
+        filename,
+        followingText: nearbyTextContext(blocks, originalOrderIndex, 1),
+        imageBlockId: block.attrs.blockId,
+        nearbyHeading: nearbyTextContext(
+          blocks,
+          originalOrderIndex,
+          -1,
+          (candidate) => candidate.type === "heading",
+        ),
+        originalOrderIndex,
+        precedingText: nearbyTextContext(blocks, originalOrderIndex, -1),
+        resourceId: block.attrs.resourceId,
+      };
+    }),
+  );
+  return contexts.filter((context): context is SourceImageContext => context !== null);
+}
+
+function sanitizedImagePlacements(
+  requested: readonly AiLayoutImagePlacementDecision[] | undefined,
+  sourceImages: readonly SourceImageContext[],
+  sourceBlocks: readonly TopLevelBlock[],
+): readonly AiLayoutImagePlacementDecision[] {
+  const textAnchors = new Set(
+    sourceBlocks.flatMap((block) => {
+      if (block.type === "heading" && block.attrs.level === 1) return [];
+      const context = textContext(block);
+      return context === null ? [] : [context.blockId];
+    }),
+  );
+  const sourceByBlockId = new Map(sourceImages.map((image) => [image.imageBlockId, image]));
+  const accepted = new Map<string, AiLayoutImagePlacementDecision>();
+  const imagesPerAnchor = new Map<string, number>();
+  for (const placement of requested ?? []) {
+    const source = sourceByBlockId.get(placement.imageBlockId);
+    if (
+      source === undefined ||
+      accepted.has(placement.imageBlockId) ||
+      placement.resourceId !== source.resourceId
+    ) {
+      continue;
+    }
+    if (placement.mode === "keep-original" && placement.afterBlockId === null) {
+      accepted.set(placement.imageBlockId, placement);
+      continue;
+    }
+    if (
+      placement.mode === "after-text" &&
+      placement.afterBlockId !== null &&
+      textAnchors.has(placement.afterBlockId) &&
+      (imagesPerAnchor.get(placement.afterBlockId) ?? 0) < 2
+    ) {
+      accepted.set(placement.imageBlockId, placement);
+      imagesPerAnchor.set(
+        placement.afterBlockId,
+        (imagesPerAnchor.get(placement.afterBlockId) ?? 0) + 1,
+      );
+    }
+  }
+  return sourceImages.map(
+    (source): AiLayoutImagePlacementDecision =>
+      accepted.get(source.imageBlockId) ?? {
+        afterBlockId: null,
+        imageBlockId: source.imageBlockId,
+        mode: "keep-original",
+        reason: "信息不足或锚点无效，保持原图位置",
+        resourceId: source.resourceId,
+      },
+  );
+}
+
 function originalTopLevelBlocks(document: DocumentV1): readonly TopLevelBlock[] {
   return document.content.content.flatMap((node): readonly TopLevelBlock[] => {
     if (node.attrs.semanticRole?.startsWith("layout_plan_generated") === true) {
@@ -802,6 +999,11 @@ function modelJsonText(serialized: string): string {
   return fenced?.[1] ?? trimmed;
 }
 
+function withCompatibleImagePlacements(parsed: unknown): unknown {
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return parsed;
+  return "imagePlacements" in parsed ? parsed : { ...parsed, imagePlacements: [] };
+}
+
 function compatibleTreatment(node: TopLevelBlock, treatment: AiLayoutTreatment): AiLayoutTreatment {
   if (node.type === "paragraph") {
     const length = textFromNode(node).trim().length;
@@ -820,6 +1022,8 @@ function compatibleTreatment(node: TopLevelBlock, treatment: AiLayoutTreatment):
 function sanitizeDecision(
   raw: AiLayoutDecision,
   blocks: readonly TopLevelBlock[],
+  sourceImages: readonly SourceImageContext[] = [],
+  placementBlocks: readonly TopLevelBlock[] = blocks,
 ): AiLayoutDecision {
   const byId = new Map(blocks.map((node) => [node.attrs.blockId, node]));
   const submitted = new Map<string, AiLayoutBlockDecision>();
@@ -864,6 +1068,7 @@ function sanitizeDecision(
     dividerAfterBlockIds: [...new Set(raw.dividerAfterBlockIds)]
       .filter((blockId) => byId.has(blockId))
       .slice(0, 5),
+    imagePlacements: sanitizedImagePlacements(raw.imagePlacements, sourceImages, placementBlocks),
     visualAssets: sanitizedVisualAssets(raw.visualAssets, normalizedBlocks, blocks, raw.languageId),
   };
 }
@@ -1280,6 +1485,8 @@ function candidateDividerAnchors(
 function buildLayoutCandidates(
   base: AiLayoutDecision,
   sourceBlocks: readonly TopLevelBlock[],
+  sourceImages: readonly SourceImageContext[],
+  placementBlocks: readonly TopLevelBlock[],
 ): readonly AiLayoutCandidate[] {
   const languages = candidateLanguages(base.languageId, sourceBlocks);
   return candidateProfiles.map((profile, index) => {
@@ -1302,12 +1509,10 @@ function buildLayoutCandidates(
       visualAssets: [],
       visualIntensity: profile.visualIntensity,
     };
-    const sanitized = sanitizeDecision(raw, sourceBlocks);
+    const sanitized = sanitizeDecision(raw, sourceBlocks, sourceImages, placementBlocks);
     const blocks = finalizedProfileBlocks(sanitized.blocks, profile);
     const fallbackAssets = visualAssetFallbacks(blocks, languageId);
-    const prioritizeSourceImages =
-      profile.id === "documentary-visual" &&
-      sourceBlocks.some((sourceBlock) => sourceBlock.type === "imageBlock");
+    const prioritizeSourceImages = profile.id === "documentary-visual" && sourceImages.length > 0;
     const decision: AiLayoutDecision = {
       ...sanitized,
       blocks,
@@ -1372,6 +1577,7 @@ export class AiLayoutService {
     @Inject(AI_LAYOUT_OPTIONS) private readonly options: AiLayoutRuntimeOptions,
     @Inject(AI_LAYOUT_FETCH) private readonly fetcher: Fetcher,
     @Inject(DocumentService) private readonly documents: DocumentService,
+    @Inject(ResourceService) private readonly resources: ResourceService,
   ) {}
 
   status(): AiLayoutStatus {
@@ -1506,7 +1712,7 @@ export class AiLayoutService {
     } catch {
       throw providerFailure(response.status);
     }
-    const validated = decisionSchema.safeParse(parsed);
+    const validated = decisionSchema.safeParse(withCompatibleImagePlacements(parsed));
     if (!validated.success) throw providerFailure(response.status);
     return validated.data;
   }
@@ -1535,7 +1741,9 @@ export class AiLayoutService {
       });
     }
     const document = parseDocument(current.document);
-    const blocks = originalTopLevelBlocks(document).slice(0, 120);
+    const allBlocks = originalTopLevelBlocks(document);
+    const blocks = allBlocks.slice(0, 120);
+    const sourceImages = await sourceImageContexts(ownerUserId, allBlocks, this.resources);
     const outline = blocks.map((node, index) => ({
       blockId: node.attrs.blockId,
       index,
@@ -1559,6 +1767,10 @@ export class AiLayoutService {
       "长文必须建立完整阅读路径：选 2–4 个真正的主章节为 section；每章之间保留连续正文，不要把普通段落都做成卡片。系统会用这些 section 自动生成“本文看点”导航。",
       "lead 应优先选择能概括全文立场的开篇判断或金句；章节后的短句可作为 quote；包含两个以上有意义数字的段落优先作为 data。",
       "特殊模块要克制，连续正文仍是主体。不要生成占位图片、空图集、无关装饰或固定套话。",
+      "article.sourceImages 是原稿中已存在的真实图片，最多 8 张；每张提供 imageBlockId、resourceId、已有 alt/caption/filename、邻近标题和前后文。",
+      "imagePlacements 只能安排 article.sourceImages 中的原图：信息充足时可用 after-text 锚定到真实文本块；不确定、没有合适锚点或可能改变原意时必须用 keep-original，afterBlockId 必须为 null。",
+      "不得杜撰图片、图注、人物、场景或文件名；不得改写 alt/caption；不得把 builtin_visual_* 内置装饰当作原图。imagePlacements 中的 imageBlockId/resourceId 必须原样复制自 sourceImages。",
+      "after-text 的 afterBlockId 必须是 article.blocks 或 sourceImages 上下文中已给出的非图片正文/小标题 blockId；不得锚定到文章主标题、图片、内置素材或未提供的 ID；同一锚点最多安排 2 张图。",
       "hero 与 footer 文案可以概括文章气质，但不能新增事实。dividerAfterBlockIds 只放在真正的章节转折后。",
       "十八种视觉语言：minimal-blue 理性极简；warm-paper 人文杂志；night-cyan 科技数据；forest-green 自然留白；crimson-editorial 政务编辑；ink-gold 经典深读；civic-blue 蓝白政务；news-editorial 央媒新闻；annual-report 深蓝年报；data-dashboard 数据仪表；monochrome-finance 黑白财经；future-purple 未来渐变紫；cyber-neon 赛博霓虹；jade-oriental 新中式青绿；seasonal-poetry 节气雅集；academic-journal 学术期刊；playful-notebook 童趣手账；event-poster 活动海报。",
       "选择 crimson-editorial 时，目标是红白报刊编辑效果：引言金句、本文看点、编号章节、左线小标题、浅红关键词标记、数据三联卡和克制结尾；不是红金横幅堆叠。",
@@ -1573,7 +1785,7 @@ export class AiLayoutService {
       `图片候选：${AI_LAYOUT_IMAGE_COMPONENT_IDS.join("、")}。`,
       `章节分隔候选：${AI_LAYOUT_DIVIDER_COMPONENT_IDS.join("、")}。`,
       `导读首屏候选：${AI_LAYOUT_HERO_COMPONENT_IDS.join("、")}。`,
-      "visualAssets 必须选择 1–3 个真实静态素材，并通过 afterBlockId 指定插入位置。只在首屏、章节转场或结尾前使用，不能连续堆叠，也不能选择与文章题材无关的素材。",
+      "visualAssets 是与原图严格分离的内置装饰素材：必须选择 1–3 个真实静态素材，并通过 afterBlockId 指定插入位置。只在首屏、章节转场或结尾前使用，不能连续堆叠，也不能选择与文章题材无关的素材。",
       `可调用素材（resourceId、风格、用途、场景）：${JSON.stringify(aiVisualAssetCatalog)}。`,
       "rhythm 决定全文呼吸感：compact 紧凑、balanced 均衡、airy 舒展。visualIntensity 决定装饰强度：restrained 克制、balanced 均衡、bold 鲜明。",
       "variantSeed 是 0–9999 的整数，同一文章重新生成时要主动变化它，并换一组合理的组件组合。",
@@ -1586,15 +1798,20 @@ export class AiLayoutService {
         styleBrief: brief,
         variationCue: Math.floor(Math.random() * 10_000),
       },
-      article: { articleId, blocks: outline },
+      article: { articleId, blocks: outline, sourceImages },
     });
 
     let lastError: unknown = null;
     for (const provider of providers) {
       try {
         const decision = await this.requestDecision(provider, instructions, userInput);
-        const baseDecision = sanitizeDecision(decision as AiLayoutDecision, blocks);
-        const candidates = buildLayoutCandidates(baseDecision, blocks);
+        const baseDecision = sanitizeDecision(
+          decision as AiLayoutDecision,
+          blocks,
+          sourceImages,
+          allBlocks,
+        );
+        const candidates = buildLayoutCandidates(baseDecision, blocks, sourceImages, allBlocks);
         return {
           ...this.providerStatus(provider),
           candidates,

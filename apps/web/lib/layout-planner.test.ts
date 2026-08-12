@@ -175,6 +175,170 @@ describe("layout planner", () => {
     ).toBe(true);
   });
 
+  it("moves source images after safe text anchors without changing image resources or text order", () => {
+    const timestamp = "2026-08-12T00:00:00.000Z";
+    const document: DocumentV1 = {
+      articleId: "article_image_direction",
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "heading",
+            attrs: { blockId: "title", level: 1, locked: true, sourceBlockId: "source_title" },
+            content: [{ type: "text", text: "一篇有图片的文章" }],
+          },
+          {
+            type: "paragraph",
+            attrs: { blockId: "body_a", locked: true, sourceBlockId: "source_body_a" },
+            content: [{ type: "text", text: "第一部分保持原文顺序。" }],
+          },
+          {
+            type: "paragraph",
+            attrs: { blockId: "body_b", locked: true, sourceBlockId: "source_body_b" },
+            content: [{ type: "text", text: "第二部分是图片对应的真实上下文。" }],
+          },
+          {
+            type: "imageBlock",
+            attrs: {
+              alt: "活动现场",
+              blockId: "image_a",
+              caption: "原有图注",
+              locked: true,
+              originalResourceId: "01900000-0000-7000-8000-000000000001",
+              resourceId: "01900000-0000-7000-8000-000000000001",
+              sourceBlockId: "source_image_a",
+            },
+          },
+          {
+            type: "paragraph",
+            attrs: { blockId: "body_c", locked: true, sourceBlockId: "source_body_c" },
+            content: [{ type: "text", text: "第三部分继续正文。" }],
+          },
+        ],
+      },
+      documentId: "document_image_direction",
+      meta: { createdAt: timestamp, sourceType: "manual", textLocked: true, updatedAt: timestamp },
+      schemaVersion: "1.0.0",
+    };
+    const sourcePlan = createLayoutPlans(document, [], { mode: "original" })[0]!;
+    const baseDecision = {
+      blocks: document.content.content.map((node) => ({
+        blockId: node.attrs.blockId,
+        componentId: null,
+        reason: "保留原文",
+        treatment: node.type === "imageBlock" ? ("image" as const) : ("body" as const),
+      })),
+      concept: "测试原图落位",
+      designName: "图文导演",
+      designTokens: sourcePlan.designTokens,
+      dividerAfterBlockIds: ["body_b"],
+      dividerComponentId: "cmp_divider_solid_clean_001" as const,
+      footer: { componentId: "cmp_notice_info_blue_001" as const, text: "结束", title: "结语" },
+      hero: {
+        componentId: "cmp_tech_orbit_hero_001" as const,
+        eyebrow: "ARTICLE",
+        footer: "图文并茂",
+        title: "阅读导引",
+      },
+      imagePlacements: [
+        {
+          afterBlockId: "body_b",
+          imageBlockId: "image_a",
+          mode: "after-text" as const,
+          reason: "已有图注与第二部分语义一致",
+          resourceId: "01900000-0000-7000-8000-000000000001",
+        },
+      ],
+      languageId: sourcePlan.languageId,
+      rhythm: "balanced" as const,
+      variantSeed: 1,
+      visualAssets: [],
+      visualIntensity: "restrained" as const,
+    };
+    const plan = layoutPlanFromAiDecision(document, [], sourcePlan, baseDecision);
+    const result = applyAiLayoutDecisionToDocument(document, plan, baseDecision);
+    const sourceOrder = result.content.content
+      .filter((node) => node.attrs.sourceBlockId !== undefined)
+      .map((node) => node.attrs.blockId);
+    const imageIndex = result.content.content.findIndex((node) => node.attrs.blockId === "image_a");
+    const anchorIndex = result.content.content.findIndex((node) => node.attrs.blockId === "body_b");
+    const dividerIndex = result.content.content.findIndex(
+      (node) =>
+        node.type === "divider" && node.attrs.semanticRole === "layout_plan_generated_divider",
+    );
+    const image = result.content.content.find((node) => node.attrs.blockId === "image_a");
+
+    expect(sourceOrder).toEqual(["title", "body_a", "body_b", "image_a", "body_c"]);
+    expect(imageIndex).toBe(anchorIndex + 1);
+    expect(dividerIndex).toBe(imageIndex + 1);
+    expect(image?.type === "imageBlock" ? image.attrs : null).toMatchObject({
+      alt: "活动现场",
+      caption: "原有图注",
+      originalResourceId: "01900000-0000-7000-8000-000000000001",
+      resourceId: "01900000-0000-7000-8000-000000000001",
+    });
+  });
+
+  it("rejects unsafe image placement instructions and keeps the source image in place", () => {
+    const document: DocumentV1 = structuredClone(documentV1Fixture);
+    const image = document.content.content.find((node) => node.type === "imageBlock");
+    const paragraph = document.content.content.find((node) => node.type === "paragraph");
+    if (image?.type !== "imageBlock" || paragraph === undefined) {
+      throw new Error("fixture must contain an image and paragraph");
+    }
+    const originalIndex = document.content.content.indexOf(image);
+    const sourcePlan = createLayoutPlans(document, [], { mode: "original" })[0]!;
+    const decision = {
+      blocks: document.content.content.map((node) => ({
+        blockId: node.attrs.blockId,
+        componentId: null,
+        reason: "测试",
+        treatment: node.type === "imageBlock" ? ("image" as const) : ("body" as const),
+      })),
+      concept: "测试非法原图落位",
+      designName: "安全回退",
+      designTokens: sourcePlan.designTokens,
+      dividerAfterBlockIds: [],
+      dividerComponentId: "cmp_divider_solid_clean_001" as const,
+      footer: { componentId: "cmp_notice_info_blue_001" as const, text: "结束", title: "结语" },
+      hero: {
+        componentId: "cmp_tech_orbit_hero_001" as const,
+        eyebrow: "ARTICLE",
+        footer: "安全回退",
+        title: "阅读导引",
+      },
+      imagePlacements: [
+        {
+          afterBlockId: paragraph.attrs.blockId,
+          imageBlockId: image.attrs.blockId,
+          mode: "after-text" as const,
+          reason: "模型返回了错误资源",
+          resourceId: "01900000-0000-7000-8000-000000000099",
+        },
+      ],
+      languageId: sourcePlan.languageId,
+      rhythm: "balanced" as const,
+      variantSeed: 2,
+      visualAssets: [],
+      visualIntensity: "restrained" as const,
+    };
+    const result = applyAiLayoutDecisionToDocument(
+      document,
+      layoutPlanFromAiDecision(document, [], sourcePlan, decision),
+      decision,
+    );
+    const sourceBlocks = result.content.content.filter(
+      (node) => node.attrs.sourceBlockId !== undefined,
+    );
+
+    expect(sourceBlocks.findIndex((node) => node.attrs.blockId === image.attrs.blockId)).toBe(
+      document.content.content
+        .filter((node) => node.attrs.sourceBlockId !== undefined)
+        .findIndex((node) => node.attrs.blockId === image.attrs.blockId),
+    );
+    expect(originalIndex).toBeGreaterThanOrEqual(0);
+  });
+
   it("builds the red-white editorial baseline from article structure", () => {
     const timestamp = "2026-08-06T00:00:00.000Z";
     const document: DocumentV1 = {

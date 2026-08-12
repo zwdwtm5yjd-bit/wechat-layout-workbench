@@ -791,6 +791,7 @@ export function layoutPlanFromAiDecision(
       `组件：按内容选择首屏、标题、金句、图片与数据卡`,
       `原创色板：${decision.designTokens.primaryColor} · ${decision.designTokens.accentColor}`,
       `节奏：${decision.rhythm} · 视觉强度：${decision.visualIntensity}`,
+      `原稿图片：${String(decision.imagePlacements?.length ?? 0)} 张参与智能落位`,
       `智能素材：自动落位 ${String(decision.visualAssets.length)} 个匹配装饰`,
       "不生成占位图片或无关图集",
       "微信安全样式与原文保护",
@@ -1946,6 +1947,91 @@ function aiStructuralNode(
   return structuredClone(node);
 }
 
+interface ReorderedSourceImages {
+  readonly blocks: DocNode["content"];
+  /** Maps the last relocated image to the source anchor whose dividers/assets must follow it. */
+  readonly deferredAnchorByBlockId: ReadonlyMap<string, string>;
+  readonly anchorsWithRelocatedImages: ReadonlySet<string>;
+}
+
+function reorderSourceImages(
+  blocks: readonly DocNode["content"][number][],
+  decision: AiLayoutDecision,
+): ReorderedSourceImages {
+  const placements = decision.imagePlacements ?? [];
+  if (placements.length === 0) {
+    return {
+      blocks: [...blocks],
+      deferredAnchorByBlockId: new Map(),
+      anchorsWithRelocatedImages: new Set(),
+    };
+  }
+  const byId = new Map(blocks.map((block) => [block.attrs.blockId, block]));
+  const originalIndexById = new Map(
+    blocks.map((block, index) => [block.attrs.blockId, index] as const),
+  );
+  const acceptedImageIds = new Set<string>();
+  const imagesAfterAnchor = new Map<string, ImageBlockNode[]>();
+
+  for (const placement of placements) {
+    if (
+      placement.mode !== "after-text" ||
+      placement.afterBlockId === null ||
+      acceptedImageIds.has(placement.imageBlockId)
+    ) {
+      continue;
+    }
+    const image = byId.get(placement.imageBlockId);
+    const anchor = byId.get(placement.afterBlockId);
+    if (
+      image?.type !== "imageBlock" ||
+      anchor === undefined ||
+      anchor.type === "imageBlock" ||
+      (anchor.type === "heading" && anchor.attrs.level === 1) ||
+      image.attrs.resourceId !== placement.resourceId ||
+      image.attrs.elementKind === "sticker" ||
+      image.attrs.elementKind === "decoration" ||
+      (imagesAfterAnchor.get(anchor.attrs.blockId)?.length ?? 0) >= 2
+    ) {
+      continue;
+    }
+    acceptedImageIds.add(image.attrs.blockId);
+    imagesAfterAnchor.set(anchor.attrs.blockId, [
+      ...(imagesAfterAnchor.get(anchor.attrs.blockId) ?? []),
+      image,
+    ]);
+  }
+
+  for (const [anchorId, images] of imagesAfterAnchor) {
+    imagesAfterAnchor.set(
+      anchorId,
+      images.toSorted(
+        (left, right) =>
+          (originalIndexById.get(left.attrs.blockId) ?? 0) -
+          (originalIndexById.get(right.attrs.blockId) ?? 0),
+      ),
+    );
+  }
+
+  const reordered: DocNode["content"] = [];
+  const deferredAnchorByBlockId = new Map<string, string>();
+  for (const block of blocks) {
+    if (acceptedImageIds.has(block.attrs.blockId)) continue;
+    reordered.push(block);
+    const relocatedImages = imagesAfterAnchor.get(block.attrs.blockId) ?? [];
+    reordered.push(...relocatedImages);
+    const lastImage = relocatedImages.at(-1);
+    if (lastImage !== undefined) {
+      deferredAnchorByBlockId.set(lastImage.attrs.blockId, block.attrs.blockId);
+    }
+  }
+  return {
+    blocks: reordered,
+    deferredAnchorByBlockId,
+    anchorsWithRelocatedImages: new Set(imagesAfterAnchor.keys()),
+  };
+}
+
 export function applyAiLayoutDecisionToDocument(
   document: DocumentV1,
   plan: LayoutPlan,
@@ -1964,9 +2050,10 @@ export function applyAiLayoutDecisionToDocument(
     ]);
   });
   const originalBlocks = restoreOriginalBlocks(document.content.content);
+  const reorderedImages = reorderSourceImages(originalBlocks, decision);
   let sectionNumber = 0;
   const styledBlocks = editorialHighlightBlocks(
-    originalBlocks.map((original) => {
+    reorderedImages.blocks.map((original) => {
       const blockDecision = decisions.get(original.attrs.blockId);
       const treatment = blockDecision?.treatment ?? "body";
       const structural = aiStructuralNode(original, treatment);
@@ -2007,13 +2094,25 @@ export function applyAiLayoutDecisionToDocument(
     } else {
       result.push(node);
     }
-    if (dividerAfter.has(node.attrs.blockId)) {
-      result.push(generatedDivider(plan, decision.dividerComponentId));
+    const extraAnchors = [
+      ...(reorderedImages.anchorsWithRelocatedImages.has(node.attrs.blockId)
+        ? []
+        : [node.attrs.blockId]),
+      ...(reorderedImages.deferredAnchorByBlockId.has(node.attrs.blockId)
+        ? [reorderedImages.deferredAnchorByBlockId.get(node.attrs.blockId)!]
+        : []),
+    ];
+    for (const anchorId of extraAnchors) {
+      if (dividerAfter.has(anchorId)) {
+        result.push(generatedDivider(plan, decision.dividerComponentId));
+      }
+      if (!reorderedImages.anchorsWithRelocatedImages.has(anchorId)) {
+        visualAssetsAfter
+          .get(anchorId)
+          ?.slice(0, 2)
+          .forEach((asset) => result.push(generatedVisualAsset(asset, plan)));
+      }
     }
-    visualAssetsAfter
-      .get(node.attrs.blockId)
-      ?.slice(0, 2)
-      .forEach((asset) => result.push(generatedVisualAsset(asset, plan)));
   });
 
   if (!leadInserted) {

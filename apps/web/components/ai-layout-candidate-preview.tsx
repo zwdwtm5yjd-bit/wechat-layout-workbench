@@ -1,5 +1,7 @@
 import type { AiLayoutCandidate } from "@wechat-layout/api-contracts";
 
+import { compareAiLayoutCandidate } from "../lib/ai-layout/candidate-comparison";
+import { readableTextColor } from "../lib/ai-layout/color-contrast";
 import type { LayoutPlan } from "../lib/layout-planner";
 
 interface AiLayoutCandidatePreviewProps {
@@ -9,8 +11,11 @@ interface AiLayoutCandidatePreviewProps {
 
 interface MiniatureProps {
   readonly accent: string;
+  readonly emphasisCount: number;
+  readonly imageCount: number;
   readonly muted: string;
   readonly primary: string;
+  readonly sectionCount: number;
   readonly surface: string;
 }
 
@@ -87,30 +92,43 @@ function BriefingMiniature({ accent, muted, primary, surface }: MiniatureProps) 
   );
 }
 
-function EvidenceMiniature({ accent, muted, primary, surface }: MiniatureProps) {
+function EvidenceMiniature({
+  accent,
+  emphasisCount,
+  imageCount,
+  muted,
+  primary,
+  sectionCount,
+  surface,
+}: MiniatureProps) {
+  const metrics = [
+    { label: "章节", value: sectionCount },
+    { label: "重点", value: emphasisCount },
+    { label: "原图", value: imageCount },
+  ] as const;
   return (
     <div className="h-full p-4" style={{ backgroundColor: surface }}>
       <div className="flex items-end gap-2">
-        <span className="text-[24px] font-black leading-none" style={{ color: accent }}>
-          03
+        <span className="text-[20px] font-black leading-none" style={{ color: accent }}>
+          {String(sectionCount).padStart(2, "0")}
         </span>
         <div className="mb-0.5 flex-1 border-b-2 pb-1.5" style={{ borderColor: accent }}>
           <Line color={primary} width="76%" />
         </div>
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2">
-        {["95%", "510", "3.2x"].map((value) => (
+        {metrics.map(({ label, value }) => (
           <div
             className="rounded-md p-2 text-center"
-            key={value}
+            key={label}
             style={{ backgroundColor: `${primary}0d` }}
           >
             <p className="text-[11px] font-black" style={{ color: primary }}>
               {value}
             </p>
-            <div className="mx-auto mt-1.5">
-              <Line color={`${muted}50`} width="70%" />
-            </div>
+            <p className="mt-1 text-[9px] font-medium" style={{ color: muted }}>
+              {label}
+            </p>
           </div>
         ))}
       </div>
@@ -121,9 +139,13 @@ function EvidenceMiniature({ accent, muted, primary, surface }: MiniatureProps) 
           <Line color={`${muted}50`} width="72%" />
         </div>
         <div
-          className="rounded-md"
-          style={{ background: `linear-gradient(145deg, ${accent}30, ${primary}18)` }}
-        />
+          className="grid place-items-center rounded-md border border-dashed px-1 text-center"
+          style={{ borderColor: `${primary}35` }}
+        >
+          <span className="text-[9px] font-semibold" style={{ color: muted }}>
+            真实结构计数
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -151,22 +173,22 @@ function MinimalMiniature({ accent, muted, primary, surface }: MiniatureProps) {
   );
 }
 
-function DocumentaryMiniature({ accent, muted, primary, surface }: MiniatureProps) {
+function DocumentaryMiniature({ accent, imageCount, muted, primary, surface }: MiniatureProps) {
   return (
     <div className="h-full p-3" style={{ backgroundColor: surface }}>
       <div
-        className="relative h-[84px] overflow-hidden rounded-sm"
-        style={{
-          background: `linear-gradient(160deg, ${accent}24 0 42%, ${primary}42 43% 68%, ${muted}45 69%)`,
-        }}
+        className="relative grid h-[84px] place-items-center overflow-hidden rounded-sm border border-dashed px-3 text-center"
+        style={{ backgroundColor: `${accent}0d`, borderColor: `${primary}40` }}
       >
         <span
-          className="absolute top-2 left-2 rounded-sm px-1.5 py-1 text-[7px] font-bold text-white"
-          style={{ backgroundColor: primary }}
+          className="absolute top-2 left-2 rounded-sm px-1.5 py-1 text-[9px] font-bold"
+          style={{ backgroundColor: primary, color: readableTextColor(primary) }}
         >
-          DOCUMENT
+          纪实图文
         </span>
-        <span className="absolute right-3 bottom-2 size-6 rounded-full border-2 border-white/80" />
+        <span className="mt-5 text-[10px] font-semibold" style={{ color: muted }}>
+          {imageCount > 0 ? `原图位置 · ${imageCount} 张` : "原文无图 · 保持留白"}
+        </span>
       </div>
       <div className="mt-2 flex items-start gap-2">
         <span className="mt-0.5 block h-7 w-1 shrink-0" style={{ backgroundColor: accent }} />
@@ -180,52 +202,71 @@ function DocumentaryMiniature({ accent, muted, primary, surface }: MiniatureProp
   );
 }
 
-function RoadmapMiniature({ accent, muted, primary, surface }: MiniatureProps) {
+function RoadmapMiniature({ accent, muted, primary, sectionCount, surface }: MiniatureProps) {
+  const stepCount = Math.min(3, sectionCount);
   return (
     <div className="h-full p-4" style={{ backgroundColor: surface }}>
       <div className="flex items-center gap-2">
         <span
-          className="rounded-full px-2 py-1 text-[8px] font-black text-white"
-          style={{ backgroundColor: primary }}
+          className="rounded-full px-2 py-1 text-[9px] font-black"
+          style={{ backgroundColor: primary, color: readableTextColor(primary) }}
         >
-          ACTION
+          行动路线
         </span>
         <Line color={primary} width="52%" />
       </div>
       <div className="relative mt-4 space-y-2.5 pl-1">
-        <span
-          className="absolute top-2 bottom-2 left-[12px] w-px"
-          style={{ backgroundColor: `${accent}60` }}
-        />
-        {["01", "02", "03"].map((step, index) => (
-          <div className="relative flex items-center gap-2" key={step}>
-            <span
-              className="z-10 grid size-6 shrink-0 place-items-center rounded-full text-[7px] font-black text-white"
-              style={{ backgroundColor: index === 0 ? accent : primary }}
-            >
-              {step}
-            </span>
-            <div
-              className="flex-1 rounded-md border px-2 py-1.5"
-              style={{ borderColor: `${primary}22` }}
-            >
-              <Line color={`${primary}85`} width={index === 1 ? "62%" : "76%"} />
-              <div className="mt-1">
-                <Line color={`${muted}50`} width="90%" />
+        {stepCount === 0 ? (
+          <div
+            className="rounded-md border border-dashed px-3 py-4 text-center text-[10px] font-medium"
+            style={{ borderColor: `${primary}35`, color: muted }}
+          >
+            原文暂无章节
+          </div>
+        ) : (
+          <span
+            className="absolute top-2 bottom-2 left-[12px] w-px"
+            style={{ backgroundColor: `${accent}60` }}
+          />
+        )}
+        {Array.from({ length: stepCount }, (_, index) => String(index + 1).padStart(2, "0")).map(
+          (step, index) => (
+            <div className="relative flex items-center gap-2" key={step}>
+              <span
+                className="z-10 grid size-6 shrink-0 place-items-center rounded-full text-[9px] font-black"
+                style={{
+                  backgroundColor: index === 0 ? accent : primary,
+                  color: readableTextColor(index === 0 ? accent : primary),
+                }}
+              >
+                {step}
+              </span>
+              <div
+                className="flex-1 rounded-md border px-2 py-1.5"
+                style={{ borderColor: `${primary}22` }}
+              >
+                <Line color={`${primary}85`} width={index === 1 ? "62%" : "76%"} />
+                <div className="mt-1">
+                  <Line color={`${muted}50`} width="90%" />
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ),
+        )}
       </div>
     </div>
   );
 }
 
 export function AiLayoutCandidatePreview({ candidate, plan }: AiLayoutCandidatePreviewProps) {
+  const comparison = compareAiLayoutCandidate(candidate);
   const props: MiniatureProps = {
     accent: plan.designTokens.accentColor,
+    emphasisCount: comparison.emphasisCount,
+    imageCount: comparison.imageCount,
     muted: plan.designTokens.mutedColor,
     primary: plan.designTokens.primaryColor,
+    sectionCount: comparison.sectionCount,
     surface: plan.designTokens.surfaceColor,
   };
   const preview = (() => {
@@ -247,11 +288,17 @@ export function AiLayoutCandidatePreview({ candidate, plan }: AiLayoutCandidateP
 
   return (
     <div
-      aria-label={`${candidate.structureLabel}结构缩略图`}
+      aria-label={`${candidate.structureLabel}结构预演`}
       className="h-[164px] overflow-hidden rounded-control border border-line shadow-subtle"
       role="img"
     >
-      {preview}
+      <div className="flex h-6 items-center justify-between border-b border-line bg-panel-soft px-2.5 text-[9px] font-semibold text-muted">
+        <span>结构预演 · 当前文章</span>
+        <span>
+          {comparison.sectionCount} 章节 · {comparison.imageCount} 图
+        </span>
+      </div>
+      <div className="h-[138px]">{preview}</div>
     </div>
   );
 }

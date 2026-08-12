@@ -153,6 +153,21 @@ export interface AiLayoutVisualAssetDecision {
   readonly resourceId: string;
 }
 
+export const AI_LAYOUT_IMAGE_PLACEMENT_MODES = ["keep-original", "after-text"] as const;
+export type AiLayoutImagePlacementMode = (typeof AI_LAYOUT_IMAGE_PLACEMENT_MODES)[number];
+
+/**
+ * A safe placement instruction for an image that already exists in the source article.
+ * `afterBlockId` is null when the image must remain at its original location.
+ */
+export interface AiLayoutImagePlacementDecision {
+  readonly afterBlockId: string | null;
+  readonly imageBlockId: string;
+  readonly mode: AiLayoutImagePlacementMode;
+  readonly reason: string;
+  readonly resourceId: string;
+}
+
 export interface AiLayoutDecision {
   readonly blocks: readonly AiLayoutBlockDecision[];
   readonly concept: string;
@@ -171,6 +186,8 @@ export interface AiLayoutDecision {
     footer: string;
     title: string;
   }>;
+  /** Optional for backward compatibility with AI decisions created before image direction. */
+  readonly imagePlacements?: readonly AiLayoutImagePlacementDecision[];
   readonly languageId: AiLayoutDesignLanguageId;
   readonly rhythm: AiLayoutRhythm;
   readonly variantSeed: number;
