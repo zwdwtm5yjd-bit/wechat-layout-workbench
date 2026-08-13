@@ -216,6 +216,28 @@ describe("API foundation", () => {
     expect(JSON.stringify(failure.body)).not.toContain("stack");
   });
 
+  it("accepts document-sized JSON above the Express default and reports the product limit", async () => {
+    const aboveExpressDefault = "稿".repeat(60_000);
+    const accepted = await supertest(application.getHttpServer())
+      .post("/api/v1/foundation-test/dto")
+      .send({ title: aboveExpressDefault })
+      .expect(201);
+
+    expect(accepted.body.data.title).toHaveLength(60_000);
+
+    const aboveProductLimit = "稿".repeat(1_100_000);
+    const rejected = await supertest(application.getHttpServer())
+      .post("/api/v1/foundation-test/dto")
+      .send({ title: aboveProductLimit })
+      .expect(413);
+
+    expect(rejected.body.error).toEqual({
+      code: "PAYLOAD_TOO_LARGE",
+      message: "内容过大，无法保存",
+      retryable: false,
+    });
+  });
+
   it("writes structured request logs without query, body or exception values", () => {
     const records = structuredLogOutput
       .trim()

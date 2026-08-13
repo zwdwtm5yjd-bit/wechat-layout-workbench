@@ -15,6 +15,7 @@ async function bootstrap(): Promise<void> {
     application,
     configuration.application.environment,
     configuration.application.publicWebUrl,
+    configuration.limits.jsonBodyBytes,
   );
   application.enableShutdownHooks();
   await application.listen(configuration.application.apiPort);

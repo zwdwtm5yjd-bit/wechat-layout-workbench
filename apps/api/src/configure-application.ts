@@ -1,4 +1,5 @@
 import { type INestApplication, RequestMethod } from "@nestjs/common";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, type OpenAPIObject, SwaggerModule } from "@nestjs/swagger";
 import type { AppEnvironment } from "@wechat-layout/config";
 
@@ -13,7 +14,16 @@ export function configureApplication(
   application: INestApplication,
   environment: AppEnvironment,
   publicWebUrl?: string,
+  maximumJsonBodyBytes = 2 * 1024 * 1024,
 ): OpenAPIObject {
+  // Nest's Express adapter defaults JSON bodies to 100 KB. A document that is
+  // still below the product-level limit can cross that threshold after layout
+  // styles and generated blocks are added, so install the configured parser
+  // before application initialization.
+  (application as NestExpressApplication).useBodyParser("json", {
+    limit: maximumJsonBodyBytes,
+  });
+
   if (publicWebUrl !== undefined) {
     application.enableCors({
       origin: publicWebUrl,

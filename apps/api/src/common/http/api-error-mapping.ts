@@ -29,6 +29,11 @@ const defaultErrorsByStatus: Readonly<Record<number, ApiError>> = {
     message: "请求过于频繁",
     retryable: true,
   },
+  [HttpStatus.PAYLOAD_TOO_LARGE]: {
+    code: "PAYLOAD_TOO_LARGE",
+    message: "内容过大，无法保存",
+    retryable: false,
+  },
   [HttpStatus.SERVICE_UNAVAILABLE]: {
     code: "SERVICE_UNAVAILABLE",
     message: "服务暂时不可用",
@@ -47,9 +52,20 @@ export interface DescribedApiException {
   readonly error: ApiError;
 }
 
+function parserStatus(exception: unknown): number | null {
+  if (typeof exception !== "object" || exception === null) {
+    return null;
+  }
+  const candidate = exception as { readonly status?: unknown; readonly statusCode?: unknown };
+  const status = typeof candidate.status === "number" ? candidate.status : candidate.statusCode;
+  return typeof status === "number" && status >= 400 && status <= 599 ? status : null;
+}
+
 export function describeApiException(exception: unknown): DescribedApiException {
   const statusCode =
-    exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+    exception instanceof HttpException
+      ? exception.getStatus()
+      : (parserStatus(exception) ?? HttpStatus.INTERNAL_SERVER_ERROR);
 
   return {
     statusCode,
