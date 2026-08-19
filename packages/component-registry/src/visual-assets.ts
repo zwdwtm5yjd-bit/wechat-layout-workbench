@@ -105,14 +105,6 @@ const STATIC_STYLE_DEFINITIONS: readonly VisualAssetStyleDefinition[] = [
   { colors: ["深蓝", "金色"], scenes: ["商务", "总结", "金融"], style: "premium-business" },
 ] as const;
 
-const DYNAMIC_STYLE_DEFINITIONS = [
-  STATIC_STYLE_DEFINITIONS[0]!,
-  STATIC_STYLE_DEFINITIONS[1]!,
-  STATIC_STYLE_DEFINITIONS[2]!,
-  STATIC_STYLE_DEFINITIONS[3]!,
-  STATIC_STYLE_DEFINITIONS[4]!,
-] as const;
-
 export interface OfficialVisualAsset {
   readonly colors: readonly string[];
   readonly description: string;
@@ -187,17 +179,70 @@ const EXTRA_STICKER_VISUAL_ASSETS: readonly OfficialVisualAsset[] =
     }),
   );
 
+const ADVANCED_MODULE_DEFINITIONS = [
+  { function: "sticker", name: "引语气泡", tags: ["引语", "金句", "对话"] },
+  { function: "badge", name: "章节数字牌", tags: ["序号", "步骤", "章节"] },
+  { function: "corner", name: "手账胶带", tags: ["胶带", "手账", "照片"] },
+  { function: "ribbon", name: "重点题签", tags: ["题签", "小标题", "可输入文字"] },
+  { function: "frame", name: "图文批注框", tags: ["批注", "图文", "可输入文字"] },
+] as const satisfies readonly {
+  readonly function: VisualAssetFunction;
+  readonly name: string;
+  readonly tags: readonly string[];
+}[];
+
+const ADVANCED_MODULE_VISUAL_ASSETS: readonly OfficialVisualAsset[] =
+  STATIC_STYLE_DEFINITIONS.flatMap((definition, styleIndex) =>
+    ADVANCED_MODULE_DEFINITIONS.map((module, moduleIndex) => {
+      const index = 131 + styleIndex * ADVANCED_MODULE_DEFINITIONS.length + moduleIndex;
+      const serial = paddedIndex(index);
+      const styleLabel = VISUAL_ASSET_STYLE_LABELS[definition.style];
+      return {
+        colors: definition.colors,
+        description: `${styleLabel}方向的原创${module.name}，用于强化文章层次，可直接插入后继续调整。`,
+        function: module.function,
+        id: `visual_static_${serial}`,
+        motion: "static",
+        name: `${styleLabel} · ${module.name}`,
+        previewPath: `/visual-assets/library/static/static-${serial}.svg`,
+        resourceId: `builtin_visual_static_${serial}`,
+        scenes: definition.scenes,
+        style: definition.style,
+        tags: [styleLabel, module.name, ...module.tags, ...definition.scenes, ...definition.colors],
+      } satisfies OfficialVisualAsset;
+    }),
+  );
+
 const STATIC_VISUAL_ASSETS: readonly OfficialVisualAsset[] = [
   ...BASE_STATIC_VISUAL_ASSETS,
   ...EXTRA_STICKER_VISUAL_ASSETS,
+  ...ADVANCED_MODULE_VISUAL_ASSETS,
 ];
 
-const DYNAMIC_VISUAL_ASSETS: readonly OfficialVisualAsset[] = DYNAMIC_STYLE_DEFINITIONS.flatMap(
+const DYNAMIC_EFFECT_FUNCTIONS = [
+  "background",
+  "badge",
+  "hero",
+  "hero",
+  "divider",
+  "background",
+  "corner",
+  "hero",
+  "ribbon",
+  "background",
+] as const satisfies readonly VisualAssetFunction[];
+
+const DYNAMIC_VISUAL_ASSETS: readonly OfficialVisualAsset[] = STATIC_STYLE_DEFINITIONS.flatMap(
   (definition, styleIndex) =>
     VISUAL_ASSET_EFFECTS.map((effect, effectIndex) => {
       const index = styleIndex * VISUAL_ASSET_EFFECTS.length + effectIndex + 1;
       const serial = paddedIndex(index);
-      const fallbackSerial = paddedIndex(index);
+      const assetFunction = DYNAMIC_EFFECT_FUNCTIONS[effectIndex]!;
+      const fallbackSerial = paddedIndex(
+        styleIndex * VISUAL_ASSET_FUNCTIONS.length +
+          VISUAL_ASSET_FUNCTIONS.indexOf(assetFunction) +
+          1,
+      );
       const styleLabel = VISUAL_ASSET_STYLE_LABELS[definition.style];
       const effectLabel = VISUAL_ASSET_EFFECT_LABELS[effect];
       return {
@@ -205,7 +250,7 @@ const DYNAMIC_VISUAL_ASSETS: readonly OfficialVisualAsset[] = DYNAMIC_STYLE_DEFI
         description: `${styleLabel}原创动效，编辑器内播放${effectLabel}，复制到微信时自动使用静态备用图。`,
         effect,
         fallbackResourceId: `builtin_visual_static_${fallbackSerial}`,
-        function: effectIndex % 2 === 0 ? "hero" : "background",
+        function: assetFunction,
         id: `visual_dynamic_${serial}`,
         motion: "dynamic",
         name: `${styleLabel} · ${effectLabel}`,

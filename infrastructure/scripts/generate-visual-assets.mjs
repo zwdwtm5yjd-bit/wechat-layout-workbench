@@ -109,13 +109,31 @@ function functionOverlay(assetFunction, palette, index) {
   }
 }
 
+function freeElementSvg(styleIndex, assetFunction, index) {
+  const palette = palettes[styleIndex];
+  const [, primary, deep, accent, white] = palette;
+  const body =
+    assetFunction === "corner"
+      ? `<path d="M52 230V52h178M428 250v178H250" fill="none" stroke="${primary}" stroke-width="24" stroke-linecap="round"/><path d="M76 184C92 110 124 78 198 66M404 296c-16 74-48 106-122 118" fill="none" stroke="${deep}" stroke-width="7" opacity=".55"/><g fill="${accent}"><circle cx="52" cy="52" r="18"/><circle cx="428" cy="428" r="18"/></g>`
+      : assetFunction === "badge"
+        ? `<circle cx="240" cy="220" r="154" fill="${white}" stroke="${primary}" stroke-width="16"/><circle cx="240" cy="220" r="123" fill="none" stroke="${accent}" stroke-width="5" stroke-dasharray="12 11"/><path d="m158 351 31-74 51 42 51-42 31 74-82 70Z" fill="${primary}" opacity=".88"/><path d="m189 214 34 34 72-78" fill="none" stroke="${deep}" stroke-width="21" stroke-linecap="round" stroke-linejoin="round"/>`
+        : `<g transform="rotate(${styleIndex % 2 === 0 ? -7 : 7} 240 240)"><path d="M78 165c32-88 144-118 210-54 83-31 155 50 116 128 45 76-26 164-111 139-61 70-176 47-205-40-86-22-95-140-10-173Z" fill="${white}" stroke="${primary}" stroke-width="14"/><path d="m154 243 47 46 119-127" fill="none" stroke="${deep}" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/><path d="m356 86 11 31 31 11-31 11-11 31-11-31-31-11 31-11Z" fill="${accent}"/></g>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" role="img" aria-label="原创透明${assetFunction}素材 ${serial(index)}">
+  ${body}
+</svg>\n`;
+}
+
 function staticSvg(styleIndex, functionIndex, index) {
   const palette = palettes[styleIndex];
+  const assetFunction = functions[functionIndex];
+  if (["corner", "badge", "sticker"].includes(assetFunction)) {
+    return freeElementSvg(styleIndex, assetFunction, index);
+  }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" role="img" aria-label="原创视觉素材 ${serial(index)}">
   ${defs(styleIndex, palette)}
   <rect width="1200" height="480" fill="${palette[0]}"/>
   ${styleMotif(styleIndex, palette)}
-  ${functionOverlay(functions[functionIndex], palette, index)}
+  ${functionOverlay(assetFunction, palette, index)}
 </svg>\n`;
 }
 
@@ -129,6 +147,43 @@ function stickerSvg(styleIndex, variantIndex, index) {
   ];
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" role="img" aria-label="原创透明贴纸 ${serial(index)}">
   ${variants[variantIndex]}
+</svg>\n`;
+}
+
+function advancedModuleAccent(styleIndex, palette, wide) {
+  const [, primary, deep, accent] = palette;
+  const width = wide ? 1200 : 480;
+  const height = 480;
+  const accents = [
+    `<path d="M0 ${height - 38}Q${width * 0.16} ${height - 145} ${width * 0.32} ${height - 58}T${width * 0.68} ${height - 82}T${width} ${height - 44}" fill="none" stroke="${primary}" stroke-width="8" opacity=".34"/><circle cx="${width * 0.84}" cy="72" r="24" fill="${accent}" opacity=".55"/>`,
+    `<path d="M35 430C92 310 146 190 214 65" fill="none" stroke="${deep}" stroke-width="9" opacity=".4"/><g fill="${primary}" opacity=".48"><ellipse cx="92" cy="332" rx="52" ry="19" transform="rotate(35 92 332)"/><ellipse cx="154" cy="220" rx="58" ry="20" transform="rotate(-34 154 220)"/></g>`,
+    `<path d="M0 0h${width * 0.2}L${width * 0.1} 112H0Zm${width} 480h-${width * 0.2}l${width * 0.1}-112h${width * 0.1}Z" fill="${primary}" opacity=".34"/><path d="m${width * 0.84} 64 10 28 28 10-28 10-10 28-10-28-28-10 28-10Z" fill="${accent}"/>`,
+    `<g fill="none" stroke="${primary}" opacity=".32"><circle cx="${width * 0.83}" cy="118" r="72"/><circle cx="${width * 0.83}" cy="118" r="44"/><path d="M${width * 0.69} 118h${width * 0.28}M${width * 0.83} 10v216"/></g><circle cx="${width * 0.83}" cy="46" r="8" fill="${accent}"/>`,
+    `<path d="M0 418q${width * 0.1}-82 ${width * 0.2} 0t${width * 0.2} 0 ${width * 0.2} 0 ${width * 0.2} 0 ${width * 0.2} 0v62H0Z" fill="${primary}" opacity=".22"/><path d="M${width * 0.76} 18q42 70 0 142-42-72 0-142Zm78 8q42 70 0 142-42-72 0-142Z" fill="${accent}" opacity=".52"/>`,
+    `<path d="M38 95c38-74 128-64 151 4 62-32 118 35 76 91" fill="none" stroke="${primary}" stroke-width="16" stroke-linecap="round" opacity=".4"/><g fill="${accent}" opacity=".55"><circle cx="${width - 65}" cy="350" r="22"/><circle cx="${width - 104}" cy="392" r="11"/><circle cx="${width - 128}" cy="330" r="7"/></g>`,
+    `<path d="M58 126c0-48 66-64 87-18 21-46 87-30 87 18 0 50-87 104-87 104S58 176 58 126Z" fill="none" stroke="${primary}" stroke-width="8" opacity=".38"/><path d="M${width - 170} 365c0-30 42-42 56-12 13-30 55-18 55 12 0 32-55 66-55 66s-56-34-56-66Z" fill="${accent}" opacity=".45"/>`,
+    `<rect x="28" y="28" width="${width * 0.32}" height="11" fill="${deep}" opacity=".45"/><rect x="${width * 0.7}" y="42" width="${width * 0.22}" height="7" fill="${accent}" opacity=".72"/><path d="M${width * 0.54} 0v480" stroke="${deep}" opacity=".1"/>`,
+    `<path d="M18 388c${width * 0.2}-96 ${width * 0.25} 15 ${width * 0.42}-64 ${width * 0.2}-92 ${width * 0.25} 42 ${width * 0.54}-54" fill="none" stroke="${deep}" stroke-width="5" stroke-linecap="round" stroke-dasharray="3 14" opacity=".35"/><path d="M74 74q58-45 110 2" fill="none" stroke="${primary}" stroke-width="7" opacity=".45"/>`,
+    `<g fill="none" stroke="${accent}" opacity=".36"><circle cx="${width - 112}" cy="104" r="62"/><circle cx="${width - 112}" cy="104" r="46"/></g><path d="M58 425h${width - 116}" stroke="${accent}" stroke-width="3" opacity=".55"/><rect width="${width}" height="480" fill="url(#dots9)" opacity=".35"/>`,
+  ];
+  return accents[styleIndex];
+}
+
+function advancedModuleSvg(styleIndex, variantIndex, index) {
+  const palette = palettes[styleIndex];
+  const [paper, primary, deep, accent, white] = palette;
+  const wide = variantIndex >= 3;
+  const bodies = [
+    `<g transform="rotate(${styleIndex % 2 === 0 ? -5 : 5} 240 240)"><path d="M74 92h332v245H238l-86 68 18-68H74Z" fill="${white}" stroke="${deep}" stroke-width="11" stroke-linejoin="round"/><path d="M132 157h160M132 207h215M132 257h128" stroke="${primary}" stroke-width="16" stroke-linecap="round"/><path d="m339 74 10 29 29 10-29 10-10 29-10-29-29-10 29-10Z" fill="${accent}"/></g>`,
+    `<g transform="translate(240 240)"><path d="M0-188 58-146l72-8 20 70 54 50-40 60-8 72-70 20-50 54-60-40-72-8-20-70-54-50 40-60 8-72 70-20 50-54Z" fill="${primary}" stroke="${deep}" stroke-width="10"/><circle r="122" fill="${paper}" stroke="${accent}" stroke-width="5" stroke-dasharray="12 10"/><path d="M-54-54h108v108H-54Z" fill="none" stroke="${deep}" stroke-width="14"/><path d="M-83 88h166" stroke="${accent}" stroke-width="10" stroke-linecap="round"/></g>`,
+    `<g transform="rotate(${styleIndex % 2 === 0 ? -8 : 7} 240 240)"><path d="M66 128h348l-22 224H88Z" fill="${primary}" opacity=".78" stroke="${deep}" stroke-width="9"/><path d="M86 128 65 57l118 20 15 51Zm196 0 17-70 120 25-24 45Z" fill="${accent}" opacity=".88"/><path d="M120 196h238M120 250h184" stroke="${white}" stroke-width="15" stroke-linecap="round"/><path d="m340 286 16 34 37 5-27 26 7 37-33-18-33 18 7-37-27-26 37-5Z" fill="${paper}"/></g>`,
+    `<rect x="62" y="86" width="1076" height="308" rx="76" fill="${paper}" stroke="${primary}" stroke-width="8"/><path d="M62 86h250l-74 154 74 154H62l76-154Z" fill="${primary}" opacity=".92"/><path d="M1138 86H888l74 154-74 154h250l-76-154Z" fill="${deep}" opacity=".9"/><rect x="278" y="130" width="644" height="220" rx="42" fill="${white}" stroke="${accent}" stroke-width="4" stroke-dasharray="12 10"/><circle cx="330" cy="240" r="13" fill="${accent}"/><circle cx="870" cy="240" r="13" fill="${accent}"/>`,
+    `<rect x="80" y="45" width="1040" height="390" rx="34" fill="${paper}" stroke="${deep}" stroke-width="7"/><path d="M80 145V45h100M1020 45h100v100M1120 335v100h-100M180 435H80V335" fill="none" stroke="${primary}" stroke-width="18" stroke-linecap="round"/><path d="M170 345c180-92 270 65 430-8 170-78 266 61 430-18" fill="none" stroke="${accent}" stroke-width="5" stroke-dasharray="12 14"/><rect x="142" y="108" width="916" height="252" rx="18" fill="${white}" opacity=".72"/><path d="M190 165h340M190 218h520M190 271h430" stroke="${deep}" stroke-width="12" stroke-linecap="round" opacity=".42"/>`,
+  ];
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${wide ? "1200 480" : "480 480"}" role="img" aria-label="原创高级排版素材 ${serial(index)}">
+  ${defs(styleIndex, palette)}
+  ${advancedModuleAccent(styleIndex, palette, wide)}
+  ${bodies[variantIndex]}
 </svg>\n`;
 }
 
@@ -147,6 +202,13 @@ function dynamicBody(effect, palette) {
     breathe: `<g class="motion" transform-origin="600px 240px"><rect x="165" y="90" width="870" height="300" rx="150" fill="${primary}" opacity=".26"/><path d="M330 240h540" stroke="${deep}" stroke-width="10" stroke-linecap="round"/><circle cx="600" cy="240" r="74" fill="${accent}" opacity=".8"/></g>`,
   };
   return bodies[effect];
+}
+
+function squareDynamicBody(effect, palette) {
+  const [, primary, deep, accent] = palette;
+  return effect === "pulse"
+    ? `<g class="motion" transform-origin="240px 240px"><circle cx="240" cy="240" r="150" fill="${primary}" opacity=".18"/><circle cx="240" cy="240" r="105" fill="none" stroke="${deep}" stroke-width="18"/><circle cx="240" cy="240" r="55" fill="${accent}"/></g>`
+    : `<g class="motion" fill="${accent}"><path d="m108 88 12 34 35 12-35 12-12 34-12-34-35-12 35-12Z"/><path d="m250 220 18 50 50 18-50 18-18 50-18-50-50-18 50-18Z"/><path d="m382 96 10 28 28 10-28 10-10 28-10-28-28-10 28-10Z"/></g><circle cx="240" cy="240" r="185" fill="${primary}" opacity=".12"/>`;
 }
 
 function dynamicCss(effect) {
@@ -168,12 +230,15 @@ function dynamicCss(effect) {
 function dynamicSvg(styleIndex, effectIndex, index) {
   const palette = palettes[styleIndex];
   const effect = effects[effectIndex];
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" role="img" aria-label="原创动态视觉素材 ${serial(index)}">
+  const square = effect === "pulse" || effect === "twinkle";
+  const width = square ? 480 : 1200;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 480" role="img" aria-label="原创动态视觉素材 ${serial(index)}">
   ${dynamicCss(effect)}
-  ${defs(20 + styleIndex, palette)}
-  <rect width="1200" height="480" fill="${palette[0]}"/>
-  <rect width="1200" height="480" fill="url(#dots${20 + styleIndex})"/>
-  ${dynamicBody(effect, palette)}
+  ${defs(styleIndex, palette)}
+  <rect width="${width}" height="480" fill="${palette[0]}"/>
+  <rect width="${width}" height="480" fill="url(#dots${styleIndex})"/>
+  ${square ? advancedModuleAccent(styleIndex, palette, false) : styleMotif(styleIndex, palette)}
+  ${square ? squareDynamicBody(effect, palette) : dynamicBody(effect, palette)}
 </svg>\n`;
 }
 
@@ -205,7 +270,19 @@ for (let styleIndex = 0; styleIndex < palettes.length; styleIndex += 1) {
     );
   }
 }
-for (let styleIndex = 0; styleIndex < 5; styleIndex += 1) {
+for (let styleIndex = 0; styleIndex < palettes.length; styleIndex += 1) {
+  for (let variantIndex = 0; variantIndex < 5; variantIndex += 1) {
+    const index = 131 + styleIndex * 5 + variantIndex;
+    writes.push(
+      writeFile(
+        path.join(outputRoot, "static", `static-${serial(index)}.svg`),
+        advancedModuleSvg(styleIndex, variantIndex, index),
+        "utf8",
+      ),
+    );
+  }
+}
+for (let styleIndex = 0; styleIndex < palettes.length; styleIndex += 1) {
   for (let effectIndex = 0; effectIndex < effects.length; effectIndex += 1) {
     const index = styleIndex * effects.length + effectIndex + 1;
     writes.push(

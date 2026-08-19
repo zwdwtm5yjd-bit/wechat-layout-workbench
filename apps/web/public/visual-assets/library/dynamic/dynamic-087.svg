@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" role="img" aria-label="原创动态视觉素材 087">
+  <style>.motion{animation:twinkle 4.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}@keyframes twinkle{0%,100%{transform:none;opacity:1}50%{opacity:.2;transform:scale(.72)}}@media(prefers-reduced-motion:reduce){.motion{animation:none}}</style>
+  <defs>
+    <linearGradient id="g8" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#658799"/><stop offset="1" stop-color="#415a63"/></linearGradient>
+    <linearGradient id="fade8" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#658799" stop-opacity="0"/><stop offset=".5" stop-color="#658799" stop-opacity=".65"/><stop offset="1" stop-color="#658799" stop-opacity="0"/></linearGradient>
+    <pattern id="dots8" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2" fill="#415a63" opacity=".16"/></pattern>
+    <filter id="soft8"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <rect width="480" height="480" fill="#f6f7f2"/>
+  <rect width="480" height="480" fill="url(#dots8)"/>
+  <path d="M18 388c96-96 120 15 201.6-64 96-92 120 42 259.20000000000005-54" fill="none" stroke="#415a63" stroke-width="5" stroke-linecap="round" stroke-dasharray="3 14" opacity=".35"/><path d="M74 74q58-45 110 2" fill="none" stroke="#658799" stroke-width="7" opacity=".45"/>
+  <g class="motion" fill="#8eae80"><path d="m108 88 12 34 35 12-35 12-12 34-12-34-35-12 35-12Z"/><path d="m250 220 18 50 50 18-50 18-18 50-18-50-50-18 50-18Z"/><path d="m382 96 10 28 28 10-28 10-10 28-10-28-28-10 28-10Z"/></g><circle cx="240" cy="240" r="185" fill="#658799" opacity=".12"/>
+</svg>

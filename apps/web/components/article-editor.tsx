@@ -33,6 +33,7 @@ import {
   VISUAL_ASSET_FUNCTION_LABELS,
   VISUAL_ASSET_STYLE_LABELS,
   createOfficialComponentRegistry,
+  type OfficialVisualAsset,
   type VisualAssetStyle,
   type VisualAssetMotion,
 } from "@wechat-layout/component-registry";
@@ -81,11 +82,13 @@ import {
   Trash2,
   Underline,
   UploadCloud,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useReducer,
@@ -118,8 +121,21 @@ import {
   uploadResource,
   type Resource,
 } from "../lib/resources/client";
+import {
+  VISUAL_ASSET_TASK_GROUPS,
+  visualAssetMatchesTaskGroup,
+  visualAssetTaskGroupFunctions,
+  type VisualAssetTaskGroupId,
+} from "../lib/visual-asset-navigation";
 
 const officialComponentRegistry = createOfficialComponentRegistry();
+
+const EDITOR_LEFT_PANELS = [
+  ["structure", ListTree, "结构"],
+  ["themes", Palette, "主题"],
+  ["components", Blocks, "排版模块"],
+  ["assets", Sparkles, "图片装饰"],
+] as const;
 
 function resourceLabel(resource: Resource): string {
   return resource.displayName ?? resource.originalFilename ?? "未命名素材";
@@ -146,13 +162,40 @@ const DYNAMIC_ASSET_COUNT = OFFICIAL_VISUAL_ASSETS.filter(
   (asset) => asset.motion === "dynamic",
 ).length;
 
+function visualAssetSerial(asset: OfficialVisualAsset): number {
+  return Number.parseInt(asset.id.match(/(\d+)$/u)?.[1] ?? "0", 10);
+}
+
+function isNewVisualAsset(asset: OfficialVisualAsset): boolean {
+  return visualAssetSerial(asset) > (asset.motion === "static" ? 130 : 50);
+}
+
+function usesCompactVisualPreview(asset: OfficialVisualAsset): boolean {
+  return asset.function === "sticker" || asset.function === "corner" || asset.function === "badge";
+}
+
+function editorComponentVariant(component: ComponentPreview): string {
+  const tokenVariant = component.asset.manifest.defaultTokenMap.variant;
+  if (typeof tokenVariant === "string") return tokenVariant;
+  const attributes = component.asset.manifest.insertionPreset.attributes;
+  return "variant" in attributes && typeof attributes.variant === "string"
+    ? attributes.variant
+    : component.asset.manifest.defaultVariantId;
+}
+
 function EditorComponentThumbnail({ component }: { readonly component: ComponentPreview }) {
   const { layoutKey, sample } = component.asset.preview;
+  const variant = editorComponentVariant(component);
   if (layoutKey === "visual" && sample.assetPath !== undefined) {
     return (
-      <span className="relative block h-20 overflow-hidden bg-[#fbf8f1]" aria-hidden="true">
+      <span className="relative block h-24 overflow-hidden bg-[#fbf8f1]" aria-hidden="true">
         <img alt="" className="h-full w-full object-cover" loading="lazy" src={sample.assetPath} />
-        <span className="absolute right-1.5 bottom-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[7px] font-semibold text-white uppercase">
+        <span className="absolute inset-x-2 bottom-2 rounded bg-white/85 px-2 py-1.5 shadow-sm backdrop-blur">
+          <span className="block truncate text-[8px] font-semibold text-zinc-800">
+            {sample.title ?? "原创视觉模块"}
+          </span>
+        </span>
+        <span className="absolute top-1.5 right-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[7px] font-semibold text-white uppercase">
           {sample.assetKind}
         </span>
       </span>
@@ -160,71 +203,191 @@ function EditorComponentThumbnail({ component }: { readonly component: Component
   }
 
   if (layoutKey === "heading") {
-    return (
-      <span className="flex h-20 items-center bg-[#fbfaf8] px-3" aria-hidden="true">
-        <span className="w-full border-l-[3px] border-indigo-500 py-1 pl-2 text-[10px] font-semibold leading-4 text-zinc-800">
-          {sample.title ?? "清晰的小节标题"}
+    const title = sample.title ?? "清晰的小节标题";
+    let heading: ReactNode = (
+      <span className="block border-l-[3px] border-indigo-500 py-1 pl-2 text-[10px] font-semibold leading-4 text-zinc-800">
+        {title}
+      </span>
+    );
+    if (variant === "ribbon") {
+      heading = (
+        <span className="block rounded bg-indigo-600 px-3 py-2 text-center text-[10px] font-semibold text-white shadow-sm">
+          {title}
         </span>
+      );
+    } else if (variant === "framed") {
+      heading = (
+        <span className="block rounded border border-amber-400 px-3 py-2 text-center text-[10px] font-semibold text-zinc-800">
+          {title}
+        </span>
+      );
+    } else if (variant === "pill") {
+      heading = (
+        <span className="inline-block rounded-full bg-indigo-50 px-3 py-1.5 text-[10px] font-semibold text-indigo-700">
+          {title}
+        </span>
+      );
+    } else if (variant === "marker") {
+      heading = (
+        <span className="block border-b-2 border-indigo-400 pb-1.5 text-[10px] font-semibold text-zinc-800">
+          {title}
+        </span>
+      );
+    } else if (variant === "underlined") {
+      heading = (
+        <span className="block text-[10px] font-semibold text-zinc-800">
+          {title}
+          <span className="mt-1.5 block h-px w-10 bg-indigo-400" />
+        </span>
+      );
+    } else if (variant === "centered") {
+      heading = (
+        <span className="block text-center text-[10px] font-semibold tracking-wide text-zinc-800">
+          {title}
+        </span>
+      );
+    } else if (variant === "dot") {
+      heading = (
+        <span className="flex items-start gap-2 text-[10px] font-semibold text-zinc-800">
+          <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-indigo-500" />
+          <span>{title}</span>
+        </span>
+      );
+    } else if (variant === "numbered") {
+      heading = (
+        <span className="flex items-start gap-2">
+          <span className="border-b-2 border-indigo-500 text-[9px] font-bold text-indigo-600">
+            01
+          </span>
+          <span className="text-[10px] font-semibold text-zinc-800">{title}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="flex h-24 items-center bg-[#fbfaf8] px-3" aria-hidden="true">
+        <span className="w-full">{heading}</span>
       </span>
     );
   }
 
   if (layoutKey === "quote" || layoutKey === "notice") {
-    return (
-      <span className="flex h-20 items-center bg-[#fbfaf8] p-2.5" aria-hidden="true">
-        <span
-          className={`line-clamp-3 w-full rounded px-2.5 py-2 text-[8px] leading-3.5 ${
-            layoutKey === "quote"
+    const body = sample.body ?? sample.title ?? "这里放置需要强调的重点信息";
+    const quotation = variant === "quotation" || variant === "postcard";
+    const toneClass =
+      variant === "risk"
+        ? "border-2 border-red-300 bg-red-50 text-red-950"
+        : variant === "checklist" || variant === "success"
+          ? "border border-emerald-200 bg-emerald-50 text-emerald-950"
+          : variant === "warning" || variant === "story" || variant === "postcard"
+            ? "border border-amber-200 bg-amber-50 text-amber-950"
+            : layoutKey === "quote"
               ? "border-l-[3px] border-amber-400 bg-amber-50 text-amber-950"
-              : "border border-indigo-100 bg-indigo-50 text-indigo-950"
-          }`}
+              : "border border-indigo-100 bg-indigo-50 text-indigo-950";
+    return (
+      <span className="flex h-24 items-center bg-[#fbfaf8] p-2.5" aria-hidden="true">
+        <span
+          className={`relative line-clamp-3 w-full rounded px-2.5 py-2 text-[8px] leading-3.5 ${toneClass}`}
         >
-          {sample.body ?? sample.title ?? "这里放置需要强调的重点信息"}
+          {quotation ? (
+            <span className="absolute top-0.5 left-1.5 text-xl leading-none text-amber-300">“</span>
+          ) : null}
+          <span className={quotation ? "block px-2 text-center" : undefined}>{body}</span>
         </span>
       </span>
     );
   }
 
   if (layoutKey === "data") {
+    const value = sample.value ?? "96";
+    const unit = sample.unit ?? "";
+    if (variant === "double_compare") {
+      return (
+        <span
+          className="grid h-24 grid-cols-2 items-center divide-x divide-zinc-200 bg-zinc-50 text-center"
+          aria-hidden="true"
+        >
+          {[
+            ["主指标", value],
+            ["对比值", "82"],
+          ].map(([label, item]) => (
+            <span key={label}>
+              <span className="block text-[7px] text-zinc-500">{label}</span>
+              <span className="mt-1 block text-lg font-bold text-indigo-600">{item}</span>
+            </span>
+          ))}
+        </span>
+      );
+    }
     return (
       <span
-        className="flex h-20 items-center justify-center bg-gradient-to-br from-indigo-50 to-white"
+        className="flex h-24 items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-amber-50"
         aria-hidden="true"
       >
-        <span className="text-center">
+        <span
+          className={
+            variant === "badge_metric"
+              ? "rounded-full border border-indigo-200 bg-white px-5 py-2 text-center"
+              : "w-4/5 border-t-2 border-indigo-500 bg-white/70 px-3 py-2 text-center"
+          }
+        >
           <span className="block text-lg font-bold tracking-tight text-indigo-600">
-            {sample.value ?? "96"}
-            <span className="text-[8px]">{sample.unit}</span>
+            {value}
+            <span className="text-[8px]">{unit}</span>
           </span>
           <span className="mt-0.5 block text-[7px] text-zinc-500">
             {sample.title ?? "核心数据"}
           </span>
+          {variant === "progress" ? (
+            <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-zinc-200">
+              <span className="block h-full w-3/4 bg-indigo-500" />
+            </span>
+          ) : null}
         </span>
       </span>
     );
   }
 
   if (layoutKey === "image") {
+    const frameClass =
+      variant === "polaroid"
+        ? "rotate-[-2deg] border-[5px] border-white shadow-md"
+        : variant === "documentary"
+          ? "border-2 border-zinc-500"
+          : variant === "rounded_caption"
+            ? "rounded-lg border border-zinc-200"
+            : "border border-zinc-200";
     return (
-      <span className="flex h-20 items-center justify-center bg-[#f4f1eb] p-2.5" aria-hidden="true">
-        <span className="h-full w-20 rounded border-[3px] border-white bg-gradient-to-br from-sky-200 via-emerald-100 to-amber-200 shadow-sm" />
+      <span
+        className="flex h-24 flex-col items-center justify-center bg-[#f4f1eb] p-2.5"
+        aria-hidden="true"
+      >
+        <span
+          className={`h-14 w-20 bg-gradient-to-br from-sky-200 via-emerald-100 to-amber-200 ${frameClass}`}
+        />
+        <span className="mt-1 block max-w-full truncate text-[7px] text-zinc-500">
+          {sample.caption ?? "图片说明"}
+        </span>
       </span>
     );
   }
 
   if (layoutKey === "divider") {
+    const dashed = variant === "dashed";
+    const ornament = variant === "ornament";
     return (
-      <span className="flex h-20 items-center gap-2 bg-[#fbfaf8] px-4" aria-hidden="true">
-        <span className="h-px flex-1 bg-zinc-300" />
-        <span className="text-[9px] text-indigo-500">◆</span>
-        <span className="h-px flex-1 bg-zinc-300" />
+      <span className="flex h-24 items-center gap-2 bg-[#fbfaf8] px-4" aria-hidden="true">
+        <span
+          className={`h-px flex-1 ${dashed ? "border-t border-dashed border-zinc-400" : "bg-zinc-300"}`}
+        />
+        {ornament ? <span className="text-[9px] text-indigo-500">◆</span> : null}
+        {ornament ? <span className="h-px flex-1 bg-zinc-300" /> : null}
       </span>
     );
   }
 
   return (
     <span
-      className="flex h-20 flex-col items-center justify-center bg-[#fbfaf8] text-zinc-500"
+      className="flex h-24 flex-col items-center justify-center bg-[#fbfaf8] text-zinc-500"
       aria-hidden="true"
     >
       <Blocks size={16} />
@@ -662,6 +825,16 @@ export function ArticleEditor({
   const [leftPanel, setLeftPanel] = useState<"assets" | "components" | "structure" | "themes">(
     "structure",
   );
+  const [mobileEditorPanel, setMobileEditorPanel] = useState<"properties" | "tools" | null>(null);
+  const leftPanelTablistId = useId();
+  const leftPanelContentId = `${leftPanelTablistId}-panel`;
+  const mobileToolsPanelId = `${leftPanelTablistId}-mobile-tools`;
+  const mobilePropertiesPanelId = `${leftPanelTablistId}-mobile-properties`;
+  const mobileToolsTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobilePropertiesTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileToolsCloseRef = useRef<HTMLButtonElement>(null);
+  const mobilePropertiesCloseRef = useRef<HTMLButtonElement>(null);
+  const previousMobileEditorPanelRef = useRef<"properties" | "tools" | null>(null);
   const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
   const [themeQuery, setThemeQuery] = useState("");
   const [componentQuery, setComponentQuery] = useState("");
@@ -671,8 +844,12 @@ export function ArticleEditor({
   const [assetMotion, setAssetMotion] = useState<VisualAssetMotion>("static");
   const [assetSource, setAssetSource] = useState<"official" | "personal">("official");
   const [assetQuery, setAssetQuery] = useState("");
+  const [assetTaskGroup, setAssetTaskGroup] = useState<VisualAssetTaskGroupId>("all");
   const [assetFunction, setAssetFunction] = useState("all");
   const [assetStyle, setAssetStyle] = useState<VisualAssetStyle | "all">("all");
+  const [insertedAssetId, setInsertedAssetId] = useState<string | null>(null);
+  const [assetDisplayLimit, setAssetDisplayLimit] = useState(24);
+  const assetFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [personalFolder, setPersonalFolder] = useState("all");
   const queryClient = useQueryClient();
   const privateResourcesQuery = useQuery({
@@ -734,10 +911,13 @@ export function ArticleEditor({
           "zh-CN",
         );
       return (
-        (componentSection === "popular"
-          ? isPopularEditorComponent(component)
-          : editorComponentSection(component) === componentSection) &&
-        (componentDetail === "all" || component.category === componentDetail) &&
+        (normalized !== "" ||
+          (componentSection === "popular"
+            ? isPopularEditorComponent(component)
+            : editorComponentSection(component) === componentSection)) &&
+        (normalized !== "" ||
+          componentDetail === "all" ||
+          component.category === componentDetail) &&
         componentMatchesEditorScene(component, componentScene) &&
         (normalized === "" || searchText.includes(normalized))
       );
@@ -767,12 +947,56 @@ export function ArticleEditor({
         `${asset.name} ${asset.description} ${asset.tags.join(" ")}`.toLocaleLowerCase("zh-CN");
       return (
         asset.motion === assetMotion &&
+        visualAssetMatchesTaskGroup(asset, assetTaskGroup) &&
         (assetFunction === "all" || asset.function === assetFunction) &&
         (assetStyle === "all" || asset.style === assetStyle) &&
         (normalized === "" || searchText.includes(normalized))
       );
+    }).toSorted((left, right) => {
+      const newDifference = Number(isNewVisualAsset(right)) - Number(isNewVisualAsset(left));
+      return newDifference === 0
+        ? visualAssetSerial(right) - visualAssetSerial(left)
+        : newDifference;
     });
-  }, [assetFunction, assetMotion, assetQuery, assetStyle]);
+  }, [assetFunction, assetMotion, assetQuery, assetStyle, assetTaskGroup]);
+  const displayedEditorAssets = visibleEditorAssets.slice(0, assetDisplayLimit);
+  useEffect(() => {
+    setAssetDisplayLimit(24);
+  }, [assetFunction, assetMotion, assetQuery, assetStyle, assetTaskGroup]);
+  useEffect(
+    () => () => {
+      if (assetFeedbackTimerRef.current !== null) {
+        clearTimeout(assetFeedbackTimerRef.current);
+      }
+    },
+    [],
+  );
+  useEffect(() => {
+    const previousPanel = previousMobileEditorPanelRef.current;
+    previousMobileEditorPanelRef.current = mobileEditorPanel;
+    if (mobileEditorPanel === "tools") {
+      mobileToolsCloseRef.current?.focus();
+    } else if (mobileEditorPanel === "properties") {
+      mobilePropertiesCloseRef.current?.focus();
+    } else if (previousPanel === "tools") {
+      mobileToolsTriggerRef.current?.focus();
+    } else if (previousPanel === "properties") {
+      mobilePropertiesTriggerRef.current?.focus();
+    }
+  }, [mobileEditorPanel]);
+  const activeAssetFunctions = visualAssetTaskGroupFunctions(assetTaskGroup);
+  const assetTaskGroupCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        VISUAL_ASSET_TASK_GROUPS.map((group) => [
+          group.id,
+          OFFICIAL_VISUAL_ASSETS.filter(
+            (asset) => asset.motion === assetMotion && visualAssetMatchesTaskGroup(asset, group.id),
+          ).length,
+        ]),
+      ) as Readonly<Record<(typeof VISUAL_ASSET_TASK_GROUPS)[number]["id"], number>>,
+    [assetMotion],
+  );
   const personalFolders = useMemo(
     () =>
       [...new Set(privateResources.map((resource) => resource.folder).filter(Boolean))].sort(
@@ -983,6 +1207,35 @@ export function ArticleEditor({
   );
 
   const handleKeyboardShortcut = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape" && mobileEditorPanel !== null) {
+      event.preventDefault();
+      setMobileEditorPanel(null);
+      return;
+    }
+    if (event.key === "Tab" && mobileEditorPanel !== null) {
+      const panelId = mobileEditorPanel === "tools" ? mobileToolsPanelId : mobilePropertiesPanelId;
+      const panel = globalThis.document.getElementById(panelId);
+      const focusable =
+        panel === null
+          ? []
+          : [
+              ...panel.querySelectorAll<HTMLElement>(
+                "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+              ),
+            ];
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (first !== undefined && last !== undefined) {
+        if (event.shiftKey && globalThis.document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && globalThis.document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+      return;
+    }
     if (
       !editable ||
       editor === null ||
@@ -1005,6 +1258,26 @@ export function ArticleEditor({
       event.preventDefault();
       moveBlock(editor, selectedBlockId, 1);
     }
+  };
+
+  const handleLeftPanelTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    const tablist = event.currentTarget.closest<HTMLElement>("[role='tablist']");
+    const tabs =
+      tablist === null ? [] : [...tablist.querySelectorAll<HTMLButtonElement>("[role='tab']")];
+    const currentIndex = tabs.indexOf(event.currentTarget);
+    if (currentIndex < 0 || tabs.length === 0) return;
+
+    event.preventDefault();
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? tabs.length - 1
+          : (currentIndex + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    const nextTab = tabs[nextIndex];
+    nextTab?.focus();
+    nextTab?.click();
   };
 
   const handleCanvasDragOver = (event: DragEvent<HTMLDivElement>) => {
@@ -1041,6 +1314,18 @@ export function ArticleEditor({
       </div>
     );
   }
+
+  const insertOfficialAsset = (asset: OfficialVisualAsset) => {
+    if (!insertVisualAssetAfterSelection(editor, asset)) {
+      onError("当前动态素材缺少静态备用图，暂时无法插入。");
+      return;
+    }
+    if (assetFeedbackTimerRef.current !== null) {
+      clearTimeout(assetFeedbackTimerRef.current);
+    }
+    setInsertedAssetId(asset.id);
+    assetFeedbackTimerRef.current = setTimeout(() => setInsertedAssetId(null), 1_400);
+  };
 
   return (
     <section
@@ -1085,27 +1370,59 @@ export function ArticleEditor({
           </button>
         </div>
       )}
-      <div className="grid min-h-[680px] xl:h-[calc(100vh-96px)] xl:min-h-0 xl:grid-cols-[320px_minmax(0,1fr)_300px]">
-        <aside className="border-b border-line bg-panel-muted xl:h-full xl:overflow-y-auto xl:border-r xl:border-b-0">
-          <div className="grid grid-cols-4 gap-1 border-b border-line p-2">
-            {(
-              [
-                ["structure", ListTree, "结构"],
-                ["themes", Palette, "主题"],
-                ["components", Blocks, "组件"],
-                ["assets", Sparkles, "素材"],
-              ] as const
-            ).map(([value, Icon, label]) => (
+      <div className="grid min-h-[680px] xl:h-[calc(100vh-96px)] xl:min-h-0 xl:grid-cols-[344px_minmax(0,1fr)_312px]">
+        {mobileEditorPanel === null ? null : (
+          <button
+            aria-label="关闭编辑面板"
+            className="fixed inset-0 z-40 bg-black/35 backdrop-blur-[1px] xl:hidden"
+            onClick={() => setMobileEditorPanel(null)}
+            type="button"
+          />
+        )}
+        <aside
+          aria-label="排版工具"
+          aria-modal={mobileEditorPanel === "tools" || undefined}
+          className={`bg-panel-muted ${
+            mobileEditorPanel === "tools"
+              ? "fixed inset-x-3 bottom-3 z-50 block max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-card border border-line shadow-raised"
+              : "hidden"
+          } xl:static xl:z-auto xl:block xl:h-full xl:max-h-none xl:overflow-y-auto xl:rounded-none xl:border-0 xl:border-r xl:border-line xl:shadow-none`}
+          id={mobileToolsPanelId}
+          role={mobileEditorPanel === "tools" ? "dialog" : undefined}
+        >
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-panel px-3 py-2 xl:hidden">
+            <p className="text-[12px] font-semibold text-ink">排版工具</p>
+            <button
+              aria-label="关闭排版工具"
+              className="grid size-8 place-items-center rounded-md text-muted hover:bg-hover hover:text-ink"
+              onClick={() => setMobileEditorPanel(null)}
+              ref={mobileToolsCloseRef}
+              type="button"
+            >
+              <X aria-hidden="true" size={15} />
+            </button>
+          </div>
+          <div
+            aria-label="排版工具分类"
+            className="grid grid-cols-4 gap-1 border-b border-line p-2"
+            id={leftPanelTablistId}
+            role="tablist"
+          >
+            {EDITOR_LEFT_PANELS.map(([value, Icon, label]) => (
               <button
+                aria-controls={leftPanelContentId}
                 aria-selected={leftPanel === value}
                 className={`flex h-9 items-center justify-center gap-1.5 rounded-control text-[10px] font-medium transition ${
                   leftPanel === value
                     ? "bg-panel text-accent shadow-subtle"
                     : "text-muted hover:bg-hover hover:text-ink"
                 }`}
+                id={`${leftPanelTablistId}-${value}`}
                 key={value}
                 onClick={() => setLeftPanel(value)}
+                onKeyDown={handleLeftPanelTabKeyDown}
                 role="tab"
+                tabIndex={leftPanel === value ? 0 : -1}
                 type="button"
               >
                 <Icon aria-hidden="true" size={13} />
@@ -1113,641 +1430,752 @@ export function ArticleEditor({
               </button>
             ))}
           </div>
-          {leftPanel === "structure" ? (
-            <>
-              <div className="border-b border-line px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <ListTree aria-hidden="true" className="text-accent" size={15} />
-                  <p className="text-[12px] font-semibold text-ink">文章结构</p>
-                  <span className="ml-auto rounded-full bg-panel px-2 py-0.5 text-[9px] text-faint">
-                    {blocks.length}
-                  </span>
-                </div>
-              </div>
-              <div className="max-h-64 space-y-0.5 overflow-y-auto p-2 xl:max-h-[390px]">
-                {blocks.map((block) => (
-                  <OutlineBlock
-                    block={block}
-                    dragging={draggedBlockId === block.blockId}
-                    editable={editable}
-                    key={block.blockId}
-                    onDragEnd={() => {
-                      setDraggedBlockId(null);
-                      setDropTargetId(null);
-                    }}
-                    onDragStart={() => setDraggedBlockId(block.blockId)}
-                    onDrop={() => {
-                      if (draggedBlockId !== null) {
-                        moveBlockToIndex(editor, draggedBlockId, block.index);
-                      }
-                      setDraggedBlockId(null);
-                      setDropTargetId(null);
-                    }}
-                    onSelect={() => selectBlock(editor, block.blockId)}
-                    selected={selectedBlockId === block.blockId}
-                  />
-                ))}
-              </div>
-              <div className="border-t border-line p-3">
-                <p className="mb-2 text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
-                  插入区块
-                </p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {insertBlocks.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <button
-                        className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-control border border-line bg-panel text-[10px] text-muted transition hover:border-line-strong hover:text-ink disabled:opacity-45"
-                        disabled={!editable}
-                        key={item.type}
-                        onClick={() => insertBlockAfterSelection(editor, item.type)}
-                        type="button"
-                      >
-                        <Icon aria-hidden="true" size={14} />
-                        {item.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </>
-          ) : leftPanel === "themes" ? (
-            <div className="space-y-3 p-3">
-              <div className="rounded-control border border-accent/15 bg-accent-soft p-3">
-                <p className="text-[10px] leading-5 text-muted">
-                  试穿只改变当前画布；正式应用会先创建快照，再持久化主题版本，原文保持不变。
-                </p>
-              </div>
-              <label className="relative block">
-                <span className="sr-only">搜索主题</span>
-                <Search
-                  aria-hidden="true"
-                  className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint"
-                  size={12}
-                />
-                <input
-                  className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
-                  onChange={(event) => setThemeQuery(event.target.value)}
-                  placeholder="搜索通知、党建、中秋节…"
-                  value={themeQuery}
-                />
-              </label>
-              {themes.length === 0 ? (
-                <p className="rounded-control border border-line bg-panel p-3 text-[10px] text-muted">
-                  正在读取已安装主题…
-                </p>
-              ) : null}
-              {visibleThemes.map((theme) => {
-                const themeId = theme.manifest.themeId;
-                const previewing = previewThemeId === themeId;
-                const applied = currentThemeId === themeId;
-                const applying = applyingThemeId === themeId;
-                return (
-                  <article
-                    className={`w-full rounded-control border bg-panel p-3 text-left transition ${
-                      previewing
-                        ? "border-accent ring-2 ring-accent/10"
-                        : "border-line hover:border-line-strong"
-                    }`}
-                    key={themeId}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-semibold text-ink">{theme.manifest.name}</p>
-                        <p className="mt-1 text-[9px] text-faint">
-                          {summarizeThemeCategories(theme.manifest.categories, true)} · v
-                          {theme.manifest.version}
-                        </p>
-                      </div>
-                      {applied ? (
-                        <span className="grid size-5 place-items-center rounded-full bg-accent text-white">
-                          <Check aria-hidden="true" size={11} />
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="mt-3 flex gap-1">
-                      {theme.preview.accentColors.map((color) => (
-                        <span
-                          className="h-2 flex-1 rounded-full"
-                          key={color}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
-                    <p className="mt-2 text-[9px] leading-4 text-muted">
-                      {theme.manifest.description}
-                    </p>
-                    <div className="mt-3 grid grid-cols-2 gap-1.5">
-                      <button
-                        aria-pressed={previewing}
-                        className="h-7 rounded-md border border-line text-[9px] font-medium text-ink hover:bg-hover"
-                        onClick={() =>
-                          setPreviewThemeId((current) => (current === themeId ? null : themeId))
-                        }
-                        type="button"
-                      >
-                        {previewing ? "取消试穿" : "试穿"}
-                      </button>
-                      <button
-                        className="h-7 rounded-md bg-accent text-[9px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
-                        disabled={
-                          !editable ||
-                          applyingThemeId !== null ||
-                          applied ||
-                          onApplyTheme === undefined
-                        }
-                        onClick={() => {
-                          void onApplyTheme?.(theme)
-                            .then(() => setPreviewThemeId(null))
-                            .catch(() => undefined);
-                        }}
-                        type="button"
-                      >
-                        {applying ? "应用中…" : applied ? "已应用" : "正式应用"}
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : leftPanel === "components" ? (
-            <div className="space-y-3 p-3">
-              <div className="px-1">
-                <p className="text-[11px] font-semibold text-ink">插入排版组件</p>
-                <p className="mt-1 text-[9px] leading-4 text-muted">
-                  先选类型，再按场景缩小范围；点击预览即可插入当前段落之后。
-                </p>
-              </div>
-              <nav aria-label="组件类型" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
-                {EDITOR_COMPONENT_SECTIONS.map((section) => (
-                  <button
-                    aria-pressed={componentSection === section.id}
-                    className={`shrink-0 rounded-md px-2.5 py-2 text-[10px] font-medium transition ${
-                      componentSection === section.id
-                        ? "bg-accent text-white shadow-subtle"
-                        : "bg-panel text-muted hover:bg-hover hover:text-ink"
-                    }`}
-                    key={section.id}
-                    onClick={() => {
-                      setComponentSection(section.id);
-                      setComponentDetail("all");
-                    }}
-                    type="button"
-                  >
-                    {section.label}
-                    <span
-                      className={`ml-1 text-[8px] ${componentSection === section.id ? "text-white/70" : "text-faint"}`}
-                    >
-                      {componentSectionCounts[section.id]}
+          <div
+            aria-labelledby={`${leftPanelTablistId}-${leftPanel}`}
+            id={leftPanelContentId}
+            role="tabpanel"
+            tabIndex={0}
+          >
+            {leftPanel === "structure" ? (
+              <>
+                <div className="border-b border-line px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <ListTree aria-hidden="true" className="text-accent" size={15} />
+                    <p className="text-[12px] font-semibold text-ink">文章结构</p>
+                    <span className="ml-auto rounded-full bg-panel px-2 py-0.5 text-[9px] text-faint">
+                      {blocks.length}
                     </span>
-                  </button>
-                ))}
-              </nav>
-              {componentDetails.length === 0 ? null : (
-                <div
-                  className="flex flex-wrap gap-1"
-                  aria-label={`${activeComponentSectionLabel}子分类`}
-                >
-                  <button
-                    aria-pressed={componentDetail === "all"}
-                    className={`rounded-md px-2 py-1 text-[9px] ${
-                      componentDetail === "all"
-                        ? "bg-accent-soft font-medium text-accent-strong"
-                        : "text-muted hover:bg-hover"
-                    }`}
-                    onClick={() => setComponentDetail("all")}
-                    type="button"
-                  >
-                    全部
-                  </button>
-                  {componentDetails.map((detail) => (
-                    <button
-                      aria-pressed={componentDetail === detail}
-                      className={`rounded-md px-2 py-1 text-[9px] ${
-                        componentDetail === detail
-                          ? "bg-accent-soft font-medium text-accent-strong"
-                          : "text-muted hover:bg-hover"
-                      }`}
-                      key={detail}
-                      onClick={() => setComponentDetail(detail)}
-                      type="button"
-                    >
-                      {detail === "提示" ? "提示卡" : detail}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <label className="relative block">
-                <span className="sr-only">搜索组件</span>
-                <Search
-                  aria-hidden="true"
-                  className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint"
-                  size={12}
-                />
-                <input
-                  className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
-                  onChange={(event) => setComponentQuery(event.target.value)}
-                  placeholder={`在“${activeComponentSectionLabel}”中搜索`}
-                  value={componentQuery}
-                />
-              </label>
-              <div className="flex items-center gap-2">
-                <select
-                  aria-label="按使用场景筛选组件"
-                  className="h-8 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
-                  onChange={(event) =>
-                    setComponentScene(event.target.value as EditorComponentScene)
-                  }
-                  value={componentScene}
-                >
-                  {EDITOR_COMPONENT_SCENES.map((scene) => (
-                    <option key={scene.id} value={scene.id}>
-                      {scene.label}
-                    </option>
-                  ))}
-                </select>
-                <span className="shrink-0 text-[9px] tabular-nums text-faint">
-                  {visibleEditorComponents.length} 个结果
-                </span>
-              </div>
-              {visibleEditorComponents.length === 0 ? (
-                <div className="rounded-control border border-dashed border-line p-5 text-center">
-                  <Blocks aria-hidden="true" className="mx-auto text-faint" size={18} />
-                  <p className="mt-2 text-[10px] font-medium text-ink">这个分类没有匹配项</p>
-                  <button
-                    className="mt-2 text-[9px] font-medium text-accent"
-                    onClick={() => {
-                      setComponentQuery("");
-                      setComponentScene("all");
-                      setComponentDetail("all");
-                    }}
-                    type="button"
-                  >
-                    清除筛选
-                  </button>
-                </div>
-              ) : (
-                <div className="grid max-h-[510px] grid-cols-2 gap-2 overflow-y-auto pr-0.5">
-                  {visibleEditorComponents.map((component) => (
-                    <button
-                      className="min-w-0 overflow-hidden rounded-control border border-line bg-panel text-left transition hover:-translate-y-0.5 hover:border-accent/45 hover:shadow-subtle active:translate-y-0 disabled:opacity-45"
-                      disabled={!editable}
-                      key={component.id}
-                      onClick={() => {
-                        const result = insertRegisteredComponentAfterSelection(
-                          editor,
-                          officialComponentRegistry,
-                          {
-                            componentId: component.id,
-                            slots: component.asset.defaultSlots,
-                            version: component.version,
-                          },
-                        );
-                        if (!result.success) {
-                          onError(result.issues.map((issue) => issue.message).join("；"));
-                        }
-                      }}
-                      type="button"
-                    >
-                      <EditorComponentThumbnail component={component} />
-                      <span className="block border-t border-line px-2 py-2">
-                        <span className="block truncate text-[9px] font-semibold text-ink">
-                          {component.name}
-                        </span>
-                        <span className="mt-0.5 block truncate text-[8px] text-faint">
-                          {component.category}
-                        </span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-2 p-3">
-              <div className="grid grid-cols-2 gap-1 rounded-md bg-panel p-1">
-                {(["official", "personal"] as const).map((source) => (
-                  <button
-                    className={`h-7 rounded text-[9px] font-medium ${
-                      assetSource === source
-                        ? "bg-accent-soft text-accent-strong"
-                        : "text-muted hover:bg-hover"
-                    }`}
-                    key={source}
-                    onClick={() => {
-                      setAssetSource(source);
-                      setAssetQuery("");
-                    }}
-                    type="button"
-                  >
-                    {source === "official" ? "官方素材" : `我的素材 · ${privateResources.length}`}
-                  </button>
-                ))}
-              </div>
-              <label className="relative block">
-                <span className="sr-only">搜索视觉素材</span>
-                <Search
-                  aria-hidden="true"
-                  className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint"
-                  size={12}
-                />
-                <input
-                  className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
-                  onChange={(event) => setAssetQuery(event.target.value)}
-                  placeholder={
-                    assetSource === "official"
-                      ? "搜索水墨、节气、党政、教育…"
-                      : "搜索名称、文件夹或标签"
-                  }
-                  value={assetQuery}
-                />
-              </label>
-              {assetSource === "official" ? (
-                <>
-                  <div className="grid grid-cols-2 gap-1 rounded-md bg-panel p-1">
-                    {(["static", "dynamic"] as const).map((motion) => (
-                      <button
-                        className={`h-7 rounded text-[9px] font-medium ${
-                          assetMotion === motion
-                            ? "bg-accent-soft text-accent-strong"
-                            : "text-muted hover:bg-hover"
-                        }`}
-                        key={motion}
-                        onClick={() => {
-                          setAssetMotion(motion);
-                          setAssetFunction("all");
-                          setAssetStyle("all");
-                        }}
-                        type="button"
-                      >
-                        {motion === "static"
-                          ? `静态素材 · ${String(STATIC_ASSET_COUNT)}`
-                          : `动态素材 · ${String(DYNAMIC_ASSET_COUNT)}`}
-                      </button>
-                    ))}
                   </div>
-                  <div>
-                    <p className="mb-1.5 px-1 text-[9px] font-medium text-faint">素材类型</p>
-                    <div className="grid grid-cols-4 gap-1">
-                      {EDITOR_ASSET_FUNCTIONS.map((item) => (
+                </div>
+                <div className="max-h-64 space-y-0.5 overflow-y-auto p-2 xl:max-h-[390px]">
+                  {blocks.map((block) => (
+                    <OutlineBlock
+                      block={block}
+                      dragging={draggedBlockId === block.blockId}
+                      editable={editable}
+                      key={block.blockId}
+                      onDragEnd={() => {
+                        setDraggedBlockId(null);
+                        setDropTargetId(null);
+                      }}
+                      onDragStart={() => setDraggedBlockId(block.blockId)}
+                      onDrop={() => {
+                        if (draggedBlockId !== null) {
+                          moveBlockToIndex(editor, draggedBlockId, block.index);
+                        }
+                        setDraggedBlockId(null);
+                        setDropTargetId(null);
+                      }}
+                      onSelect={() => selectBlock(editor, block.blockId)}
+                      selected={selectedBlockId === block.blockId}
+                    />
+                  ))}
+                </div>
+                <div className="border-t border-line p-3">
+                  <p className="mb-2 text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
+                    插入区块
+                  </p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {insertBlocks.map((item) => {
+                      const Icon = item.icon;
+                      return (
                         <button
-                          aria-pressed={assetFunction === item.id}
-                          className={`h-7 rounded-md text-[9px] transition ${
-                            assetFunction === item.id
-                              ? "bg-accent-soft font-medium text-accent-strong"
-                              : "bg-panel text-muted hover:bg-hover hover:text-ink"
-                          }`}
-                          key={item.id}
-                          onClick={() => setAssetFunction(item.id)}
+                          className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-control border border-line bg-panel text-[10px] text-muted transition hover:border-line-strong hover:text-ink disabled:opacity-45"
+                          disabled={!editable}
+                          key={item.type}
+                          onClick={() => insertBlockAfterSelection(editor, item.type)}
                           type="button"
                         >
+                          <Icon aria-hidden="true" size={14} />
                           {item.label}
                         </button>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <select
-                      aria-label="按视觉风格筛选素材"
-                      className="h-8 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
-                      onChange={(event) =>
-                        setAssetStyle(event.target.value as VisualAssetStyle | "all")
-                      }
-                      value={assetStyle}
+                </div>
+              </>
+            ) : leftPanel === "themes" ? (
+              <div className="space-y-3 p-3">
+                <div className="rounded-control border border-accent/15 bg-accent-soft p-3">
+                  <p className="text-[10px] leading-5 text-muted">
+                    试穿只改变当前画布；正式应用会先创建快照，再持久化主题版本，原文保持不变。
+                  </p>
+                </div>
+                <label className="relative block">
+                  <span className="sr-only">搜索主题</span>
+                  <Search
+                    aria-hidden="true"
+                    className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint"
+                    size={12}
+                  />
+                  <input
+                    className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
+                    onChange={(event) => setThemeQuery(event.target.value)}
+                    placeholder="搜索通知、党建、中秋节…"
+                    value={themeQuery}
+                  />
+                </label>
+                {themes.length === 0 ? (
+                  <p className="rounded-control border border-line bg-panel p-3 text-[10px] text-muted">
+                    正在读取已安装主题…
+                  </p>
+                ) : null}
+                {visibleThemes.map((theme) => {
+                  const themeId = theme.manifest.themeId;
+                  const previewing = previewThemeId === themeId;
+                  const applied = currentThemeId === themeId;
+                  const applying = applyingThemeId === themeId;
+                  return (
+                    <article
+                      className={`w-full rounded-control border bg-panel p-3 text-left transition ${
+                        previewing
+                          ? "border-accent ring-2 ring-accent/10"
+                          : "border-line hover:border-line-strong"
+                      }`}
+                      key={themeId}
                     >
-                      <option value="all">全部风格</option>
-                      {Object.entries(VISUAL_ASSET_STYLE_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="shrink-0 text-[9px] tabular-nums text-faint">
-                      {visibleEditorAssets.length} 个结果
-                    </span>
-                  </div>
-                  {visibleEditorAssets.length === 0 ? (
-                    <div className="rounded-control border border-dashed border-line p-5 text-center">
-                      <Sparkles aria-hidden="true" className="mx-auto text-faint" size={18} />
-                      <p className="mt-2 text-[10px] font-medium text-ink">这个分类没有匹配素材</p>
-                      <button
-                        className="mt-2 text-[9px] font-medium text-accent"
-                        onClick={() => {
-                          setAssetQuery("");
-                          setAssetFunction("all");
-                          setAssetStyle("all");
-                        }}
-                        type="button"
-                      >
-                        清除筛选
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="grid max-h-[510px] grid-cols-2 gap-2 overflow-y-auto pr-0.5">
-                      {visibleEditorAssets.map((asset) => (
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-semibold text-ink">
+                            {theme.manifest.name}
+                          </p>
+                          <p className="mt-1 text-[9px] text-faint">
+                            {summarizeThemeCategories(theme.manifest.categories, true)} · v
+                            {theme.manifest.version}
+                          </p>
+                        </div>
+                        {applied ? (
+                          <span className="grid size-5 place-items-center rounded-full bg-accent text-white">
+                            <Check aria-hidden="true" size={11} />
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-3 flex gap-1">
+                        {theme.preview.accentColors.map((color) => (
+                          <span
+                            className="h-2 flex-1 rounded-full"
+                            key={color}
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                      <p className="mt-2 text-[9px] leading-4 text-muted">
+                        {theme.manifest.description}
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-1.5">
                         <button
-                          className="min-w-0 overflow-hidden rounded-control border border-line bg-panel text-left transition hover:-translate-y-0.5 hover:border-accent/45 hover:shadow-subtle active:translate-y-0 disabled:opacity-45"
-                          disabled={!editable}
-                          key={asset.id}
+                          aria-pressed={previewing}
+                          className="h-7 rounded-md border border-line text-[9px] font-medium text-ink hover:bg-hover"
+                          onClick={() =>
+                            setPreviewThemeId((current) => (current === themeId ? null : themeId))
+                          }
+                          type="button"
+                        >
+                          {previewing ? "取消试穿" : "试穿"}
+                        </button>
+                        <button
+                          className="h-7 rounded-md bg-accent text-[9px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                          disabled={
+                            !editable ||
+                            applyingThemeId !== null ||
+                            applied ||
+                            onApplyTheme === undefined
+                          }
                           onClick={() => {
-                            if (!insertVisualAssetAfterSelection(editor, asset)) {
-                              onError("当前动态素材缺少静态备用图，暂时无法插入。");
-                            }
+                            void onApplyTheme?.(theme)
+                              .then(() => setPreviewThemeId(null))
+                              .catch(() => undefined);
                           }}
                           type="button"
                         >
-                          <span className="relative block aspect-[4/3] overflow-hidden bg-[#fbfaf8] p-1.5">
-                            <img
-                              alt=""
-                              className="h-full w-full object-contain"
-                              loading="lazy"
-                              src={asset.previewPath}
-                            />
-                            <span
-                              className={`absolute top-1.5 left-1.5 rounded-full px-1.5 py-0.5 text-[7px] font-semibold text-white ${
-                                asset.motion === "dynamic" ? "bg-violet-600/85" : "bg-zinc-900/70"
-                              }`}
-                            >
-                              {asset.motion === "dynamic" ? "动态" : "静态"}
-                            </span>
-                            {asset.function === "frame" || asset.function === "ribbon" ? (
-                              <span className="absolute right-1.5 bottom-1.5 rounded-full bg-emerald-600/90 px-1.5 py-0.5 text-[7px] font-semibold text-white">
-                                可输入文字
-                              </span>
-                            ) : asset.function === "sticker" ||
-                              asset.function === "corner" ||
-                              asset.function === "badge" ? (
-                              <span className="absolute right-1.5 bottom-1.5 rounded-full bg-indigo-600/90 px-1.5 py-0.5 text-[7px] font-semibold text-white">
-                                可拖动
-                              </span>
-                            ) : null}
-                          </span>
-                          <span className="block border-t border-line px-2 py-2">
-                            <span className="block truncate text-[9px] font-semibold text-ink">
-                              {asset.name}
-                            </span>
-                            <span className="mt-0.5 block truncate text-[8px] text-faint">
-                              {VISUAL_ASSET_FUNCTION_LABELS[asset.function]}
-                            </span>
-                          </span>
+                          {applying ? "应用中…" : applied ? "已应用" : "正式应用"}
                         </button>
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="flex gap-1 overflow-x-auto pb-0.5" aria-label="我的素材文件夹">
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : leftPanel === "components" ? (
+              <div className="space-y-3 p-3">
+                <div className="px-1">
+                  <p className="text-[11px] font-semibold text-ink">插入排版组件</p>
+                  <p className="mt-1 text-[9px] leading-4 text-muted">
+                    先选类型，再按场景缩小范围；点击预览即可插入当前段落之后。
+                  </p>
+                </div>
+                <nav aria-label="组件类型" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+                  {EDITOR_COMPONENT_SECTIONS.map((section) => (
                     <button
-                      aria-pressed={personalFolder === "all"}
-                      className={`shrink-0 rounded-md px-2 py-1 text-[9px] ${
-                        personalFolder === "all"
+                      aria-pressed={componentSection === section.id}
+                      className={`shrink-0 rounded-md px-2.5 py-2 text-[10px] font-medium transition ${
+                        componentSection === section.id
+                          ? "bg-accent text-white shadow-subtle"
+                          : "bg-panel text-muted hover:bg-hover hover:text-ink"
+                      }`}
+                      key={section.id}
+                      onClick={() => {
+                        setComponentSection(section.id);
+                        setComponentDetail("all");
+                      }}
+                      type="button"
+                    >
+                      {section.label}
+                      <span
+                        className={`ml-1 text-[8px] ${componentSection === section.id ? "text-white/70" : "text-faint"}`}
+                      >
+                        {componentSectionCounts[section.id]}
+                      </span>
+                    </button>
+                  ))}
+                </nav>
+                {componentDetails.length === 0 ? null : (
+                  <div
+                    className="flex flex-wrap gap-1"
+                    aria-label={`${activeComponentSectionLabel}子分类`}
+                  >
+                    <button
+                      aria-pressed={componentDetail === "all"}
+                      className={`rounded-md px-2 py-1 text-[9px] ${
+                        componentDetail === "all"
                           ? "bg-accent-soft font-medium text-accent-strong"
                           : "text-muted hover:bg-hover"
                       }`}
-                      onClick={() => setPersonalFolder("all")}
+                      onClick={() => setComponentDetail("all")}
                       type="button"
                     >
                       全部
                     </button>
-                    <button
-                      aria-pressed={personalFolder === "ungrouped"}
-                      className={`shrink-0 rounded-md px-2 py-1 text-[9px] ${
-                        personalFolder === "ungrouped"
-                          ? "bg-accent-soft font-medium text-accent-strong"
-                          : "text-muted hover:bg-hover"
-                      }`}
-                      onClick={() => setPersonalFolder("ungrouped")}
-                      type="button"
-                    >
-                      未分组
-                    </button>
-                    {personalFolders.map((folder) => (
+                    {componentDetails.map((detail) => (
                       <button
-                        aria-pressed={personalFolder === folder}
-                        className={`shrink-0 rounded-md px-2 py-1 text-[9px] ${
-                          personalFolder === folder
+                        aria-pressed={componentDetail === detail}
+                        className={`rounded-md px-2 py-1 text-[9px] ${
+                          componentDetail === detail
                             ? "bg-accent-soft font-medium text-accent-strong"
                             : "text-muted hover:bg-hover"
                         }`}
-                        key={folder}
-                        onClick={() => setPersonalFolder(folder)}
+                        key={detail}
+                        onClick={() => setComponentDetail(detail)}
                         type="button"
                       >
-                        {folder}
+                        {detail === "提示" ? "提示卡" : detail}
                       </button>
                     ))}
                   </div>
-                  <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-accent/35 bg-accent-soft text-[10px] font-semibold text-accent hover:border-accent disabled:opacity-45">
-                    {uploadPrivateResource.isPending ? (
-                      <LoaderCircle aria-hidden="true" className="animate-spin" size={12} />
-                    ) : (
-                      <UploadCloud aria-hidden="true" size={12} />
-                    )}
-                    {uploadPrivateResource.isPending ? "正在上传…" : "上传到我的素材"}
-                    <input
-                      accept="image/png,image/jpeg,image/webp,image/gif"
-                      className="sr-only"
-                      disabled={uploadPrivateResource.isPending}
-                      onChange={(event) => {
-                        const file = event.currentTarget.files?.[0];
-                        if (file !== undefined) uploadPrivateResource.mutate(file);
-                        event.currentTarget.value = "";
+                )}
+                <label className="relative block">
+                  <span className="sr-only">搜索组件</span>
+                  <Search
+                    aria-hidden="true"
+                    className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint"
+                    size={12}
+                  />
+                  <input
+                    className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
+                    onChange={(event) => setComponentQuery(event.target.value)}
+                    placeholder="搜索全部排版模块"
+                    value={componentQuery}
+                  />
+                </label>
+                <div className="flex items-center gap-2">
+                  <select
+                    aria-label="按使用场景筛选组件"
+                    className="h-8 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
+                    onChange={(event) =>
+                      setComponentScene(event.target.value as EditorComponentScene)
+                    }
+                    value={componentScene}
+                  >
+                    {EDITOR_COMPONENT_SCENES.map((scene) => (
+                      <option key={scene.id} value={scene.id}>
+                        {scene.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="shrink-0 text-[9px] tabular-nums text-faint">
+                    {visibleEditorComponents.length} 个结果
+                  </span>
+                </div>
+                {visibleEditorComponents.length === 0 ? (
+                  <div className="rounded-control border border-dashed border-line p-5 text-center">
+                    <Blocks aria-hidden="true" className="mx-auto text-faint" size={18} />
+                    <p className="mt-2 text-[10px] font-medium text-ink">这个分类没有匹配项</p>
+                    <button
+                      className="mt-2 text-[9px] font-medium text-accent"
+                      onClick={() => {
+                        setComponentQuery("");
+                        setComponentScene("all");
+                        setComponentDetail("all");
                       }}
-                      type="file"
-                    />
-                  </label>
-                  {privateResourcesQuery.isPending ? (
-                    <p className="rounded-control border border-line bg-panel p-4 text-center text-[10px] text-muted">
-                      正在读取我的素材…
-                    </p>
-                  ) : visiblePrivateResources.length === 0 ? (
-                    <div className="rounded-control border border-line bg-panel p-5 text-center">
-                      <ImageIcon aria-hidden="true" className="mx-auto text-faint" size={18} />
-                      <p className="mt-2 text-[10px] font-medium text-ink">还没有匹配的图片</p>
-                      <p className="mt-1 text-[9px] leading-4 text-faint">
-                        上传后会永久保存在私有素材库，可反复使用。
-                      </p>
+                      type="button"
+                    >
+                      清除筛选
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid max-h-[510px] grid-cols-2 gap-2 overflow-y-auto pr-0.5">
+                    {visibleEditorComponents.map((component) => (
+                      <button
+                        className="min-w-0 overflow-hidden rounded-control border border-line bg-panel text-left transition hover:-translate-y-0.5 hover:border-accent/45 hover:shadow-subtle active:translate-y-0 disabled:opacity-45"
+                        disabled={!editable}
+                        key={component.id}
+                        onClick={() => {
+                          const result = insertRegisteredComponentAfterSelection(
+                            editor,
+                            officialComponentRegistry,
+                            {
+                              componentId: component.id,
+                              slots: component.asset.defaultSlots,
+                              version: component.version,
+                            },
+                          );
+                          if (!result.success) {
+                            onError(result.issues.map((issue) => issue.message).join("；"));
+                          }
+                        }}
+                        type="button"
+                      >
+                        <EditorComponentThumbnail component={component} />
+                        <span className="block border-t border-line px-2 py-2">
+                          <span className="block truncate text-[9px] font-semibold text-ink">
+                            {component.name}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[8px] text-faint">
+                            {component.category}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3 p-3">
+                <div className="px-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[12px] font-semibold text-ink">图片与装饰</p>
+                    <span className="rounded-full bg-accent-soft px-2 py-1 text-[8px] font-semibold text-accent">
+                      {STATIC_ASSET_COUNT + DYNAMIC_ASSET_COUNT} 个可用变体
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[9px] leading-4 text-muted">
+                    先按用途找素材，再明确点击“插入”；新素材会优先展示。
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-1 rounded-md bg-panel p-1">
+                  {(["official", "personal"] as const).map((source) => (
+                    <button
+                      className={`h-7 rounded text-[9px] font-medium ${
+                        assetSource === source
+                          ? "bg-accent-soft text-accent-strong"
+                          : "text-muted hover:bg-hover"
+                      }`}
+                      key={source}
+                      onClick={() => {
+                        setAssetSource(source);
+                        setAssetQuery("");
+                      }}
+                      type="button"
+                    >
+                      {source === "official" ? "官方精选" : `我的素材 · ${privateResources.length}`}
+                    </button>
+                  ))}
+                </div>
+                <label className="relative block">
+                  <span className="sr-only">搜索视觉素材</span>
+                  <Search
+                    aria-hidden="true"
+                    className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint"
+                    size={12}
+                  />
+                  <input
+                    className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
+                    onChange={(event) => setAssetQuery(event.target.value)}
+                    placeholder={
+                      assetSource === "official"
+                        ? "搜索水墨、节气、党政、教育…"
+                        : "搜索名称、文件夹或标签"
+                    }
+                    value={assetQuery}
+                  />
+                </label>
+                {assetSource === "official" ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-1 rounded-md bg-panel p-1">
+                      {(["static", "dynamic"] as const).map((motion) => (
+                        <button
+                          className={`h-7 rounded text-[9px] font-medium ${
+                            assetMotion === motion
+                              ? "bg-accent-soft text-accent-strong"
+                              : "text-muted hover:bg-hover"
+                          }`}
+                          key={motion}
+                          onClick={() => {
+                            setAssetMotion(motion);
+                            setAssetTaskGroup("all");
+                            setAssetFunction("all");
+                            setAssetStyle("all");
+                          }}
+                          type="button"
+                        >
+                          {motion === "static"
+                            ? `静态素材 · ${String(STATIC_ASSET_COUNT)}`
+                            : `动态素材 · ${String(DYNAMIC_ASSET_COUNT)}`}
+                        </button>
+                      ))}
                     </div>
-                  ) : (
-                    <div className="max-h-[510px] space-y-2 overflow-y-auto pr-0.5">
-                      {visiblePrivateResources.map((resource) => {
-                        const url = privateResourceUrls[resource.id];
-                        return (
-                          <article
-                            className="overflow-hidden rounded-control border border-line bg-panel"
-                            key={resource.id}
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between px-1">
+                        <p className="text-[9px] font-semibold tracking-[0.08em] text-faint uppercase">
+                          按编辑任务
+                        </p>
+                        <button
+                          aria-pressed={assetTaskGroup === "all"}
+                          className={`text-[9px] font-medium ${assetTaskGroup === "all" ? "text-accent" : "text-muted hover:text-ink"}`}
+                          onClick={() => {
+                            setAssetTaskGroup("all");
+                            setAssetFunction("all");
+                          }}
+                          type="button"
+                        >
+                          全部任务
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {VISUAL_ASSET_TASK_GROUPS.map((group) => (
+                          <button
+                            aria-pressed={assetTaskGroup === group.id}
+                            className={`min-h-12 rounded-control border px-2.5 py-2 text-left transition ${
+                              assetTaskGroup === group.id
+                                ? "border-accent/35 bg-accent-soft shadow-subtle"
+                                : "border-line bg-panel hover:border-line-strong hover:shadow-subtle"
+                            }`}
+                            key={group.id}
+                            onClick={() => {
+                              setAssetTaskGroup(group.id);
+                              setAssetFunction("all");
+                            }}
+                            type="button"
                           >
-                            <div className="grid aspect-[5/2] place-items-center overflow-hidden bg-panel-muted">
-                              {url === undefined ? (
-                                <ImageIcon aria-hidden="true" className="text-faint" size={18} />
-                              ) : (
-                                <img
-                                  alt={resourceLabel(resource)}
-                                  className="h-full w-full object-cover"
-                                  loading="lazy"
-                                  src={url}
-                                />
-                              )}
-                            </div>
-                            <div className="p-2.5">
-                              <p className="truncate text-[9px] font-semibold text-ink">
-                                {resourceLabel(resource)}
-                              </p>
-                              <p className="mt-0.5 truncate text-[8px] text-faint">
-                                {resource.folder ?? "未分组"}
-                                {resource.tags.length === 0
-                                  ? ""
-                                  : ` · ${resource.tags.join(" / ")}`}
-                              </p>
-                              <div className="mt-2 grid grid-cols-2 gap-1.5">
-                                <button
-                                  className="h-7 rounded-md bg-accent text-[9px] font-semibold text-white disabled:opacity-45"
-                                  disabled={!editable || url === undefined}
-                                  onClick={() => {
-                                    insertVisualAssetAfterSelection(editor, {
-                                      id: `private_${resource.id}`,
-                                      motion: "static",
-                                      name: resourceLabel(resource),
-                                      resourceId: resource.id,
-                                    });
-                                  }}
-                                  type="button"
-                                >
-                                  插入
-                                </button>
-                                <button
-                                  className="h-7 rounded-md border border-line text-[9px] font-medium text-ink hover:bg-hover disabled:opacity-35"
-                                  disabled={
-                                    !editable ||
-                                    selection?.type !== "imageBlock" ||
-                                    url === undefined
-                                  }
-                                  onClick={() => {
-                                    if (selection?.type !== "imageBlock") return;
-                                    updateBlockAttributes(editor, selection.blockId, {
-                                      alt: resourceLabel(resource),
-                                      originalResourceId:
-                                        selection.attributes.originalResourceId ??
-                                        selection.attributes.resourceId,
-                                      resourceId: resource.id,
-                                    });
-                                  }}
-                                  type="button"
-                                >
-                                  替换当前
-                                </button>
-                              </div>
-                            </div>
-                          </article>
+                            <span className="flex items-center justify-between gap-1">
+                              <span className="text-[10px] font-semibold text-ink">
+                                {group.label}
+                              </span>
+                              <span className="text-[8px] tabular-nums text-faint">
+                                {assetTaskGroupCounts[group.id]}
+                              </span>
+                            </span>
+                            <span className="mt-0.5 block truncate text-[8px] text-muted">
+                              {group.description}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 overflow-x-auto pb-0.5" aria-label="素材细分类">
+                      <button
+                        aria-pressed={assetFunction === "all"}
+                        className={`h-7 shrink-0 rounded-md px-2.5 text-[9px] font-medium ${
+                          assetFunction === "all"
+                            ? "bg-ink text-white"
+                            : "bg-panel text-muted hover:bg-hover"
+                        }`}
+                        onClick={() => setAssetFunction("all")}
+                        type="button"
+                      >
+                        全部
+                      </button>
+                      {EDITOR_ASSET_FUNCTIONS.filter(
+                        (item) => item.id !== "all" && activeAssetFunctions.includes(item.id),
+                      ).map((item) => {
+                        const count = OFFICIAL_VISUAL_ASSETS.filter(
+                          (asset) => asset.motion === assetMotion && asset.function === item.id,
+                        ).length;
+                        return (
+                          <button
+                            aria-pressed={assetFunction === item.id}
+                            className={`h-7 shrink-0 rounded-md px-2.5 text-[9px] font-medium ${
+                              assetFunction === item.id
+                                ? "bg-ink text-white"
+                                : "bg-panel text-muted hover:bg-hover"
+                            }`}
+                            disabled={count === 0}
+                            key={item.id}
+                            onClick={() => setAssetFunction(item.id)}
+                            type="button"
+                          >
+                            {item.label} · {count}
+                          </button>
                         );
                       })}
                     </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
+                    <div className="flex items-center gap-2">
+                      <select
+                        aria-label="按视觉风格筛选素材"
+                        className="h-8 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
+                        onChange={(event) =>
+                          setAssetStyle(event.target.value as VisualAssetStyle | "all")
+                        }
+                        value={assetStyle}
+                      >
+                        <option value="all">全部风格</option>
+                        {Object.entries(VISUAL_ASSET_STYLE_LABELS).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="shrink-0 text-[9px] tabular-nums text-faint">
+                        {visibleEditorAssets.length} 个结果
+                      </span>
+                    </div>
+                    {visibleEditorAssets.length === 0 ? (
+                      <div className="rounded-control border border-dashed border-line p-5 text-center">
+                        <Sparkles aria-hidden="true" className="mx-auto text-faint" size={18} />
+                        <p className="mt-2 text-[10px] font-medium text-ink">
+                          这个分类没有匹配素材
+                        </p>
+                        <button
+                          className="mt-2 text-[9px] font-medium text-accent"
+                          onClick={() => {
+                            setAssetQuery("");
+                            setAssetFunction("all");
+                            setAssetStyle("all");
+                          }}
+                          type="button"
+                        >
+                          清除筛选
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid max-h-[540px] grid-cols-2 gap-2 overflow-y-auto pr-0.5">
+                        {displayedEditorAssets.map((asset) => {
+                          const compactPreview = usesCompactVisualPreview(asset);
+                          const inserted = insertedAssetId === asset.id;
+                          return (
+                            <article
+                              className="group min-w-0 self-start overflow-hidden rounded-control border border-line bg-panel transition hover:-translate-y-0.5 hover:border-accent/45 hover:shadow-subtle"
+                              key={asset.id}
+                            >
+                              <div
+                                className={`relative overflow-hidden bg-[linear-gradient(45deg,#f5f3ef_25%,transparent_25%),linear-gradient(-45deg,#f5f3ef_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f5f3ef_75%),linear-gradient(-45deg,transparent_75%,#f5f3ef_75%)] bg-[length:14px_14px] bg-[position:0_0,0_7px,7px_-7px,-7px_0] ${compactPreview ? "aspect-square" : "aspect-[5/2]"}`}
+                              >
+                                <img
+                                  alt={asset.name}
+                                  className="h-full w-full object-contain p-2 transition duration-300 group-hover:scale-[1.03]"
+                                  loading="lazy"
+                                  src={asset.previewPath}
+                                />
+                                <span
+                                  className={`absolute top-1.5 left-1.5 rounded-full px-1.5 py-0.5 text-[8px] font-semibold text-white ${
+                                    asset.motion === "dynamic"
+                                      ? "bg-violet-600/85"
+                                      : "bg-zinc-900/70"
+                                  }`}
+                                >
+                                  {asset.motion === "dynamic" ? "动态" : "静态"}
+                                </span>
+                                {isNewVisualAsset(asset) ? (
+                                  <span className="absolute top-1.5 right-1.5 rounded-full bg-orange-500 px-1.5 py-0.5 text-[8px] font-semibold text-white">
+                                    上新
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="border-t border-line p-2.5">
+                                <p className="truncate text-[10px] font-semibold text-ink">
+                                  {asset.name}
+                                </p>
+                                <p className="mt-0.5 truncate text-[9px] text-faint">
+                                  {VISUAL_ASSET_FUNCTION_LABELS[asset.function]} ·{" "}
+                                  {VISUAL_ASSET_STYLE_LABELS[asset.style]}
+                                </p>
+                                <button
+                                  aria-label={`插入素材：${asset.name}`}
+                                  className={`mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-md text-[9px] font-semibold transition active:scale-[0.98] disabled:opacity-45 ${
+                                    inserted
+                                      ? "bg-emerald-600 text-white"
+                                      : "bg-ink text-white hover:bg-accent"
+                                  }`}
+                                  disabled={!editable}
+                                  onClick={() => insertOfficialAsset(asset)}
+                                  type="button"
+                                >
+                                  {inserted ? (
+                                    <Check aria-hidden="true" size={11} />
+                                  ) : (
+                                    <Sparkles aria-hidden="true" size={11} />
+                                  )}
+                                  {inserted ? "已插入画布" : "插入当前段落后"}
+                                </button>
+                              </div>
+                            </article>
+                          );
+                        })}
+                        {assetDisplayLimit < visibleEditorAssets.length ? (
+                          <button
+                            className="col-span-2 h-9 rounded-control border border-line bg-panel text-[10px] font-medium text-muted hover:border-line-strong hover:text-ink"
+                            onClick={() => setAssetDisplayLimit((current) => current + 24)}
+                            type="button"
+                          >
+                            再看 {Math.min(24, visibleEditorAssets.length - assetDisplayLimit)} 个
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex gap-1 overflow-x-auto pb-0.5" aria-label="我的素材文件夹">
+                      <button
+                        aria-pressed={personalFolder === "all"}
+                        className={`shrink-0 rounded-md px-2 py-1 text-[9px] ${
+                          personalFolder === "all"
+                            ? "bg-accent-soft font-medium text-accent-strong"
+                            : "text-muted hover:bg-hover"
+                        }`}
+                        onClick={() => setPersonalFolder("all")}
+                        type="button"
+                      >
+                        全部
+                      </button>
+                      <button
+                        aria-pressed={personalFolder === "ungrouped"}
+                        className={`shrink-0 rounded-md px-2 py-1 text-[9px] ${
+                          personalFolder === "ungrouped"
+                            ? "bg-accent-soft font-medium text-accent-strong"
+                            : "text-muted hover:bg-hover"
+                        }`}
+                        onClick={() => setPersonalFolder("ungrouped")}
+                        type="button"
+                      >
+                        未分组
+                      </button>
+                      {personalFolders.map((folder) => (
+                        <button
+                          aria-pressed={personalFolder === folder}
+                          className={`shrink-0 rounded-md px-2 py-1 text-[9px] ${
+                            personalFolder === folder
+                              ? "bg-accent-soft font-medium text-accent-strong"
+                              : "text-muted hover:bg-hover"
+                          }`}
+                          key={folder}
+                          onClick={() => setPersonalFolder(folder)}
+                          type="button"
+                        >
+                          {folder}
+                        </button>
+                      ))}
+                    </div>
+                    <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-accent/35 bg-accent-soft text-[10px] font-semibold text-accent hover:border-accent disabled:opacity-45">
+                      {uploadPrivateResource.isPending ? (
+                        <LoaderCircle aria-hidden="true" className="animate-spin" size={12} />
+                      ) : (
+                        <UploadCloud aria-hidden="true" size={12} />
+                      )}
+                      {uploadPrivateResource.isPending ? "正在上传…" : "上传到我的素材"}
+                      <input
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        className="sr-only"
+                        disabled={uploadPrivateResource.isPending}
+                        onChange={(event) => {
+                          const file = event.currentTarget.files?.[0];
+                          if (file !== undefined) uploadPrivateResource.mutate(file);
+                          event.currentTarget.value = "";
+                        }}
+                        type="file"
+                      />
+                    </label>
+                    {privateResourcesQuery.isPending ? (
+                      <p className="rounded-control border border-line bg-panel p-4 text-center text-[10px] text-muted">
+                        正在读取我的素材…
+                      </p>
+                    ) : visiblePrivateResources.length === 0 ? (
+                      <div className="rounded-control border border-line bg-panel p-5 text-center">
+                        <ImageIcon aria-hidden="true" className="mx-auto text-faint" size={18} />
+                        <p className="mt-2 text-[10px] font-medium text-ink">还没有匹配的图片</p>
+                        <p className="mt-1 text-[9px] leading-4 text-faint">
+                          上传后会永久保存在私有素材库，可反复使用。
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="max-h-[510px] space-y-2 overflow-y-auto pr-0.5">
+                        {visiblePrivateResources.map((resource) => {
+                          const url = privateResourceUrls[resource.id];
+                          return (
+                            <article
+                              className="overflow-hidden rounded-control border border-line bg-panel"
+                              key={resource.id}
+                            >
+                              <div className="grid aspect-[5/2] place-items-center overflow-hidden bg-panel-muted">
+                                {url === undefined ? (
+                                  <ImageIcon aria-hidden="true" className="text-faint" size={18} />
+                                ) : (
+                                  <img
+                                    alt={resourceLabel(resource)}
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                    src={url}
+                                  />
+                                )}
+                              </div>
+                              <div className="p-2.5">
+                                <p className="truncate text-[9px] font-semibold text-ink">
+                                  {resourceLabel(resource)}
+                                </p>
+                                <p className="mt-0.5 truncate text-[8px] text-faint">
+                                  {resource.folder ?? "未分组"}
+                                  {resource.tags.length === 0
+                                    ? ""
+                                    : ` · ${resource.tags.join(" / ")}`}
+                                </p>
+                                <div className="mt-2 grid grid-cols-2 gap-1.5">
+                                  <button
+                                    className="h-7 rounded-md bg-accent text-[9px] font-semibold text-white disabled:opacity-45"
+                                    disabled={!editable || url === undefined}
+                                    onClick={() => {
+                                      insertVisualAssetAfterSelection(editor, {
+                                        id: `private_${resource.id}`,
+                                        motion: "static",
+                                        name: resourceLabel(resource),
+                                        resourceId: resource.id,
+                                      });
+                                    }}
+                                    type="button"
+                                  >
+                                    插入
+                                  </button>
+                                  <button
+                                    className="h-7 rounded-md border border-line text-[9px] font-medium text-ink hover:bg-hover disabled:opacity-35"
+                                    disabled={
+                                      !editable ||
+                                      selection?.type !== "imageBlock" ||
+                                      url === undefined
+                                    }
+                                    onClick={() => {
+                                      if (selection?.type !== "imageBlock") return;
+                                      updateBlockAttributes(editor, selection.blockId, {
+                                        alt: resourceLabel(resource),
+                                        originalResourceId:
+                                          selection.attributes.originalResourceId ??
+                                          selection.attributes.resourceId,
+                                        resourceId: resource.id,
+                                      });
+                                    }}
+                                    type="button"
+                                  >
+                                    替换当前
+                                  </button>
+                                </div>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </aside>
 
         <div
@@ -1761,6 +2189,30 @@ export function ArticleEditor({
             } as CSSProperties
           }
         >
+          <div className="sticky top-14 z-30 grid grid-cols-2 gap-2 border-b border-line bg-panel/95 p-2 backdrop-blur xl:hidden">
+            <button
+              aria-controls={mobileToolsPanelId}
+              aria-expanded={mobileEditorPanel === "tools"}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-control border border-line bg-panel text-[10px] font-semibold text-ink shadow-subtle"
+              onClick={() => setMobileEditorPanel("tools")}
+              ref={mobileToolsTriggerRef}
+              type="button"
+            >
+              <Blocks aria-hidden="true" size={13} />
+              排版工具
+            </button>
+            <button
+              aria-controls={mobilePropertiesPanelId}
+              aria-expanded={mobileEditorPanel === "properties"}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-control border border-line bg-panel text-[10px] font-semibold text-ink shadow-subtle"
+              onClick={() => setMobileEditorPanel("properties")}
+              ref={mobilePropertiesTriggerRef}
+              type="button"
+            >
+              <ChevronsUpDown aria-hidden="true" size={13} />
+              区块属性
+            </button>
+          </div>
           <EditorToolbar editable={editable} editor={editor} selection={selection} />
           <div
             className="editor-canvas-scroll overflow-auto px-5 py-8 sm:px-8 xl:min-h-0 xl:flex-1"
@@ -1814,10 +2266,31 @@ export function ArticleEditor({
           </div>
         </div>
 
-        <aside className="border-t border-line bg-panel xl:h-full xl:overflow-y-auto xl:border-t-0 xl:border-l">
-          <div className="border-b border-line px-4 py-3">
-            <p className="text-[12px] font-semibold text-ink">区块属性</p>
-            <p className="mt-0.5 text-[10px] text-faint">仅作用于当前选中区块</p>
+        <aside
+          aria-label="区块属性"
+          aria-modal={mobileEditorPanel === "properties" || undefined}
+          className={`bg-panel ${
+            mobileEditorPanel === "properties"
+              ? "fixed inset-x-3 bottom-3 z-50 block max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-card border border-line shadow-raised"
+              : "hidden"
+          } xl:static xl:z-auto xl:block xl:h-full xl:max-h-none xl:overflow-y-auto xl:rounded-none xl:border-0 xl:border-l xl:border-line xl:shadow-none`}
+          id={mobilePropertiesPanelId}
+          role={mobileEditorPanel === "properties" ? "dialog" : undefined}
+        >
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-panel px-4 py-3">
+            <div>
+              <p className="text-[12px] font-semibold text-ink">区块属性</p>
+              <p className="mt-0.5 text-[10px] text-faint">仅作用于当前选中区块</p>
+            </div>
+            <button
+              aria-label="关闭区块属性"
+              className="grid size-8 place-items-center rounded-md text-muted hover:bg-hover hover:text-ink xl:hidden"
+              onClick={() => setMobileEditorPanel(null)}
+              ref={mobilePropertiesCloseRef}
+              type="button"
+            >
+              <X aria-hidden="true" size={15} />
+            </button>
           </div>
           {selection === null ? (
             <div className="px-4 py-10 text-center">

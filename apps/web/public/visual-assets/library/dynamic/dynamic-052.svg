@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" role="img" aria-label="原创动态视觉素材 052">
+  <style>.motion{animation:pulse 4.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}@keyframes pulse{0%,100%{transform:none;opacity:1}50%{transform:scale(1.12);opacity:.72}}@media(prefers-reduced-motion:reduce){.motion{animation:none}}</style>
+  <defs>
+    <linearGradient id="g5" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#46b8e9"/><stop offset="1" stop-color="#ff806e"/></linearGradient>
+    <linearGradient id="fade5" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#46b8e9" stop-opacity="0"/><stop offset=".5" stop-color="#46b8e9" stop-opacity=".65"/><stop offset="1" stop-color="#46b8e9" stop-opacity="0"/></linearGradient>
+    <pattern id="dots5" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2" fill="#ff806e" opacity=".16"/></pattern>
+    <filter id="soft5"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <rect width="480" height="480" fill="#f0fbff"/>
+  <rect width="480" height="480" fill="url(#dots5)"/>
+  <path d="M38 95c38-74 128-64 151 4 62-32 118 35 76 91" fill="none" stroke="#46b8e9" stroke-width="16" stroke-linecap="round" opacity=".4"/><g fill="#ffd359" opacity=".55"><circle cx="415" cy="350" r="22"/><circle cx="376" cy="392" r="11"/><circle cx="352" cy="330" r="7"/></g>
+  <g class="motion" transform-origin="240px 240px"><circle cx="240" cy="240" r="150" fill="#46b8e9" opacity=".18"/><circle cx="240" cy="240" r="105" fill="none" stroke="#ff806e" stroke-width="18"/><circle cx="240" cy="240" r="55" fill="#ffd359"/></g>
+</svg>

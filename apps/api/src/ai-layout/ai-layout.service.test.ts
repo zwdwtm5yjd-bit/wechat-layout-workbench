@@ -602,6 +602,10 @@ describe("AiLayoutService", () => {
     expect(request.headers).toMatchObject({ Authorization: "Bearer secret-key" });
     expect(String(request.body)).toContain("wechat_article_layout_decision");
     expect(String(request.body)).toContain("imagePlacements");
+    expect(String(request.body)).toContain("builtin_visual_static_131");
+    expect(String(request.body)).toContain("builtin_visual_static_132");
+    expect(String(request.body)).toContain("builtin_visual_static_134");
+    expect(String(request.body)).toContain("builtin_visual_static_135");
     expect(result.decision.languageId).toBe("crimson-editorial");
     expect(result.decision.imagePlacements).toEqual([
       {

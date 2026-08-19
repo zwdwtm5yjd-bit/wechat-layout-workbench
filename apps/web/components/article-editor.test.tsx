@@ -98,7 +98,7 @@ describe("ArticleEditor", () => {
 
     expect(await screen.findByRole("textbox", { name: "文章编辑画布" })).not.toBeNull();
     expect(screen.getByText("文章结构")).not.toBeNull();
-    expect(screen.getByText("区块属性")).not.toBeNull();
+    expect(screen.getAllByText("区块属性").length).toBeGreaterThanOrEqual(1);
 
     const insertPanel = screen.getByText("插入区块").parentElement!;
     await user.click(within(insertPanel).getByRole("button", { name: "二级标题" }));
@@ -113,6 +113,60 @@ describe("ArticleEditor", () => {
           block.type === "heading" && block.attrs.level === 2 && block.attrs.locked === false,
       ),
     ).toBe(true);
+  });
+
+  it("provides complete tab semantics, arrow-key navigation, and mobile panel triggers", async () => {
+    const user = userEvent.setup();
+    render(
+      <ArticleEditor
+        document={structuredClone(documentV1Fixture)}
+        editable
+        lockActionsEnabled
+        onChange={vi.fn()}
+        onError={vi.fn()}
+        onLockChange={vi.fn().mockResolvedValue(true)}
+        sourceBlocks={[]}
+        textLocked={false}
+      />,
+    );
+
+    await screen.findByRole("textbox", { name: "文章编辑画布" });
+    const tablist = screen.getByRole("tablist", { name: "排版工具分类" });
+    const structureTab = within(tablist).getByRole("tab", { name: "结构" });
+    const themeTab = within(tablist).getByRole("tab", { name: "主题" });
+    const assetTab = within(tablist).getByRole("tab", { name: "图片装饰" });
+    const tabpanel = screen.getByRole("tabpanel");
+
+    expect(structureTab.getAttribute("aria-selected")).toBe("true");
+    expect(structureTab.getAttribute("aria-controls")).toBe(tabpanel.id);
+    structureTab.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(themeTab.getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(themeTab);
+    expect(tabpanel.getAttribute("aria-labelledby")).toBe(themeTab.id);
+    await user.keyboard("{End}");
+    expect(assetTab.getAttribute("aria-selected")).toBe("true");
+    await user.keyboard("{Home}");
+    expect(structureTab.getAttribute("aria-selected")).toBe("true");
+
+    const toolsTrigger = screen.getByRole("button", { name: "排版工具" });
+    expect(toolsTrigger.getAttribute("aria-expanded")).toBe("false");
+    await user.click(toolsTrigger);
+    expect(toolsTrigger.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("dialog", { name: "排版工具" })).not.toBeNull();
+    const closeTools = screen.getByRole("button", { name: "关闭排版工具" });
+    expect(document.activeElement).toBe(closeTools);
+    await user.click(closeTools);
+    expect(toolsTrigger.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(toolsTrigger);
+
+    const propertiesTrigger = screen.getByRole("button", { name: "区块属性" });
+    await user.click(propertiesTrigger);
+    expect(propertiesTrigger.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("dialog", { name: "区块属性" })).not.toBeNull();
+    await user.keyboard("{Escape}");
+    expect(propertiesTrigger.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(propertiesTrigger);
   });
 
   it("inserts a versioned official component without changing existing blocks", async () => {
@@ -137,7 +191,7 @@ describe("ArticleEditor", () => {
     );
 
     await screen.findByRole("textbox", { name: "文章编辑画布" });
-    await user.click(screen.getByRole("tab", { name: "组件" }));
+    await user.click(screen.getByRole("tab", { name: "排版模块" }));
     await user.click(screen.getByRole("button", { name: new RegExp(asset!.preview.name, "u") }));
     await waitFor(() => expect(onChange).toHaveBeenCalled());
     const titleInput = await screen.findByRole("textbox", { name: "卡片标题" });
@@ -190,7 +244,7 @@ describe("ArticleEditor", () => {
     );
 
     await screen.findByRole("textbox", { name: "文章编辑画布" });
-    await user.click(screen.getByRole("tab", { name: "组件" }));
+    await user.click(screen.getByRole("tab", { name: "排版模块" }));
 
     const typeNavigation = screen.getByRole("navigation", { name: "组件类型" });
     expect(within(typeNavigation).getByRole("button", { name: /标题\s*12/u })).not.toBeNull();
@@ -222,13 +276,13 @@ describe("ArticleEditor", () => {
     );
 
     await screen.findByRole("textbox", { name: "文章编辑画布" });
-    await user.click(screen.getByRole("tab", { name: "素材" }));
+    await user.click(screen.getByRole("tab", { name: "图片装饰" }));
 
-    expect(screen.getByRole("button", { name: "静态素材 · 130" })).not.toBeNull();
-    expect(screen.getByRole("button", { name: "动态素材 · 50" })).not.toBeNull();
-    expect(screen.getByRole("button", { name: "主视觉" })).not.toBeNull();
-    expect(screen.getByRole("button", { name: "边框" })).not.toBeNull();
-    expect(screen.getByRole("button", { name: "图集" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "静态素材 · 180" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "动态素材 · 100" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: /头图与背景/u })).not.toBeNull();
+    expect(screen.getByRole("button", { name: /图片呈现/u })).not.toBeNull();
+    expect(screen.getByRole("button", { name: /贴纸与点缀/u })).not.toBeNull();
     expect(screen.getByRole("combobox", { name: "按视觉风格筛选素材" })).not.toBeNull();
   });
 
@@ -236,9 +290,7 @@ describe("ArticleEditor", () => {
     const onChange = vi.fn();
     const user = userEvent.setup();
     const frame = OFFICIAL_STATIC_VISUAL_ASSETS.find((asset) => asset.function === "frame")!;
-    const sticker = OFFICIAL_STATIC_VISUAL_ASSETS.find(
-      (asset) => asset.resourceId === "builtin_visual_static_101",
-    )!;
+    const sticker = OFFICIAL_STATIC_VISUAL_ASSETS.find((asset) => asset.name.includes("引语气泡"))!;
 
     render(
       <ArticleEditor
@@ -258,9 +310,10 @@ describe("ArticleEditor", () => {
     expect(screen.getByRole("combobox", { name: "字号" })).not.toBeNull();
     expect(screen.getByLabelText("选择文字颜色")).not.toBeNull();
 
-    await user.click(screen.getByRole("tab", { name: "素材" }));
-    await user.click(screen.getByRole("button", { name: "边框" }));
-    await user.click(screen.getByRole("button", { name: new RegExp(frame.name, "u") }));
+    await user.click(screen.getByRole("tab", { name: "图片装饰" }));
+    await user.click(screen.getByRole("button", { name: /图片呈现/u }));
+    await user.click(screen.getByRole("button", { name: "边框 · 20" }));
+    await user.click(screen.getByRole("button", { name: `插入素材：${frame.name}` }));
     await waitFor(() => {
       const latest = onChange.mock.lastCall?.[0] as DocumentV1;
       expect(
@@ -271,9 +324,10 @@ describe("ArticleEditor", () => {
       ).toBe(true);
     });
 
-    await user.click(screen.getByRole("button", { name: "贴纸" }));
-    expect(screen.getByText("40 个结果")).not.toBeNull();
-    await user.click(screen.getByRole("button", { name: new RegExp(sticker.name, "u") }));
+    await user.click(screen.getByRole("button", { name: /贴纸与点缀/u }));
+    await user.click(screen.getByRole("button", { name: "贴纸 · 50" }));
+    expect(screen.getByText("50 个结果")).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: `插入素材：${sticker.name}` }));
     await waitFor(() => {
       const latest = onChange.mock.lastCall?.[0] as DocumentV1;
       expect(

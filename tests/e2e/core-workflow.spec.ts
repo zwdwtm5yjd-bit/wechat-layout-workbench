@@ -44,8 +44,8 @@ test("completes the authenticated create, autosave, preview, and copy-gate flow"
 
   await page.getByRole("link", { name: "组件", exact: true }).click();
   await expect(page).toHaveURL(/\/workspace\/components$/);
-  await expect(page.getByText("29 个正式组件", { exact: true })).toBeVisible();
-  await expect(page.locator("[data-component-card]")).toHaveCount(29);
+  await expect(page.getByText("53 个正式组件", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-component-card]")).toHaveCount(53);
 
   await page.getByRole("link", { name: "文章", exact: true }).click();
   await expect(page).toHaveURL(/\/workspace\/articles$/);
@@ -58,7 +58,7 @@ test("completes the authenticated create, autosave, preview, and copy-gate flow"
   await expect(page.getByRole("textbox", { name: "文章编辑画布" })).toBeVisible();
   await expect(page.locator("summary").filter({ hasText: "已保存" })).toBeVisible();
 
-  await page.getByRole("tab", { name: "组件" }).click();
+  await page.getByRole("tab", { name: "排版模块" }).click();
   const componentSaveResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "PUT" &&

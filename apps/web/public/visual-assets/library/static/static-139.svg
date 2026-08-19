@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" role="img" aria-label="原创高级排版素材 139">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8dbf73"/><stop offset="1" stop-color="#3f7554"/></linearGradient>
+    <linearGradient id="fade1" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#8dbf73" stop-opacity="0"/><stop offset=".5" stop-color="#8dbf73" stop-opacity=".65"/><stop offset="1" stop-color="#8dbf73" stop-opacity="0"/></linearGradient>
+    <pattern id="dots1" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2" fill="#3f7554" opacity=".16"/></pattern>
+    <filter id="soft1"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <path d="M35 430C92 310 146 190 214 65" fill="none" stroke="#3f7554" stroke-width="9" opacity=".4"/><g fill="#8dbf73" opacity=".48"><ellipse cx="92" cy="332" rx="52" ry="19" transform="rotate(35 92 332)"/><ellipse cx="154" cy="220" rx="58" ry="20" transform="rotate(-34 154 220)"/></g>
+  <rect x="62" y="86" width="1076" height="308" rx="76" fill="#f5f8e9" stroke="#8dbf73" stroke-width="8"/><path d="M62 86h250l-74 154 74 154H62l76-154Z" fill="#8dbf73" opacity=".92"/><path d="M1138 86H888l74 154-74 154h250l-76-154Z" fill="#3f7554" opacity=".9"/><rect x="278" y="130" width="644" height="220" rx="42" fill="#ffffff" stroke="#efc86a" stroke-width="4" stroke-dasharray="12 10"/><circle cx="330" cy="240" r="13" fill="#efc86a"/><circle cx="870" cy="240" r="13" fill="#efc86a"/>
+</svg>

@@ -51,13 +51,13 @@ export const COMPONENT_CATALOG_GROUPS = [
 export type ComponentCatalogGroup = (typeof COMPONENT_CATALOG_GROUPS)[number];
 
 export const EDITOR_COMPONENT_SECTIONS = [
+  { id: "popular", label: "热门" },
   { id: "heading", label: "标题" },
   { id: "card", label: "卡片" },
   { id: "image", label: "图片" },
   { id: "layout", label: "布局" },
   { id: "svg", label: "SVG" },
   { id: "utility", label: "组件" },
-  { id: "popular", label: "热门" },
 ] as const;
 
 export type EditorComponentSection = (typeof EDITOR_COMPONENT_SECTIONS)[number]["id"];

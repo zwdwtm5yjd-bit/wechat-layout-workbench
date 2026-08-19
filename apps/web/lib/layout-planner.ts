@@ -14,6 +14,7 @@ import type {
 } from "@wechat-layout/api-contracts";
 import type {
   BlockNode,
+  DecorativeContainerNode,
   DividerNode,
   DocNode,
   DocumentV1,
@@ -1542,7 +1543,26 @@ function generatedDivider(plan: LayoutPlan, componentId?: AiLayoutComponentId | 
   };
 }
 
-function generatedVisualAsset(asset: OfficialVisualAsset, plan: LayoutPlan): ImageBlockNode {
+function generatedVisualAsset(
+  asset: OfficialVisualAsset,
+  plan: LayoutPlan,
+): DecorativeContainerNode | ImageBlockNode {
+  if (asset.function === "ribbon" || asset.function === "frame") {
+    return {
+      type: "decorativeContainer",
+      attrs: {
+        blockId: blockId(),
+        compatibilityLevel: "conditional",
+        decorationType: asset.function,
+        locked: false,
+        minHeight: asset.function === "frame" ? 160 : 80,
+        resourceId: asset.resourceId,
+        semanticRole: "layout_plan_generated_visual_asset",
+        styleRef: `layout.${plan.languageId}.asset.${asset.function}`,
+      },
+      content: [{ type: "text", text: "点击输入文字" }],
+    };
+  }
   const floating =
     asset.function === "sticker" || asset.function === "corner" || asset.function === "badge";
   return {

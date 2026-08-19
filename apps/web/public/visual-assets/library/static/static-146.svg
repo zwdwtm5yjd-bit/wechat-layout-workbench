@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" role="img" aria-label="原创高级排版素材 146">
+  <defs>
+    <linearGradient id="g3" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#2386d8"/><stop offset="1" stop-color="#174a84"/></linearGradient>
+    <linearGradient id="fade3" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#2386d8" stop-opacity="0"/><stop offset=".5" stop-color="#2386d8" stop-opacity=".65"/><stop offset="1" stop-color="#2386d8" stop-opacity="0"/></linearGradient>
+    <pattern id="dots3" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2" fill="#174a84" opacity=".16"/></pattern>
+    <filter id="soft3"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <g fill="none" stroke="#2386d8" opacity=".32"><circle cx="398.4" cy="118" r="72"/><circle cx="398.4" cy="118" r="44"/><path d="M331.2 118h134.4M398.4 10v216"/></g><circle cx="398.4" cy="46" r="8" fill="#79d4e8"/>
+  <g transform="rotate(5 240 240)"><path d="M74 92h332v245H238l-86 68 18-68H74Z" fill="#ffffff" stroke="#174a84" stroke-width="11" stroke-linejoin="round"/><path d="M132 157h160M132 207h215M132 257h128" stroke="#2386d8" stroke-width="16" stroke-linecap="round"/><path d="m339 74 10 29 29 10-29 10-10 29-10-29-29-10 29-10Z" fill="#79d4e8"/></g>
+</svg>

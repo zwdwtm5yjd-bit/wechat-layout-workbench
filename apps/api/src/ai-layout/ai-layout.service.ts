@@ -31,6 +31,7 @@ import {
 import {
   OFFICIAL_COMPONENT_ASSETS,
   OFFICIAL_STATIC_VISUAL_ASSETS,
+  type VisualAssetFunction,
   type VisualAssetStyle,
 } from "@wechat-layout/component-registry";
 import { HttpStatus, Inject, Injectable } from "@nestjs/common";
@@ -677,24 +678,38 @@ const assetStyleByLanguage: Readonly<Record<AiLayoutDesignLanguageId, VisualAsse
   "event-poster": "festival-heritage",
 };
 
-const aiVisualAssetFunctions = new Set(["hero", "heading", "divider", "corner", "sticker"]);
+const aiVisualAssetFunctions = new Set<VisualAssetFunction>([
+  "hero",
+  "heading",
+  "divider",
+  "frame",
+  "corner",
+  "badge",
+  "ribbon",
+  "sticker",
+]);
 const aiVisualAssetCatalog = (() => {
-  const perStyleFunction = new Map<string, number>();
-  return OFFICIAL_STATIC_VISUAL_ASSETS.filter((asset) => {
-    if (!aiVisualAssetFunctions.has(asset.function)) return false;
+  const grouped = new Map<string, (typeof OFFICIAL_STATIC_VISUAL_ASSETS)[number][]>();
+  OFFICIAL_STATIC_VISUAL_ASSETS.forEach((asset) => {
+    if (!aiVisualAssetFunctions.has(asset.function)) return;
     const key = `${asset.style}:${asset.function}`;
-    const count = perStyleFunction.get(key) ?? 0;
-    const limit = asset.function === "sticker" ? 2 : 1;
-    if (count >= limit) return false;
-    perStyleFunction.set(key, count + 1);
-    return true;
-  }).map((asset) => ({
-    function: asset.function,
-    name: asset.name,
-    resourceId: asset.resourceId,
-    scenes: asset.scenes,
-    style: asset.style,
-  }));
+    grouped.set(key, [...(grouped.get(key) ?? []), asset]);
+  });
+  return [...grouped.values()]
+    .flatMap((assets) => {
+      const latest = assets.at(-1);
+      if (latest === undefined) return [];
+      return latest.function === "sticker" && assets[0] !== latest
+        ? [assets[0]!, latest]
+        : [latest];
+    })
+    .map((asset) => ({
+      function: asset.function,
+      name: asset.name,
+      resourceId: asset.resourceId,
+      scenes: asset.scenes,
+      style: asset.style,
+    }));
 })();
 
 const aiVisualAssetByResourceId = new Map(

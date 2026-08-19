@@ -117,6 +117,11 @@ describe("layout planner", () => {
           reason: "用政务主视觉建立导语后的视觉锚点",
           resourceId: "builtin_visual_static_022",
         },
+        {
+          afterBlockId: "block_paragraph",
+          reason: "用可编辑题签承接小标题",
+          resourceId: "builtin_visual_static_144",
+        },
       ],
       visualIntensity: "bold",
       dividerComponentId: "cmp_divider_dashed_subtle_002",
@@ -171,6 +176,15 @@ describe("layout planner", () => {
           node.type === "imageBlock" &&
           node.attrs.semanticRole === "layout_plan_generated_visual_asset" &&
           node.attrs.resourceId === "builtin_visual_static_022",
+      ),
+    ).toBe(true);
+    expect(
+      result.content.content.some(
+        (node) =>
+          node.type === "decorativeContainer" &&
+          node.attrs.decorationType === "ribbon" &&
+          node.attrs.resourceId === "builtin_visual_static_144" &&
+          node.content?.some((inline) => inline.type === "text" && inline.text === "点击输入文字"),
       ),
     ).toBe(true);
   });

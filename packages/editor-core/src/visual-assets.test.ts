@@ -30,7 +30,12 @@ describe("visual asset insertion", () => {
     });
     editors.push(editor);
     const staticAsset = OFFICIAL_STATIC_VISUAL_ASSETS[0]!;
-    const frameAsset = OFFICIAL_STATIC_VISUAL_ASSETS.find((asset) => asset.function === "frame")!;
+    const frameAsset = OFFICIAL_STATIC_VISUAL_ASSETS.find(
+      (asset) => asset.resourceId === "builtin_visual_static_180",
+    )!;
+    const ribbonAsset = OFFICIAL_STATIC_VISUAL_ASSETS.find(
+      (asset) => asset.resourceId === "builtin_visual_static_179",
+    )!;
     const stickerAsset = OFFICIAL_STATIC_VISUAL_ASSETS.find(
       (asset) => asset.function === "sticker" && asset.resourceId === "builtin_visual_static_101",
     )!;
@@ -38,6 +43,7 @@ describe("visual asset insertion", () => {
 
     expect(insertVisualAssetAfterSelection(editor, staticAsset)).toBe(true);
     expect(insertVisualAssetAfterSelection(editor, frameAsset)).toBe(true);
+    expect(insertVisualAssetAfterSelection(editor, ribbonAsset)).toBe(true);
     expect(insertVisualAssetAfterSelection(editor, stickerAsset)).toBe(true);
     expect(insertVisualAssetAfterSelection(editor, dynamicAsset)).toBe(true);
 
@@ -57,6 +63,14 @@ describe("visual asset insertion", () => {
           attrs: expect.objectContaining({
             decorationType: "frame",
             resourceId: frameAsset.resourceId,
+          }),
+          content: [expect.objectContaining({ text: "点击输入文字", type: "text" })],
+          type: "decorativeContainer",
+        }),
+        expect.objectContaining({
+          attrs: expect.objectContaining({
+            decorationType: "ribbon",
+            resourceId: ribbonAsset.resourceId,
           }),
           content: [expect.objectContaining({ text: "点击输入文字", type: "text" })],
           type: "decorativeContainer",

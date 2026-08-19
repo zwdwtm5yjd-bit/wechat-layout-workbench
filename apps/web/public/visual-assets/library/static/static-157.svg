@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" role="img" aria-label="原创高级排版素材 157">
+  <defs>
+    <linearGradient id="g5" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#46b8e9"/><stop offset="1" stop-color="#ff806e"/></linearGradient>
+    <linearGradient id="fade5" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#46b8e9" stop-opacity="0"/><stop offset=".5" stop-color="#46b8e9" stop-opacity=".65"/><stop offset="1" stop-color="#46b8e9" stop-opacity="0"/></linearGradient>
+    <pattern id="dots5" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2" fill="#ff806e" opacity=".16"/></pattern>
+    <filter id="soft5"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <path d="M38 95c38-74 128-64 151 4 62-32 118 35 76 91" fill="none" stroke="#46b8e9" stroke-width="16" stroke-linecap="round" opacity=".4"/><g fill="#ffd359" opacity=".55"><circle cx="415" cy="350" r="22"/><circle cx="376" cy="392" r="11"/><circle cx="352" cy="330" r="7"/></g>
+  <g transform="translate(240 240)"><path d="M0-188 58-146l72-8 20 70 54 50-40 60-8 72-70 20-50 54-60-40-72-8-20-70-54-50 40-60 8-72 70-20 50-54Z" fill="#46b8e9" stroke="#ff806e" stroke-width="10"/><circle r="122" fill="#f0fbff" stroke="#ffd359" stroke-width="5" stroke-dasharray="12 10"/><path d="M-54-54h108v108H-54Z" fill="none" stroke="#ff806e" stroke-width="14"/><path d="M-83 88h166" stroke="#ffd359" stroke-width="10" stroke-linecap="round"/></g>
+</svg>

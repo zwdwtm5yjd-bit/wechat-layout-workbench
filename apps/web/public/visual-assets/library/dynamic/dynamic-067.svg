@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" role="img" aria-label="原创动态视觉素材 067">
+  <style>.motion{animation:twinkle 4.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}@keyframes twinkle{0%,100%{transform:none;opacity:1}50%{opacity:.2;transform:scale(.72)}}@media(prefers-reduced-motion:reduce){.motion{animation:none}}</style>
+  <defs>
+    <linearGradient id="g6" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e88b9f"/><stop offset="1" stop-color="#a95a70"/></linearGradient>
+    <linearGradient id="fade6" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#e88b9f" stop-opacity="0"/><stop offset=".5" stop-color="#e88b9f" stop-opacity=".65"/><stop offset="1" stop-color="#e88b9f" stop-opacity="0"/></linearGradient>
+    <pattern id="dots6" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2" fill="#a95a70" opacity=".16"/></pattern>
+    <filter id="soft6"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <rect width="480" height="480" fill="#fff4f3"/>
+  <rect width="480" height="480" fill="url(#dots6)"/>
+  <path d="M58 126c0-48 66-64 87-18 21-46 87-30 87 18 0 50-87 104-87 104S58 176 58 126Z" fill="none" stroke="#e88b9f" stroke-width="8" opacity=".38"/><path d="M310 365c0-30 42-42 56-12 13-30 55-18 55 12 0 32-55 66-55 66s-56-34-56-66Z" fill="#f3c86c" opacity=".45"/>
+  <g class="motion" fill="#f3c86c"><path d="m108 88 12 34 35 12-35 12-12 34-12-34-35-12 35-12Z"/><path d="m250 220 18 50 50 18-50 18-18 50-18-50-50-18 50-18Z"/><path d="m382 96 10 28 28 10-28 10-10 28-10-28-28-10 28-10Z"/></g><circle cx="240" cy="240" r="185" fill="#e88b9f" opacity=".12"/>
+</svg>
