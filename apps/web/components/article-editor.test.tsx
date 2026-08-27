@@ -64,6 +64,7 @@ afterEach(() => {
 });
 
 beforeEach(() => {
+  window.localStorage.clear();
   Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
   Range.prototype.getBoundingClientRect = () => ({
     bottom: 0,
@@ -341,6 +342,44 @@ describe("ArticleEditor", () => {
     });
     expect(screen.getByRole("button", { name: "可拖动" })).not.toBeNull();
     expect(screen.getByText("可直接在画布中拖动；也可用下面的数值精确调整。")).not.toBeNull();
+  });
+
+  it("previews and favorites assets while announcing the exact insertion target", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    const asset = OFFICIAL_STATIC_VISUAL_ASSETS.find(
+      (candidate) => candidate.name === "高级商务 · 图文批注框",
+    )!;
+
+    render(
+      <ArticleEditor
+        document={structuredClone(documentV1Fixture)}
+        editable
+        lockActionsEnabled
+        onChange={onChange}
+        onError={vi.fn()}
+        onLockChange={vi.fn().mockResolvedValue(true)}
+        sourceBlocks={[]}
+        textLocked={false}
+      />,
+    );
+
+    await screen.findByRole("textbox", { name: "文章编辑画布" });
+    await user.click(screen.getByRole("tab", { name: "图片装饰" }));
+    expect(screen.getAllByText("插入到第 1 个区块后").length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", { name: `查看大图：${asset.name}` }));
+    expect(screen.getByRole("img", { name: `${asset.name}大图预览` })).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: `收藏${asset.name}` }));
+    expect(screen.getByRole("button", { name: `取消收藏${asset.name}` })).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "插入到第 1 个区块后" }));
+
+    expect((await screen.findByRole("status")).textContent).toContain(
+      `已将“${asset.name}”插入到第 1 个区块后。`,
+    );
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    await user.click(screen.getByRole("button", { name: "收藏 · 1" }));
+    expect(screen.getByText("1 个结果")).not.toBeNull();
   });
 
   it("supports the duplicate-block shortcut and restores the emitted JSON after remount", async () => {

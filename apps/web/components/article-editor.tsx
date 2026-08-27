@@ -59,6 +59,7 @@ import {
   Check,
   ChevronsUpDown,
   Copy,
+  Eye,
   FileText,
   GripVertical,
   Heading1,
@@ -70,6 +71,7 @@ import {
   LoaderCircle,
   LockKeyhole,
   LockOpen,
+  MapPin,
   Minus,
   Palette,
   Pilcrow,
@@ -78,6 +80,7 @@ import {
   RotateCcw,
   Search,
   Sparkles,
+  Star,
   Strikethrough,
   Trash2,
   Underline,
@@ -127,6 +130,8 @@ import {
   visualAssetTaskGroupFunctions,
   type VisualAssetTaskGroupId,
 } from "../lib/visual-asset-navigation";
+import { useVisualAssetPreferences } from "../lib/visual-assets/use-preferences";
+import { VisualAssetPreviewDialog } from "./visual-asset-preview-dialog";
 
 const officialComponentRegistry = createOfficialComponentRegistry();
 
@@ -161,6 +166,7 @@ const STATIC_ASSET_COUNT = OFFICIAL_VISUAL_ASSETS.filter(
 const DYNAMIC_ASSET_COUNT = OFFICIAL_VISUAL_ASSETS.filter(
   (asset) => asset.motion === "dynamic",
 ).length;
+type AssetCollectionFilter = "all" | "favorite" | "recent";
 
 function visualAssetSerial(asset: OfficialVisualAsset): number {
   return Number.parseInt(asset.id.match(/(\d+)$/u)?.[1] ?? "0", 10);
@@ -847,9 +853,17 @@ export function ArticleEditor({
   const [assetTaskGroup, setAssetTaskGroup] = useState<VisualAssetTaskGroupId>("all");
   const [assetFunction, setAssetFunction] = useState("all");
   const [assetStyle, setAssetStyle] = useState<VisualAssetStyle | "all">("all");
+  const [assetCollection, setAssetCollection] = useState<AssetCollectionFilter>("all");
+  const [previewAsset, setPreviewAsset] = useState<OfficialVisualAsset | null>(null);
   const [insertedAssetId, setInsertedAssetId] = useState<string | null>(null);
+  const [assetStatusMessage, setAssetStatusMessage] = useState<string | null>(null);
   const [assetDisplayLimit, setAssetDisplayLimit] = useState(24);
   const assetFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const {
+    preferences: assetPreferences,
+    recordRecent,
+    toggleFavorite,
+  } = useVisualAssetPreferences();
   const [personalFolder, setPersonalFolder] = useState("all");
   const queryClient = useQueryClient();
   const privateResourcesQuery = useQuery({
@@ -940,9 +954,28 @@ export function ArticleEditor({
   const componentDetails = EDITOR_COMPONENT_SECTION_DETAILS[componentSection] ?? [];
   const activeComponentSectionLabel =
     EDITOR_COMPONENT_SECTIONS.find((section) => section.id === componentSection)?.label ?? "组件";
+  const favoriteAssetIds = useMemo(
+    () => new Set(assetPreferences.favoriteVariantIds),
+    [assetPreferences.favoriteVariantIds],
+  );
+  const recentAssetPositions = useMemo(
+    () => new Map(assetPreferences.recentVariantIds.map((assetId, index) => [assetId, index])),
+    [assetPreferences.recentVariantIds],
+  );
+  const assetCollectionCounts = useMemo(
+    () => ({
+      favorite: OFFICIAL_VISUAL_ASSETS.filter(
+        (asset) => asset.motion === assetMotion && favoriteAssetIds.has(asset.id),
+      ).length,
+      recent: OFFICIAL_VISUAL_ASSETS.filter(
+        (asset) => asset.motion === assetMotion && recentAssetPositions.has(asset.id),
+      ).length,
+    }),
+    [assetMotion, favoriteAssetIds, recentAssetPositions],
+  );
   const visibleEditorAssets = useMemo(() => {
     const normalized = assetQuery.trim().toLocaleLowerCase("zh-CN");
-    return OFFICIAL_VISUAL_ASSETS.filter((asset) => {
+    const matches = OFFICIAL_VISUAL_ASSETS.filter((asset) => {
       const searchText =
         `${asset.name} ${asset.description} ${asset.tags.join(" ")}`.toLocaleLowerCase("zh-CN");
       return (
@@ -950,19 +983,42 @@ export function ArticleEditor({
         visualAssetMatchesTaskGroup(asset, assetTaskGroup) &&
         (assetFunction === "all" || asset.function === assetFunction) &&
         (assetStyle === "all" || asset.style === assetStyle) &&
+        (assetCollection === "all" ||
+          (assetCollection === "favorite"
+            ? favoriteAssetIds.has(asset.id)
+            : recentAssetPositions.has(asset.id))) &&
         (normalized === "" || searchText.includes(normalized))
       );
-    }).toSorted((left, right) => {
+    });
+    return matches.toSorted((left, right) => {
+      if (assetCollection === "recent") {
+        return (
+          (recentAssetPositions.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
+          (recentAssetPositions.get(right.id) ?? Number.MAX_SAFE_INTEGER)
+        );
+      }
+      const favoriteDifference =
+        Number(favoriteAssetIds.has(right.id)) - Number(favoriteAssetIds.has(left.id));
+      if (favoriteDifference !== 0) return favoriteDifference;
       const newDifference = Number(isNewVisualAsset(right)) - Number(isNewVisualAsset(left));
       return newDifference === 0
         ? visualAssetSerial(right) - visualAssetSerial(left)
         : newDifference;
     });
-  }, [assetFunction, assetMotion, assetQuery, assetStyle, assetTaskGroup]);
+  }, [
+    assetCollection,
+    assetFunction,
+    assetMotion,
+    assetQuery,
+    assetStyle,
+    assetTaskGroup,
+    favoriteAssetIds,
+    recentAssetPositions,
+  ]);
   const displayedEditorAssets = visibleEditorAssets.slice(0, assetDisplayLimit);
   useEffect(() => {
     setAssetDisplayLimit(24);
-  }, [assetFunction, assetMotion, assetQuery, assetStyle, assetTaskGroup]);
+  }, [assetCollection, assetFunction, assetMotion, assetQuery, assetStyle, assetTaskGroup]);
   useEffect(
     () => () => {
       if (assetFeedbackTimerRef.current !== null) {
@@ -1118,6 +1174,12 @@ export function ArticleEditor({
   const selection = editor === null ? null : getEditorSelection(editor);
   const blocks = editor === null ? [] : listTopLevelBlocks(editor);
   const selectedBlockId = selection?.blockId ?? null;
+  const insertionTargetLabel =
+    selection === null ? "插入到文章末尾" : `插入到第 ${String(selection.index + 1)} 个区块后`;
+  const insertionTargetSummary =
+    selection === null
+      ? "当前文章没有可选区块"
+      : selection.textPreview || nodeLabels[selection.type] || selection.type;
   let currentDocument = document;
   if (editor !== null) {
     try {
@@ -1207,6 +1269,7 @@ export function ArticleEditor({
   );
 
   const handleKeyboardShortcut = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || previewAsset !== null) return;
     if (event.key === "Escape" && mobileEditorPanel !== null) {
       event.preventDefault();
       setMobileEditorPanel(null);
@@ -1315,16 +1378,22 @@ export function ArticleEditor({
     );
   }
 
-  const insertOfficialAsset = (asset: OfficialVisualAsset) => {
+  const insertOfficialAsset = (asset: OfficialVisualAsset): boolean => {
     if (!insertVisualAssetAfterSelection(editor, asset)) {
       onError("当前动态素材缺少静态备用图，暂时无法插入。");
-      return;
+      return false;
     }
     if (assetFeedbackTimerRef.current !== null) {
       clearTimeout(assetFeedbackTimerRef.current);
     }
+    recordRecent(asset.id);
     setInsertedAssetId(asset.id);
-    assetFeedbackTimerRef.current = setTimeout(() => setInsertedAssetId(null), 1_400);
+    setAssetStatusMessage(`已将“${asset.name}”${insertionTargetLabel}。`);
+    assetFeedbackTimerRef.current = setTimeout(() => {
+      setInsertedAssetId(null);
+      setAssetStatusMessage(null);
+    }, 2_400);
+    return true;
   };
 
   return (
@@ -1823,6 +1892,44 @@ export function ArticleEditor({
                         </button>
                       ))}
                     </div>
+                    <div className="grid grid-cols-3 gap-1" aria-label="素材使用记录">
+                      {(
+                        [
+                          [
+                            "all",
+                            "全部",
+                            assetMotion === "static" ? STATIC_ASSET_COUNT : DYNAMIC_ASSET_COUNT,
+                          ],
+                          ["favorite", "收藏", assetCollectionCounts.favorite],
+                          ["recent", "最近", assetCollectionCounts.recent],
+                        ] as const
+                      ).map(([value, label, count]) => (
+                        <button
+                          aria-pressed={assetCollection === value}
+                          className={`flex h-8 items-center justify-center gap-1 rounded-md border text-[9px] font-semibold transition ${
+                            assetCollection === value
+                              ? "border-accent/30 bg-accent-soft text-accent-strong"
+                              : "border-line bg-panel text-muted hover:border-line-strong hover:text-ink"
+                          }`}
+                          key={value}
+                          onClick={() => setAssetCollection(value)}
+                          type="button"
+                        >
+                          {value === "favorite" ? (
+                            <Star
+                              aria-hidden="true"
+                              fill={assetCollection === value ? "currentColor" : "none"}
+                              size={10}
+                            />
+                          ) : value === "recent" ? (
+                            <Eye aria-hidden="true" size={10} />
+                          ) : (
+                            <Sparkles aria-hidden="true" size={10} />
+                          )}
+                          {label} · {count}
+                        </button>
+                      ))}
+                    </div>
                     <div>
                       <div className="mb-1.5 flex items-center justify-between px-1">
                         <p className="text-[9px] font-semibold tracking-[0.08em] text-faint uppercase">
@@ -1928,11 +2035,35 @@ export function ArticleEditor({
                         {visibleEditorAssets.length} 个结果
                       </span>
                     </div>
+                    <div className="rounded-control border border-accent/15 bg-accent-soft px-3 py-2">
+                      <p className="flex items-center gap-1.5 text-[9px] font-semibold text-accent-strong">
+                        <MapPin aria-hidden="true" size={11} />
+                        {insertionTargetLabel}
+                      </p>
+                      <p
+                        className="mt-1 truncate text-[8px] text-muted"
+                        title={insertionTargetSummary}
+                      >
+                        当前锚点：{insertionTargetSummary}
+                      </p>
+                    </div>
+                    {assetStatusMessage === null ? null : (
+                      <p
+                        className="rounded-control bg-success-soft px-3 py-2 text-[9px] font-medium text-success"
+                        role="status"
+                      >
+                        {assetStatusMessage}
+                      </p>
+                    )}
                     {visibleEditorAssets.length === 0 ? (
                       <div className="rounded-control border border-dashed border-line p-5 text-center">
                         <Sparkles aria-hidden="true" className="mx-auto text-faint" size={18} />
                         <p className="mt-2 text-[10px] font-medium text-ink">
-                          这个分类没有匹配素材
+                          {assetCollection === "favorite"
+                            ? "当前分类还没有收藏素材"
+                            : assetCollection === "recent"
+                              ? "当前分类还没有最近使用素材"
+                              : "这个分类没有匹配素材"}
                         </p>
                         <button
                           className="mt-2 text-[9px] font-medium text-accent"
@@ -1940,6 +2071,7 @@ export function ArticleEditor({
                             setAssetQuery("");
                             setAssetFunction("all");
                             setAssetStyle("all");
+                            setAssetCollection("all");
                           }}
                           type="button"
                         >
@@ -1959,6 +2091,20 @@ export function ArticleEditor({
                               <div
                                 className={`relative overflow-hidden bg-[linear-gradient(45deg,#f5f3ef_25%,transparent_25%),linear-gradient(-45deg,#f5f3ef_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f5f3ef_75%),linear-gradient(-45deg,transparent_75%,#f5f3ef_75%)] bg-[length:14px_14px] bg-[position:0_0,0_7px,7px_-7px,-7px_0] ${compactPreview ? "aspect-square" : "aspect-[5/2]"}`}
                               >
+                                <button
+                                  aria-label={`查看大图：${asset.name}`}
+                                  className="absolute inset-0 z-10 grid place-items-center bg-zinc-950/0 text-white transition hover:bg-zinc-950/20 focus-visible:bg-zinc-950/20 focus-visible:outline-none"
+                                  onClick={() => {
+                                    recordRecent(asset.id);
+                                    setPreviewAsset(asset);
+                                  }}
+                                  type="button"
+                                >
+                                  <span className="rounded-full bg-zinc-950/70 px-2 py-1 text-[8px] font-semibold opacity-0 backdrop-blur transition group-hover:opacity-100 group-focus-within:opacity-100">
+                                    <Eye aria-hidden="true" className="mr-1 inline" size={9} />
+                                    大图预览
+                                  </span>
+                                </button>
                                 <img
                                   alt={asset.name}
                                   className="h-full w-full object-contain p-2 transition duration-300 group-hover:scale-[1.03]"
@@ -1966,7 +2112,7 @@ export function ArticleEditor({
                                   src={asset.previewPath}
                                 />
                                 <span
-                                  className={`absolute top-1.5 left-1.5 rounded-full px-1.5 py-0.5 text-[8px] font-semibold text-white ${
+                                  className={`pointer-events-none absolute top-1.5 left-1.5 z-20 rounded-full px-1.5 py-0.5 text-[8px] font-semibold text-white ${
                                     asset.motion === "dynamic"
                                       ? "bg-violet-600/85"
                                       : "bg-zinc-900/70"
@@ -1975,10 +2121,30 @@ export function ArticleEditor({
                                   {asset.motion === "dynamic" ? "动态" : "静态"}
                                 </span>
                                 {isNewVisualAsset(asset) ? (
-                                  <span className="absolute top-1.5 right-1.5 rounded-full bg-orange-500 px-1.5 py-0.5 text-[8px] font-semibold text-white">
+                                  <span className="pointer-events-none absolute top-1.5 right-1.5 z-20 rounded-full bg-orange-500 px-1.5 py-0.5 text-[8px] font-semibold text-white">
                                     上新
                                   </span>
                                 ) : null}
+                                <button
+                                  aria-label={
+                                    favoriteAssetIds.has(asset.id)
+                                      ? `取消收藏${asset.name}`
+                                      : `收藏${asset.name}`
+                                  }
+                                  className={`absolute right-1.5 bottom-1.5 z-20 grid size-7 place-items-center rounded-full border backdrop-blur transition ${
+                                    favoriteAssetIds.has(asset.id)
+                                      ? "border-amber-300 bg-amber-50 text-amber-600"
+                                      : "border-white/70 bg-white/85 text-zinc-500 hover:text-amber-600"
+                                  }`}
+                                  onClick={() => toggleFavorite(asset.id)}
+                                  type="button"
+                                >
+                                  <Star
+                                    aria-hidden="true"
+                                    fill={favoriteAssetIds.has(asset.id) ? "currentColor" : "none"}
+                                    size={11}
+                                  />
+                                </button>
                               </div>
                               <div className="border-t border-line p-2.5">
                                 <p className="truncate text-[10px] font-semibold text-ink">
@@ -2004,7 +2170,7 @@ export function ArticleEditor({
                                   ) : (
                                     <Sparkles aria-hidden="true" size={11} />
                                   )}
-                                  {inserted ? "已插入画布" : "插入当前段落后"}
+                                  {inserted ? "已插入画布" : insertionTargetLabel}
                                 </button>
                               </div>
                             </article>
@@ -3059,6 +3225,17 @@ export function ArticleEditor({
           </div>
         </aside>
       </div>
+      <VisualAssetPreviewDialog
+        asset={previewAsset}
+        favorite={previewAsset !== null && favoriteAssetIds.has(previewAsset.id)}
+        inserted={previewAsset !== null && insertedAssetId === previewAsset.id}
+        insertionLabel={insertionTargetLabel}
+        onClose={() => setPreviewAsset(null)}
+        onInsert={(asset) => {
+          if (insertOfficialAsset(asset)) setPreviewAsset(null);
+        }}
+        onToggleFavorite={(asset) => toggleFavorite(asset.id)}
+      />
     </section>
   );
 }

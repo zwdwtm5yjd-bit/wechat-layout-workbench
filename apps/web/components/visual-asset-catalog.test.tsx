@@ -2,11 +2,12 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { VisualAssetCatalog } from "./visual-asset-catalog";
 
 afterEach(() => cleanup());
+beforeEach(() => window.localStorage.clear());
 
 describe("VisualAssetCatalog", () => {
   it("progressively renders the large catalog instead of mounting every card at once", async () => {
@@ -34,5 +35,23 @@ describe("VisualAssetCatalog", () => {
     await user.selectOptions(screen.getByLabelText("按动效筛选"), "orbit");
     expect(screen.getByText("当前显示 10 个动态素材")).not.toBeNull();
     expect(screen.getAllByRole("img", { name: /环绕运行/u })).toHaveLength(10);
+  });
+
+  it("previews, favorites and remembers visual assets across catalog filters", async () => {
+    const user = userEvent.setup();
+    render(<VisualAssetCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "查看大图：高级商务 · 图文批注框" }));
+    expect(screen.getByRole("img", { name: "高级商务 · 图文批注框大图预览" })).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "收藏高级商务 · 图文批注框" }));
+    expect(screen.getByRole("button", { name: "取消收藏高级商务 · 图文批注框" })).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "关闭素材预览" }));
+
+    await user.click(screen.getByRole("button", { name: "我的收藏 · 1" }));
+    expect(screen.getByText("当前显示 1 个静态素材")).not.toBeNull();
+    expect(screen.getByRole("img", { name: "高级商务 · 图文批注框" })).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "最近查看 · 1" }));
+    expect(screen.getByText("当前显示 1 个静态素材")).not.toBeNull();
   });
 });

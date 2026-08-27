@@ -11,7 +11,7 @@ import {
   type VisualAssetFunction,
   type VisualAssetMotion,
 } from "@wechat-layout/component-registry";
-import { Film, ImageIcon, Search, Sparkles } from "lucide-react";
+import { Eye, Film, ImageIcon, Search, Sparkles, Star } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -21,18 +21,31 @@ import {
   visualAssetTaskGroupFunctions,
   type VisualAssetTaskGroupId,
 } from "../lib/visual-asset-navigation";
+import { useVisualAssetPreferences } from "../lib/visual-assets/use-preferences";
+import { VisualAssetPreviewDialog } from "./visual-asset-preview-dialog";
 
 const allScenes = [...new Set(OFFICIAL_VISUAL_ASSETS.flatMap((asset) => asset.scenes))].sort(
   (left, right) => left.localeCompare(right, "zh-CN"),
 );
 
 const CATALOG_PAGE_SIZE = 24;
+type AssetCollectionFilter = "all" | "favorite" | "recent";
 
 function visualAssetSerial(asset: OfficialVisualAsset): number {
   return Number.parseInt(asset.id.match(/(\d+)$/u)?.[1] ?? "0", 10);
 }
 
-function AssetCard({ asset }: { readonly asset: OfficialVisualAsset }) {
+function AssetCard({
+  asset,
+  favorite,
+  onPreview,
+  onToggleFavorite,
+}: {
+  readonly asset: OfficialVisualAsset;
+  readonly favorite: boolean;
+  readonly onPreview: () => void;
+  readonly onToggleFavorite: () => void;
+}) {
   const compactPreview =
     asset.function === "sticker" || asset.function === "corner" || asset.function === "badge";
   return (
@@ -40,6 +53,17 @@ function AssetCard({ asset }: { readonly asset: OfficialVisualAsset }) {
       <div
         className={`relative overflow-hidden bg-[linear-gradient(45deg,#f5f3ef_25%,transparent_25%),linear-gradient(-45deg,#f5f3ef_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f5f3ef_75%),linear-gradient(-45deg,transparent_75%,#f5f3ef_75%)] bg-[length:18px_18px] bg-[position:0_0,0_9px,9px_-9px,-9px_0] ${compactPreview ? "aspect-square max-h-56" : "aspect-[5/2]"}`}
       >
+        <button
+          aria-label={`查看大图：${asset.name}`}
+          className="absolute inset-0 z-10 grid place-items-center bg-zinc-950/0 text-white transition hover:bg-zinc-950/25 focus-visible:bg-zinc-950/25 focus-visible:outline-none"
+          onClick={onPreview}
+          type="button"
+        >
+          <span className="translate-y-2 rounded-full bg-zinc-950/70 px-3 py-1.5 text-[9px] font-semibold opacity-0 backdrop-blur transition group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
+            <Eye aria-hidden="true" className="mr-1 inline" size={11} />
+            查看大图
+          </span>
+        </button>
         <img
           alt={asset.name}
           className="h-full w-full object-contain p-2 transition duration-300 group-hover:scale-[1.03]"
@@ -47,7 +71,7 @@ function AssetCard({ asset }: { readonly asset: OfficialVisualAsset }) {
           src={asset.previewPath}
         />
         <span
-          className={`absolute top-2 left-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-semibold text-white backdrop-blur ${
+          className={`pointer-events-none absolute top-2 left-2 z-20 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-semibold text-white backdrop-blur ${
             asset.motion === "dynamic" ? "bg-violet-600/85" : "bg-zinc-900/75"
           }`}
         >
@@ -58,6 +82,18 @@ function AssetCard({ asset }: { readonly asset: OfficialVisualAsset }) {
           )}
           {asset.motion === "dynamic" ? "动态 SVG" : "静态 SVG"}
         </span>
+        <button
+          aria-label={favorite ? `取消收藏${asset.name}` : `收藏${asset.name}`}
+          className={`absolute top-2 right-2 z-20 grid size-8 place-items-center rounded-full border backdrop-blur transition ${
+            favorite
+              ? "border-amber-300 bg-amber-50 text-amber-600"
+              : "border-white/70 bg-white/85 text-zinc-500 hover:text-amber-600"
+          }`}
+          onClick={onToggleFavorite}
+          type="button"
+        >
+          <Star aria-hidden="true" fill={favorite ? "currentColor" : "none"} size={13} />
+        </button>
       </div>
       <div className="p-3.5">
         <h3 className="truncate text-[12px] font-semibold text-ink">{asset.name}</h3>
@@ -88,7 +124,9 @@ function AssetCard({ asset }: { readonly asset: OfficialVisualAsset }) {
 }
 
 export function VisualAssetCatalog() {
+  const { preferences, recordRecent, toggleFavorite } = useVisualAssetPreferences();
   const [motion, setMotion] = useState<VisualAssetMotion>("static");
+  const [collectionFilter, setCollectionFilter] = useState<AssetCollectionFilter>("all");
   const [taskGroup, setTaskGroup] = useState<VisualAssetTaskGroupId>("all");
   const [query, setQuery] = useState("");
   const [assetFunction, setAssetFunction] = useState("all");
@@ -96,7 +134,27 @@ export function VisualAssetCatalog() {
   const [scene, setScene] = useState("all");
   const [effect, setEffect] = useState("all");
   const [visibleLimit, setVisibleLimit] = useState(CATALOG_PAGE_SIZE);
+  const [selectedAsset, setSelectedAsset] = useState<OfficialVisualAsset | null>(null);
   const taskFunctions = useMemo(() => visualAssetTaskGroupFunctions(taskGroup), [taskGroup]);
+  const favorites = useMemo(
+    () => new Set(preferences.favoriteVariantIds),
+    [preferences.favoriteVariantIds],
+  );
+  const recents = useMemo(
+    () => new Map(preferences.recentVariantIds.map((assetId, index) => [assetId, index])),
+    [preferences.recentVariantIds],
+  );
+  const collectionCounts = useMemo(
+    () => ({
+      favorite: OFFICIAL_VISUAL_ASSETS.filter(
+        (asset) => asset.motion === motion && favorites.has(asset.id),
+      ).length,
+      recent: OFFICIAL_VISUAL_ASSETS.filter(
+        (asset) => asset.motion === motion && recents.has(asset.id),
+      ).length,
+    }),
+    [favorites, motion, recents],
+  );
 
   const availableFunctionCounts = useMemo(
     () =>
@@ -132,7 +190,7 @@ export function VisualAssetCatalog() {
 
   const visibleAssets = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("zh-CN");
-    return OFFICIAL_VISUAL_ASSETS.filter((asset) => {
+    const matches = OFFICIAL_VISUAL_ASSETS.filter((asset) => {
       const searchText =
         `${asset.name} ${asset.description} ${asset.tags.join(" ")}`.toLocaleLowerCase("zh-CN");
       return (
@@ -142,16 +200,41 @@ export function VisualAssetCatalog() {
         (style === "all" || asset.style === style) &&
         (scene === "all" || asset.scenes.includes(scene)) &&
         (effect === "all" || asset.effect === effect) &&
+        (collectionFilter === "all" ||
+          (collectionFilter === "favorite" ? favorites.has(asset.id) : recents.has(asset.id))) &&
         (normalized === "" || searchText.includes(normalized))
       );
-    }).sort((left, right) => visualAssetSerial(right) - visualAssetSerial(left));
-  }, [assetFunction, effect, motion, query, scene, style, taskGroup]);
+    });
+    return matches.sort((left, right) => {
+      if (collectionFilter === "recent") {
+        return (
+          (recents.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
+          (recents.get(right.id) ?? Number.MAX_SAFE_INTEGER)
+        );
+      }
+      const favoriteDifference = Number(favorites.has(right.id)) - Number(favorites.has(left.id));
+      return favoriteDifference === 0
+        ? visualAssetSerial(right) - visualAssetSerial(left)
+        : favoriteDifference;
+    });
+  }, [
+    assetFunction,
+    collectionFilter,
+    effect,
+    favorites,
+    motion,
+    query,
+    recents,
+    scene,
+    style,
+    taskGroup,
+  ]);
 
   const displayedAssets = visibleAssets.slice(0, visibleLimit);
 
   useEffect(() => {
     setVisibleLimit(CATALOG_PAGE_SIZE);
-  }, [assetFunction, effect, motion, query, scene, style, taskGroup]);
+  }, [assetFunction, collectionFilter, effect, motion, query, scene, style, taskGroup]);
 
   const resetSecondaryFilters = (nextMotion: VisualAssetMotion) => {
     setMotion(nextMotion);
@@ -160,6 +243,11 @@ export function VisualAssetCatalog() {
     setStyle("all");
     setScene("all");
     setEffect("all");
+  };
+
+  const openPreview = (asset: OfficialVisualAsset): void => {
+    recordRecent(asset.id);
+    setSelectedAsset(asset);
   };
 
   return (
@@ -214,6 +302,45 @@ export function VisualAssetCatalog() {
               {item === "static"
                 ? `静态素材 · ${String(OFFICIAL_STATIC_VISUAL_ASSETS.length)}`
                 : `动态素材 · ${String(OFFICIAL_DYNAMIC_VISUAL_ASSETS.length)}`}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2" aria-label="素材使用记录">
+          {(
+            [
+              [
+                "all",
+                "全部素材",
+                OFFICIAL_VISUAL_ASSETS.filter((asset) => asset.motion === motion).length,
+              ],
+              ["favorite", "我的收藏", collectionCounts.favorite],
+              ["recent", "最近查看", collectionCounts.recent],
+            ] as const
+          ).map(([value, label, count]) => (
+            <button
+              aria-pressed={collectionFilter === value}
+              className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[9px] font-semibold transition ${
+                collectionFilter === value
+                  ? "border-accent/35 bg-accent-soft text-accent-strong"
+                  : "border-line bg-panel text-muted hover:border-line-strong hover:text-ink"
+              }`}
+              key={value}
+              onClick={() => setCollectionFilter(value)}
+              type="button"
+            >
+              {value === "favorite" ? (
+                <Star
+                  aria-hidden="true"
+                  fill={collectionFilter === value ? "currentColor" : "none"}
+                  size={11}
+                />
+              ) : value === "recent" ? (
+                <Eye aria-hidden="true" size={11} />
+              ) : (
+                <Sparkles aria-hidden="true" size={11} />
+              )}
+              {label} · {count}
             </button>
           ))}
         </div>
@@ -362,12 +489,22 @@ export function VisualAssetCatalog() {
       </div>
       {visibleAssets.length === 0 ? (
         <div className="mt-4 rounded-card border border-dashed border-line py-16 text-center text-[11px] text-muted">
-          没有符合当前组合条件的素材，请减少一个筛选条件。
+          {collectionFilter === "favorite"
+            ? "当前分类还没有收藏素材，可点击卡片右上角星标加入。"
+            : collectionFilter === "recent"
+              ? "当前分类还没有最近查看的素材，打开一次大图后会自动记录。"
+              : "没有符合当前组合条件的素材，请减少一个筛选条件。"}
         </div>
       ) : (
         <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {displayedAssets.map((asset) => (
-            <AssetCard asset={asset} key={asset.id} />
+            <AssetCard
+              asset={asset}
+              favorite={favorites.has(asset.id)}
+              key={asset.id}
+              onPreview={() => openPreview(asset)}
+              onToggleFavorite={() => toggleFavorite(asset.id)}
+            />
           ))}
         </div>
       )}
@@ -382,6 +519,12 @@ export function VisualAssetCatalog() {
           </button>
         </div>
       ) : null}
+      <VisualAssetPreviewDialog
+        asset={selectedAsset}
+        favorite={selectedAsset !== null && favorites.has(selectedAsset.id)}
+        onClose={() => setSelectedAsset(null)}
+        onToggleFavorite={(asset) => toggleFavorite(asset.id)}
+      />
     </section>
   );
 }
