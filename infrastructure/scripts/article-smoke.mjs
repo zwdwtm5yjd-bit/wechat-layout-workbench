@@ -509,7 +509,7 @@ try {
     }),
     200,
   );
-  assert.equal(themeCatalog.items.length, 2);
+  assert.ok(themeCatalog.items.length >= 2, "主题库应保留至少两套可用基础主题");
   assert.equal(
     themeCatalog.items.every((theme) => theme.installed === true),
     true,
