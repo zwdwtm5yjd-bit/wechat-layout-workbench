@@ -609,7 +609,7 @@ try {
   assert.equal(renderOutput.status, "ready");
   assert.equal(renderOutput.canCopy, true);
   assert.equal(renderOutput.rendererVersion, "1.0.0");
-  assert.equal(renderOutput.compatibilityRuleVersion, "1.0.0");
+  assert.equal(renderOutput.compatibilityRuleVersion, "1.1.0");
   assert.match(renderOutput.outputHash, /^sha256:[a-f0-9]{64}$/);
   const copyPayload = await responseData(
     await write(

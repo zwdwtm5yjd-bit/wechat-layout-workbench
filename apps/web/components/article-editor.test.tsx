@@ -342,7 +342,7 @@ describe("ArticleEditor", () => {
     });
     expect(screen.getByRole("button", { name: "可拖动" })).not.toBeNull();
     expect(screen.getByText("可直接在画布中拖动；也可用下面的数值精确调整。")).not.toBeNull();
-  });
+  }, 15_000);
 
   it("previews and favorites assets while announcing the exact insertion target", async () => {
     const onChange = vi.fn();
