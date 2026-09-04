@@ -49,29 +49,29 @@ function AssetCard({
   const compactPreview =
     asset.function === "sticker" || asset.function === "corner" || asset.function === "badge";
   return (
-    <article className="group self-start overflow-hidden rounded-card border border-line bg-panel shadow-subtle transition hover:-translate-y-0.5 hover:border-line-strong hover:shadow-raised">
+    <article className="ui-interactive group self-start overflow-hidden rounded-card bg-panel shadow-subtle hover:-translate-y-0.5 hover:shadow-subtle-hover">
       <div
         className={`relative overflow-hidden bg-[linear-gradient(45deg,#f5f3ef_25%,transparent_25%),linear-gradient(-45deg,#f5f3ef_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f5f3ef_75%),linear-gradient(-45deg,transparent_75%,#f5f3ef_75%)] bg-[length:18px_18px] bg-[position:0_0,0_9px,9px_-9px,-9px_0] ${compactPreview ? "aspect-square max-h-56" : "aspect-[5/2]"}`}
       >
         <button
           aria-label={`查看大图：${asset.name}`}
-          className="absolute inset-0 z-10 grid place-items-center bg-zinc-950/0 text-white transition hover:bg-zinc-950/25 focus-visible:bg-zinc-950/25 focus-visible:outline-none"
+          className="absolute inset-0 z-10 grid place-items-center bg-zinc-950/0 text-white transition-[background-color] hover:bg-zinc-950/25 focus-visible:bg-zinc-950/25"
           onClick={onPreview}
           type="button"
         >
-          <span className="translate-y-2 rounded-full bg-zinc-950/70 px-3 py-1.5 text-[9px] font-semibold opacity-0 backdrop-blur transition group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
+          <span className="translate-y-2 rounded-full bg-zinc-950/75 px-3 py-1.5 text-[11px] font-semibold opacity-0 backdrop-blur transition-[translate,opacity] group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
             <Eye aria-hidden="true" className="mr-1 inline" size={11} />
             查看大图
           </span>
         </button>
         <img
           alt={asset.name}
-          className="h-full w-full object-contain p-2 transition duration-300 group-hover:scale-[1.03]"
+          className="ui-media h-full w-full object-contain p-2 transition-transform duration-200 group-hover:scale-[1.02]"
           loading="lazy"
           src={asset.previewPath}
         />
         <span
-          className={`pointer-events-none absolute top-2 left-2 z-20 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-semibold text-white backdrop-blur ${
+          className={`pointer-events-none absolute top-2 left-2 z-20 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold text-white backdrop-blur ${
             asset.motion === "dynamic" ? "bg-violet-600/85" : "bg-zinc-900/75"
           }`}
         >
@@ -84,10 +84,10 @@ function AssetCard({
         </span>
         <button
           aria-label={favorite ? `取消收藏${asset.name}` : `收藏${asset.name}`}
-          className={`absolute top-2 right-2 z-20 grid size-8 place-items-center rounded-full border backdrop-blur transition ${
+          className={`ui-interactive absolute top-1 right-1 z-20 grid size-10 place-items-center rounded-full backdrop-blur ${
             favorite
-              ? "border-amber-300 bg-amber-50 text-amber-600"
-              : "border-white/70 bg-white/85 text-zinc-500 hover:text-amber-600"
+              ? "bg-warning-soft text-warning shadow-subtle"
+              : "bg-white/90 text-zinc-600 shadow-subtle hover:text-warning"
           }`}
           onClick={onToggleFavorite}
           type="button"
@@ -95,23 +95,25 @@ function AssetCard({
           <Star aria-hidden="true" fill={favorite ? "currentColor" : "none"} size={13} />
         </button>
       </div>
-      <div className="p-3.5">
-        <h3 className="truncate text-[12px] font-semibold text-ink">{asset.name}</h3>
-        <p className="mt-1 line-clamp-2 min-h-8 text-[10px] leading-4 text-muted">
+      <div className="p-4">
+        <h3 className="truncate text-[13px] font-semibold text-ink" title={asset.name}>
+          {asset.name}
+        </h3>
+        <p className="mt-1.5 line-clamp-2 min-h-10 text-[12px] leading-5 text-muted">
           {asset.description}
         </p>
         <div className="mt-3 flex flex-wrap gap-1">
-          <span className="rounded-md bg-accent-soft px-1.5 py-0.5 text-[8px] text-accent-strong">
+          <span className="rounded-md bg-accent-soft px-2 py-1 text-[11px] text-accent-strong">
             {VISUAL_ASSET_FUNCTION_LABELS[asset.function]}
           </span>
           {asset.effect === undefined ? null : (
-            <span className="rounded-md bg-violet-50 px-1.5 py-0.5 text-[8px] text-violet-700">
+            <span className="rounded-md bg-accent-soft px-2 py-1 text-[11px] text-accent-strong">
               {VISUAL_ASSET_EFFECT_LABELS[asset.effect]}
             </span>
           )}
           {asset.scenes.slice(0, 2).map((scene) => (
             <span
-              className="rounded-md bg-panel-muted px-1.5 py-0.5 text-[8px] text-faint"
+              className="rounded-md bg-panel-sunken px-2 py-1 text-[11px] text-faint"
               key={scene}
             >
               {scene}
@@ -250,35 +252,53 @@ export function VisualAssetCatalog() {
     setSelectedAsset(asset);
   };
 
+  const clearFilters = (): void => {
+    setCollectionFilter("all");
+    setTaskGroup("all");
+    setQuery("");
+    setAssetFunction("all");
+    setStyle("all");
+    setScene("all");
+    setEffect("all");
+  };
+
   return (
     <section>
-      <div className="overflow-hidden rounded-card border border-accent/15 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.14),transparent_42%),linear-gradient(135deg,#fff_0%,#faf8f4_100%)] p-5 shadow-subtle md:p-7">
-        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-          <div>
+      <div className="relative overflow-hidden rounded-card bg-sidebar-bg p-6 text-sidebar-text shadow-raised md:p-8">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-20 right-10 size-48 rounded-full bg-accent/25 blur-3xl"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-10 -bottom-20 size-44 rounded-full bg-highlight/20 blur-3xl"
+        />
+        <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-3xl">
             <div className="flex items-center gap-2">
-              <Sparkles aria-hidden="true" className="text-accent" size={18} />
-              <span className="text-[10px] font-semibold tracking-[0.14em] text-accent uppercase">
-                Visual Library
+              <Sparkles aria-hidden="true" className="text-highlight" size={18} />
+              <span className="text-[12px] font-semibold tracking-[0.12em] text-sidebar-muted uppercase">
+                官方视觉素材
               </span>
             </div>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink">
-              让文章先有画面，再谈排版
+            <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-sidebar-text">
+              按创作任务找素材，不必记住素材名字
             </h1>
-            <p className="mt-2 max-w-2xl text-[11px] leading-5 text-muted">
+            <p className="mt-3 max-w-2xl text-[14px] leading-6 text-sidebar-muted">
               {OFFICIAL_STATIC_VISUAL_ASSETS.length} 个静态变体与{" "}
               {OFFICIAL_DYNAMIC_VISUAL_ASSETS.length}
-              个动态变体，按照编辑任务组织。动态素材在编辑器播放，复制到微信时自动使用静态备用图。
+              个动态变体，按标题、分隔、配图和互动场景组织；先预览，再带着明确用途进入编辑器。
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="rounded-control border border-white/80 bg-white/75 px-3 py-2 text-center shadow-subtle backdrop-blur">
-              <strong className="block text-base tabular-nums text-ink">
+            <div className="rounded-control bg-sidebar-raised px-4 py-2.5 text-center shadow-subtle">
+              <strong className="block text-lg tabular-nums text-sidebar-text">
                 {OFFICIAL_VISUAL_ASSETS.length}
               </strong>
-              <span className="text-[8px] text-faint">可用变体</span>
+              <span className="text-[11px] text-sidebar-muted">可用变体</span>
             </div>
             <Link
-              className="inline-flex h-10 items-center justify-center rounded-control bg-accent px-5 text-[11px] font-semibold text-white shadow-subtle transition hover:-translate-y-0.5 hover:bg-accent-strong hover:shadow-raised"
+              className="ui-interactive inline-flex h-11 items-center justify-center rounded-control bg-panel px-5 text-[12px] font-semibold text-ink shadow-subtle hover:-translate-y-0.5 hover:bg-accent-soft"
               href="/workspace/articles?new=1"
             >
               去编辑器使用
@@ -287,12 +307,12 @@ export function VisualAssetCatalog() {
         </div>
       </div>
 
-      <div className="mt-5 rounded-card border border-line bg-panel p-4 shadow-subtle">
-        <div className="grid grid-cols-2 gap-2 rounded-control bg-panel-muted p-1 sm:w-[360px]">
+      <div className="ui-surface mt-6 p-5">
+        <div className="grid grid-cols-2 gap-1.5 rounded-[14px] bg-panel-sunken p-1.5 sm:w-[400px]">
           {(["static", "dynamic"] as const).map((item) => (
             <button
               aria-pressed={motion === item}
-              className={`h-9 rounded-md text-[11px] font-semibold transition ${
+              className={`ui-interactive h-10 rounded-control text-[12px] font-semibold ${
                 motion === item ? "bg-panel text-ink shadow-subtle" : "text-muted hover:text-ink"
               }`}
               key={item}
@@ -306,7 +326,7 @@ export function VisualAssetCatalog() {
           ))}
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2" aria-label="素材使用记录">
+        <div className="mt-4 flex flex-wrap gap-2" aria-label="素材使用记录">
           {(
             [
               [
@@ -320,10 +340,10 @@ export function VisualAssetCatalog() {
           ).map(([value, label, count]) => (
             <button
               aria-pressed={collectionFilter === value}
-              className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[9px] font-semibold transition ${
+              className={`ui-interactive inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[11px] font-semibold shadow-subtle ${
                 collectionFilter === value
-                  ? "border-accent/35 bg-accent-soft text-accent-strong"
-                  : "border-line bg-panel text-muted hover:border-line-strong hover:text-ink"
+                  ? "bg-accent-soft text-accent-strong"
+                  : "bg-panel text-muted hover:text-ink"
               }`}
               key={value}
               onClick={() => setCollectionFilter(value)}
@@ -345,14 +365,14 @@ export function VisualAssetCatalog() {
           ))}
         </div>
 
-        <div className="mt-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-[9px] font-semibold tracking-[0.08em] text-faint uppercase">
+        <div className="mt-6">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[12px] font-semibold tracking-[0.08em] text-faint uppercase">
               按编辑任务寻找
             </p>
             {taskGroup === "all" ? null : (
               <button
-                className="text-[9px] font-medium text-accent hover:text-accent-strong"
+                className="text-[12px] font-medium text-accent underline decoration-transparent underline-offset-4 hover:decoration-current hover:text-accent-strong"
                 onClick={() => {
                   setTaskGroup("all");
                   setAssetFunction("all");
@@ -371,10 +391,10 @@ export function VisualAssetCatalog() {
               return (
                 <button
                   aria-pressed={taskGroup === group.id}
-                  className={`rounded-control border px-3 py-3 text-left transition ${
+                  className={`ui-interactive min-h-20 rounded-control px-4 py-3 text-left shadow-subtle ${
                     taskGroup === group.id
-                      ? "border-accent/40 bg-accent-soft shadow-subtle"
-                      : "border-line bg-panel hover:-translate-y-0.5 hover:border-line-strong hover:shadow-subtle"
+                      ? "bg-accent-soft shadow-subtle-hover"
+                      : "bg-panel hover:-translate-y-0.5 hover:shadow-subtle-hover"
                   }`}
                   key={group.id}
                   onClick={() => {
@@ -384,12 +404,12 @@ export function VisualAssetCatalog() {
                   type="button"
                 >
                   <span className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-semibold text-ink">{group.label}</span>
-                    <span className="rounded-full bg-panel px-2 py-0.5 text-[8px] tabular-nums text-faint">
+                    <span className="text-[13px] font-semibold text-ink">{group.label}</span>
+                    <span className="rounded-full bg-panel px-2 py-0.5 text-[11px] tabular-nums text-faint">
                       {count}
                     </span>
                   </span>
-                  <span className="mt-1 block text-[9px] leading-4 text-muted">
+                  <span className="mt-1 block text-[12px] leading-5 text-muted">
                     {group.description}
                   </span>
                 </button>
@@ -398,16 +418,17 @@ export function VisualAssetCatalog() {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-6 grid gap-3 border-t border-line-subtle pt-5 md:grid-cols-2 xl:grid-cols-5">
           <label className="relative xl:col-span-2">
             <span className="sr-only">搜索素材</span>
             <Search
               aria-hidden="true"
-              className="absolute top-1/2 left-3 -translate-y-1/2 text-faint"
+              className="absolute top-1/2 left-3.5 -translate-y-1/2 text-faint"
               size={13}
             />
             <input
-              className="h-9 w-full rounded-control border border-line bg-panel pr-3 pl-9 text-[11px] text-ink outline-none focus:border-accent"
+              aria-label="搜索官方视觉素材"
+              className="h-11 w-full rounded-control border border-line bg-panel-sunken pr-3 pl-10 text-base text-ink focus:border-accent sm:text-[13px]"
               onChange={(event) => setQuery(event.target.value)}
               placeholder="搜索水墨、党政、幼儿园、中秋、科技…"
               value={query}
@@ -415,7 +436,7 @@ export function VisualAssetCatalog() {
           </label>
           <select
             aria-label="按用途筛选"
-            className="h-9 rounded-control border border-line bg-panel px-3 text-[10px] text-ink outline-none focus:border-accent"
+            className="h-11 rounded-control border border-line bg-panel-sunken px-3 text-base text-ink focus:border-accent sm:text-[13px]"
             onChange={(event) => setAssetFunction(event.target.value)}
             value={assetFunction}
           >
@@ -434,7 +455,7 @@ export function VisualAssetCatalog() {
           </select>
           <select
             aria-label="按风格筛选"
-            className="h-9 rounded-control border border-line bg-panel px-3 text-[10px] text-ink outline-none focus:border-accent"
+            className="h-11 rounded-control border border-line bg-panel-sunken px-3 text-base text-ink focus:border-accent sm:text-[13px]"
             onChange={(event) => setStyle(event.target.value)}
             value={style}
           >
@@ -447,7 +468,7 @@ export function VisualAssetCatalog() {
           </select>
           <select
             aria-label="按场景筛选"
-            className="h-9 rounded-control border border-line bg-panel px-3 text-[10px] text-ink outline-none focus:border-accent"
+            className="h-11 rounded-control border border-line bg-panel-sunken px-3 text-base text-ink focus:border-accent sm:text-[13px]"
             onChange={(event) => setScene(event.target.value)}
             value={scene}
           >
@@ -461,7 +482,7 @@ export function VisualAssetCatalog() {
           {motion === "dynamic" ? (
             <select
               aria-label="按动效筛选"
-              className="h-9 rounded-control border border-line bg-panel px-3 text-[10px] text-ink outline-none focus:border-accent md:col-start-2 xl:col-start-5"
+              className="h-11 rounded-control border border-line bg-panel-sunken px-3 text-base text-ink focus:border-accent sm:text-[13px] md:col-start-2 xl:col-start-5"
               onChange={(event) => setEffect(event.target.value)}
               value={effect}
             >
@@ -480,7 +501,7 @@ export function VisualAssetCatalog() {
 
       <div
         aria-live="polite"
-        className="mt-4 flex items-center justify-between text-[10px] text-muted"
+        className="mt-5 flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted"
       >
         <span>
           当前显示 {visibleAssets.length} 个{motion === "static" ? "静态" : "动态"}素材
@@ -488,12 +509,23 @@ export function VisualAssetCatalog() {
         <span>全部为本项目原创 SVG</span>
       </div>
       {visibleAssets.length === 0 ? (
-        <div className="mt-4 rounded-card border border-dashed border-line py-16 text-center text-[11px] text-muted">
-          {collectionFilter === "favorite"
-            ? "当前分类还没有收藏素材，可点击卡片右上角星标加入。"
-            : collectionFilter === "recent"
-              ? "当前分类还没有最近查看的素材，打开一次大图后会自动记录。"
-              : "没有符合当前组合条件的素材，请减少一个筛选条件。"}
+        <div className="ui-surface mt-4 px-6 py-16 text-center">
+          <Sparkles aria-hidden="true" className="mx-auto text-faint" size={24} />
+          <h2 className="mt-4 text-[15px] font-semibold text-ink">当前条件下没有素材</h2>
+          <p className="mx-auto mt-2 max-w-md text-[12px] leading-5 text-muted">
+            {collectionFilter === "favorite"
+              ? "这里还没有收藏。先查看全部素材，再用卡片右上角的星标保存常用项。"
+              : collectionFilter === "recent"
+                ? "这里还没有浏览记录。先查看全部素材，打开大图后会自动加入最近查看。"
+                : "筛选条件组合得太具体了，清除条件后可以重新开始选择。"}
+          </p>
+          <button
+            className="ui-interactive mt-5 inline-flex h-10 items-center justify-center rounded-control bg-accent px-4 text-[12px] font-semibold text-white shadow-subtle hover:bg-accent-strong"
+            onClick={clearFilters}
+            type="button"
+          >
+            查看全部素材
+          </button>
         </div>
       ) : (
         <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
@@ -511,7 +543,7 @@ export function VisualAssetCatalog() {
       {displayedAssets.length < visibleAssets.length ? (
         <div className="mt-5 flex justify-center">
           <button
-            className="inline-flex h-10 items-center justify-center rounded-control border border-line bg-panel px-5 text-[10px] font-semibold text-ink shadow-subtle transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-raised"
+            className="ui-interactive inline-flex h-10 items-center justify-center rounded-control bg-panel px-5 text-[12px] font-semibold text-ink shadow-subtle hover:-translate-y-0.5 hover:shadow-subtle-hover"
             onClick={() => setVisibleLimit((current) => current + CATALOG_PAGE_SIZE)}
             type="button"
           >

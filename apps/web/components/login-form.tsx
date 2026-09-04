@@ -2,17 +2,20 @@
 
 import { Check, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { Checkbox } from "radix-ui";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 import { AuthClientError, login } from "../lib/auth/client";
 import { useAppToast } from "./ui/app-toast";
 
 export function LoginForm() {
   const { pushToast } = useAppToast();
+  const identifierInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
   const [rememberDevice, setRememberDevice] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [invalidField, setInvalidField] = useState<"identifier" | "password" | null>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -23,6 +26,7 @@ export function LoginForm() {
     const passwordInput = form.elements.namedItem("password");
 
     setErrorMessage(null);
+    setInvalidField(null);
     setSubmitting(true);
 
     try {
@@ -48,12 +52,29 @@ export function LoginForm() {
       }
 
       if (error instanceof AuthClientError) {
+        const relatedField =
+          error.code === "AUTH_INVALID_CREDENTIALS"
+            ? "password"
+            : error.status === 400
+              ? "identifier"
+              : null;
+
+        setInvalidField(relatedField);
         setErrorMessage(
           error.retryAfterSeconds === undefined
             ? error.message
             : `${error.message}（约 ${Math.ceil(error.retryAfterSeconds / 60)} 分钟）`,
         );
+
+        if (relatedField !== null) {
+          window.requestAnimationFrame(() => {
+            const input =
+              relatedField === "password" ? passwordInputRef.current : identifierInputRef.current;
+            input?.focus();
+          });
+        }
       } else {
+        setInvalidField(null);
         setErrorMessage("无法连接认证服务，请稍后重试");
       }
     } finally {
@@ -74,35 +95,38 @@ export function LoginForm() {
             size={17}
           />
           <input
+            ref={identifierInputRef}
+            aria-describedby={errorMessage === null ? undefined : "login-error"}
+            aria-invalid={invalidField === "identifier"}
+            autoCapitalize="none"
             autoComplete="username"
-            className="h-11 w-full rounded-control border border-line bg-panel pr-3 pl-10 text-sm text-ink shadow-subtle outline-none transition placeholder:text-faint hover:border-line-strong focus:border-accent focus:ring-3 focus:ring-indigo-100"
+            autoCorrect="off"
+            className="h-11 w-full rounded-control border border-line bg-panel pr-3 pl-10 text-base text-ink shadow-subtle outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-faint hover:border-line-strong focus:border-accent focus:ring-3 focus:ring-accent/15"
             disabled={submitting}
             id="identifier"
             maxLength={320}
             name="identifier"
+            onChange={() => {
+              if (invalidField === "identifier") {
+                setInvalidField(null);
+                setErrorMessage(null);
+              }
+            }}
             placeholder="owner@example.com"
             required
+            spellCheck={false}
             type="text"
           />
         </div>
       </div>
       <div>
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex items-start justify-between gap-4">
           <label className="text-[13px] font-medium text-ink" htmlFor="password">
             密码
           </label>
-          <button
-            className="text-[12px] font-medium text-accent transition hover:text-accent-strong"
-            onClick={() => {
-              pushToast({
-                description: "账号恢复与邮件验证将在后续账号安全任务中接入。",
-                title: "忘记密码暂未开放",
-              });
-            }}
-            type="button"
-          >
-            忘记密码？
-          </button>
+          <p className="max-w-[240px] text-right text-[12px] leading-5 text-muted">
+            忘记密码？请联系系统管理员重置。
+          </p>
         </div>
         <div className="relative">
           <LockKeyhole
@@ -111,20 +135,33 @@ export function LoginForm() {
             size={17}
           />
           <input
+            ref={passwordInputRef}
+            aria-describedby={errorMessage === null ? undefined : "login-error"}
+            aria-invalid={invalidField === "password"}
+            autoCapitalize="none"
             autoComplete="current-password"
-            className="h-11 w-full rounded-control border border-line bg-panel pr-11 pl-10 text-sm text-ink shadow-subtle outline-none transition placeholder:text-faint hover:border-line-strong focus:border-accent focus:ring-3 focus:ring-indigo-100"
+            autoCorrect="off"
+            className="h-11 w-full rounded-control border border-line bg-panel pr-12 pl-10 text-base text-ink shadow-subtle outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-faint hover:border-line-strong focus:border-accent focus:ring-3 focus:ring-accent/15"
             id="password"
             disabled={submitting}
             maxLength={256}
             minLength={8}
             name="password"
+            onChange={() => {
+              if (invalidField === "password") {
+                setInvalidField(null);
+                setErrorMessage(null);
+              }
+            }}
             placeholder="输入你的密码"
             required
+            spellCheck={false}
             type={showPassword ? "text" : "password"}
           />
           <button
             aria-label={showPassword ? "隐藏密码" : "显示密码"}
-            className="absolute top-1/2 right-2.5 grid size-7 -translate-y-1/2 place-items-center rounded-md text-faint transition hover:bg-hover hover:text-ink"
+            aria-pressed={showPassword}
+            className="absolute top-1/2 right-0.5 grid size-10 -translate-y-1/2 place-items-center rounded-control text-faint transition-[background-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-95"
             onClick={() => {
               setShowPassword((visible) => !visible);
             }}
@@ -138,11 +175,11 @@ export function LoginForm() {
           </button>
         </div>
       </div>
-      <label className="flex w-fit items-center gap-2.5 text-[13px] text-muted">
+      <label className="flex min-h-10 w-fit cursor-pointer items-center gap-2.5 text-[13px] text-muted">
         <Checkbox.Root
           aria-label="记住这台设备"
           checked={rememberDevice}
-          className="grid size-[18px] place-items-center rounded-[5px] border border-line-strong bg-panel text-white outline-none transition data-[state=checked]:border-accent data-[state=checked]:bg-accent"
+          className="grid size-[18px] place-items-center rounded-[5px] border border-line-strong bg-panel text-white outline-none transition-[background-color,border-color,transform] duration-150 active:scale-95 data-[state=checked]:border-accent data-[state=checked]:bg-accent"
           onCheckedChange={(checked) => {
             setRememberDevice(checked === true);
           }}
@@ -155,20 +192,21 @@ export function LoginForm() {
       </label>
       {errorMessage === null ? null : (
         <p
-          className="rounded-control border border-red-200 bg-red-50 px-3.5 py-3 text-[12px] leading-5 text-red-700"
+          className="rounded-control border border-danger/20 bg-danger-soft px-3.5 py-3 text-[12px] leading-5 text-danger"
+          id="login-error"
           role="alert"
         >
           {errorMessage}
         </p>
       )}
       <button
-        className="flex h-11 w-full items-center justify-center rounded-control bg-accent px-4 text-sm font-semibold text-white shadow-subtle transition hover:bg-accent-strong disabled:cursor-wait disabled:opacity-70"
+        className="flex h-11 w-full items-center justify-center rounded-control bg-accent px-4 text-sm font-semibold text-white shadow-subtle transition-[background-color,opacity,transform] duration-150 hover:bg-accent-strong active:scale-[0.98] disabled:cursor-wait disabled:opacity-70 disabled:active:scale-100"
         disabled={submitting}
         type="submit"
       >
         {submitting ? "正在登录…" : "登录"}
       </button>
-      <div className="rounded-control border border-indigo-100 bg-accent-soft px-3.5 py-3 text-[12px] leading-5 text-indigo-800">
+      <div className="rounded-control border border-accent/15 bg-accent-soft px-3.5 py-3 text-[12px] leading-5 text-accent-strong">
         密码只发送到私有部署的认证服务；浏览器仅保存 HttpOnly Session Cookie。
       </div>
     </form>

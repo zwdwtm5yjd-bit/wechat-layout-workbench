@@ -86,20 +86,48 @@ export function SettingsWorkspace() {
       <section className="grid overflow-hidden rounded-card border border-line bg-panel shadow-subtle lg:grid-cols-[220px_minmax(0,1fr)]">
         <nav
           aria-label="设置分类"
+          aria-orientation="vertical"
           className="border-b border-line bg-panel-muted p-3 lg:border-r lg:border-b-0"
+          role="tablist"
         >
-          {sections.map((section) => {
+          {sections.map((section, index) => {
             const Icon = section.icon;
             return (
               <button
-                aria-current={activeSection === section.id ? "page" : undefined}
-                className={`flex h-10 w-full items-center gap-3 rounded-control px-3 text-[12px] font-medium transition ${
+                aria-controls="settings-panel"
+                aria-selected={activeSection === section.id}
+                className={`flex h-10 w-full items-center gap-3 rounded-control px-3 text-[12px] font-medium transition-[background-color,color,box-shadow,transform] duration-150 active:scale-[0.98] ${
                   activeSection === section.id
                     ? "bg-panel text-accent shadow-subtle"
                     : "text-muted hover:bg-hover hover:text-ink"
                 }`}
+                id={`settings-tab-${section.id}`}
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}
+                onKeyDown={(event) => {
+                  let nextIndex: number | null = null;
+
+                  if (event.key === "ArrowDown" || event.key === "ArrowRight") {
+                    nextIndex = (index + 1) % sections.length;
+                  } else if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+                    nextIndex = (index - 1 + sections.length) % sections.length;
+                  } else if (event.key === "Home") {
+                    nextIndex = 0;
+                  } else if (event.key === "End") {
+                    nextIndex = sections.length - 1;
+                  }
+
+                  if (nextIndex === null) return;
+
+                  event.preventDefault();
+                  const nextSection = sections[nextIndex];
+                  if (nextSection === undefined) return;
+
+                  setActiveSection(nextSection.id);
+                  document.getElementById(`settings-tab-${nextSection.id}`)?.focus();
+                }}
+                role="tab"
+                tabIndex={activeSection === section.id ? 0 : -1}
                 type="button"
               >
                 <Icon aria-hidden="true" size={15} />
@@ -109,7 +137,13 @@ export function SettingsWorkspace() {
           })}
         </nav>
 
-        <div className="min-h-[470px] p-5 sm:p-7">
+        <div
+          aria-labelledby={`settings-tab-${activeSection}`}
+          className="min-h-[470px] p-5 sm:p-7"
+          id="settings-panel"
+          role="tabpanel"
+          tabIndex={0}
+        >
           {activeSection === "preferences" ? (
             <div className="max-w-2xl">
               <h2 className="text-base font-semibold text-ink">编辑偏好</h2>
@@ -118,7 +152,7 @@ export function SettingsWorkspace() {
                 <label className="block">
                   <span className="text-[12px] font-medium text-ink">默认公众号输出模式</span>
                   <select
-                    className="mt-2 h-10 w-full rounded-control border border-line bg-panel px-3 text-[12px] text-ink sm:w-64"
+                    className="mt-2 h-10 w-full rounded-control border border-line bg-panel px-3 text-base text-ink outline-none transition-[border-color,box-shadow] duration-150 hover:border-line-strong focus:border-accent focus:ring-3 focus:ring-accent/15 sm:w-64"
                     disabled={!hydrated}
                     onChange={(event) =>
                       setPreferences({
@@ -147,7 +181,7 @@ export function SettingsWorkspace() {
                 />
               </div>
               <button
-                className="mt-8 inline-flex h-10 items-center gap-2 rounded-control bg-accent px-4 text-[12px] font-semibold text-white hover:bg-accent-strong"
+                className="mt-8 inline-flex h-10 items-center gap-2 rounded-control bg-accent px-4 text-[12px] font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-[0.98]"
                 onClick={save}
                 type="button"
               >
@@ -164,7 +198,7 @@ export function SettingsWorkspace() {
                   <div className="flex items-center justify-between gap-4 px-4 py-3" key={keys}>
                     <dt className="text-[12px] text-ink">{description}</dt>
                     <dd>
-                      <kbd className="rounded-md border border-line bg-panel-muted px-2 py-1 font-mono text-[10px] text-muted">
+                      <kbd className="rounded-md border border-line bg-panel-muted px-2 py-1 font-mono text-[11px] text-muted">
                         {keys}
                       </kbd>
                     </dd>
@@ -193,7 +227,7 @@ function PreferenceSwitch({
   readonly onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-start justify-between gap-5">
+    <label className="flex min-h-10 cursor-pointer items-start justify-between gap-5">
       <span>
         <span className="block text-[12px] font-medium text-ink">{label}</span>
         <span className="mt-1 block text-[11px] leading-5 text-muted">{description}</span>
@@ -205,12 +239,12 @@ function PreferenceSwitch({
         type="checkbox"
       />
       <span
-        className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition peer-focus-visible:ring-2 peer-focus-visible:ring-accent/30 ${
-          checked ? "bg-accent" : "bg-zinc-200"
+        className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-[background-color,box-shadow,transform] duration-150 peer-active:scale-95 peer-focus-visible:ring-3 peer-focus-visible:ring-accent/20 ${
+          checked ? "bg-accent" : "bg-line-strong"
         }`}
       >
         <span
-          className={`absolute top-1 left-1 size-4 rounded-full bg-white shadow-sm transition ${
+          className={`absolute top-1 left-1 size-4 rounded-full bg-white shadow-sm transition-transform duration-150 ${
             checked ? "translate-x-5" : ""
           }`}
         />
@@ -266,12 +300,12 @@ function ConnectedSettings({ section }: { readonly section: string }) {
         </span>
         <h2 className="mt-4 text-sm font-semibold text-ink">{selected.title}</h2>
         <p className="mt-2 text-[12px] leading-5 text-muted">{selected.description}</p>
-        <span className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1.5 text-[10px] text-success">
+        <span className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1.5 text-[11px] text-success">
           <ShieldCheck aria-hidden="true" size={12} />
-          已启用的能力真实可用
+          当前功能已启用
         </span>
         <Link
-          className="mx-auto mt-5 flex h-9 w-fit items-center rounded-control bg-accent px-4 text-[11px] font-semibold text-white"
+          className="mx-auto mt-5 flex h-10 w-fit items-center rounded-control bg-accent px-4 text-[11px] font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-[0.98]"
           href={selected.href}
         >
           {selected.action}

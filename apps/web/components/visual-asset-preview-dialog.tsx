@@ -44,7 +44,7 @@ export function VisualAssetPreviewDialog({
               <div className="grid min-h-[320px] place-items-center overflow-hidden bg-[linear-gradient(45deg,#f3f1ec_25%,transparent_25%),linear-gradient(-45deg,#f3f1ec_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f3f1ec_75%),linear-gradient(-45deg,transparent_75%,#f3f1ec_75%)] bg-[length:24px_24px] bg-[position:0_0,0_12px,12px_-12px,-12px_0] p-5 sm:min-h-[430px]">
                 <img
                   alt={`${asset.name}大图预览`}
-                  className="max-h-[68dvh] w-full object-contain drop-shadow-sm"
+                  className="max-h-[68dvh] w-full rounded-control border border-line bg-panel object-contain drop-shadow-sm"
                   src={asset.previewPath}
                 />
               </div>
@@ -52,7 +52,7 @@ export function VisualAssetPreviewDialog({
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-semibold ${
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${
                         asset.motion === "dynamic"
                           ? "bg-violet-50 text-violet-700"
                           : "bg-panel-muted text-muted"
@@ -71,7 +71,8 @@ export function VisualAssetPreviewDialog({
                   </div>
                   <Dialog.Close
                     aria-label="关闭素材预览"
-                    className="grid size-9 shrink-0 place-items-center rounded-control text-faint hover:bg-hover hover:text-ink"
+                    className="grid size-10 shrink-0 place-items-center rounded-control border border-transparent text-faint transition-[background-color,border-color,color,transform] duration-150 hover:border-line hover:bg-hover hover:text-ink active:scale-[0.96]"
+                    type="button"
                   >
                     <X aria-hidden="true" size={17} />
                   </Dialog.Close>
@@ -80,7 +81,7 @@ export function VisualAssetPreviewDialog({
                   {asset.description}
                 </Dialog.Description>
 
-                <dl className="mt-5 space-y-3 rounded-control bg-panel-muted p-4 text-[10px]">
+                <dl className="mt-5 space-y-3 rounded-control bg-panel-muted p-4 text-[11px]">
                   <div className="flex justify-between gap-4">
                     <dt className="text-faint">用途</dt>
                     <dd className="font-medium text-ink">
@@ -117,7 +118,7 @@ export function VisualAssetPreviewDialog({
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   {asset.tags.slice(0, 8).map((tag) => (
                     <span
-                      className="rounded-full border border-line px-2 py-1 text-[9px] text-muted"
+                      className="rounded-full border border-line px-2 py-1 text-[11px] text-muted"
                       key={tag}
                     >
                       {tag}
@@ -128,7 +129,7 @@ export function VisualAssetPreviewDialog({
                 <div className="mt-auto grid gap-2 pt-6">
                   <button
                     aria-label={favorite ? `取消收藏${asset.name}` : `收藏${asset.name}`}
-                    className={`flex min-h-11 items-center justify-center gap-2 rounded-control border text-[11px] font-semibold transition ${
+                    className={`flex min-h-11 items-center justify-center gap-2 rounded-control border text-[11px] font-semibold transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.96] ${
                       favorite
                         ? "border-amber-300 bg-amber-50 text-amber-700"
                         : "border-line text-ink hover:border-amber-300 hover:bg-amber-50"
@@ -141,7 +142,7 @@ export function VisualAssetPreviewDialog({
                   </button>
                   {onInsert === undefined ? (
                     <Link
-                      className="flex min-h-11 items-center justify-center gap-2 rounded-control bg-accent px-4 text-[11px] font-semibold text-white hover:bg-accent-strong"
+                      className="flex min-h-11 items-center justify-center gap-2 rounded-control bg-accent px-4 text-[11px] font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-[0.96]"
                       href="/workspace/articles?new=1"
                     >
                       <Sparkles aria-hidden="true" size={14} />
@@ -149,7 +150,7 @@ export function VisualAssetPreviewDialog({
                     </Link>
                   ) : (
                     <button
-                      className={`flex min-h-11 items-center justify-center gap-2 rounded-control px-4 text-[11px] font-semibold text-white transition ${
+                      className={`flex min-h-11 items-center justify-center gap-2 rounded-control px-4 text-[11px] font-semibold text-white transition-[background-color,transform] duration-150 active:scale-[0.96] ${
                         inserted ? "bg-emerald-600" : "bg-accent hover:bg-accent-strong"
                       }`}
                       onClick={() => onInsert(asset)}

@@ -86,12 +86,14 @@ export function ThemeCatalog() {
   }, [filters, query, themes.data]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[12px] font-medium text-accent">VISUAL SYSTEM</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">主题</h1>
-          <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted">
+          <p className="text-xs font-medium text-accent">VISUAL SYSTEM</p>
+          <h1 className="mt-1 text-balance text-2xl font-semibold tracking-[-0.035em] text-ink">
+            主题
+          </h1>
+          <p className="mt-2 max-w-2xl text-pretty text-[13px] leading-6 text-muted">
             10 套官方场景主题已安装，并按用途、行业、节假、风格与色调重新分类。
             可直接搜索“放假通知”“党建宣传”“中秋节”等内容场景。
           </p>
@@ -104,7 +106,7 @@ export function ThemeCatalog() {
             size={15}
           />
           <input
-            className="h-10 w-full rounded-control border border-line bg-panel pr-3 pl-9 text-[12px] text-ink outline-none placeholder:text-faint focus:border-accent"
+            className="h-11 w-full rounded-control border border-line bg-panel pr-3 pl-9 text-base text-ink outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted focus:border-accent focus:ring-3 focus:ring-accent/20"
             onChange={(event) => setQuery(event.target.value)}
             placeholder="搜索风格或场景"
             value={query}
@@ -112,13 +114,16 @@ export function ThemeCatalog() {
         </label>
       </section>
 
-      <section className="space-y-2 rounded-card border border-line bg-panel p-4 shadow-subtle">
+      <section aria-label="主题筛选" className="space-y-3 rounded-card bg-panel p-5 shadow-subtle">
         {THEME_FILTER_ROWS.map((row) => (
           <div className="flex items-start gap-3" key={row.axis}>
-            <span className="w-10 shrink-0 pt-1.5 text-[11px] text-faint">{row.axis}</span>
-            <div className="flex flex-wrap gap-1.5">
+            <span className="w-10 shrink-0 pt-3 text-[11px] font-medium text-muted">
+              {row.axis}
+            </span>
+            <div className="flex flex-wrap gap-2">
               <button
-                className={`rounded-md px-2.5 py-1.5 text-[11px] ${filters[row.axis] === undefined ? "bg-accent text-white" : "text-muted hover:bg-hover"}`}
+                aria-pressed={filters[row.axis] === undefined}
+                className={`min-h-10 rounded-control px-3 py-2 text-[11px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${filters[row.axis] === undefined ? "bg-accent-soft text-accent-strong" : "text-muted hover:bg-hover hover:text-ink"}`}
                 onClick={() => setFilters((current) => clearThemeFilter(current, row.axis))}
                 type="button"
               >
@@ -126,7 +131,8 @@ export function ThemeCatalog() {
               </button>
               {row.options.map((option) => (
                 <button
-                  className={`rounded-md px-2.5 py-1.5 text-[11px] transition ${filters[row.axis] === option ? "bg-accent-soft font-medium text-accent-strong" : "text-muted hover:bg-hover hover:text-ink"}`}
+                  aria-pressed={filters[row.axis] === option}
+                  className={`min-h-10 rounded-control px-3 py-2 text-[11px] transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${filters[row.axis] === option ? "bg-accent-soft font-medium text-accent-strong" : "text-muted hover:bg-hover hover:text-ink"}`}
                   key={option}
                   onClick={() => setFilters((current) => ({ ...current, [row.axis]: option }))}
                   type="button"
@@ -139,14 +145,14 @@ export function ThemeCatalog() {
         ))}
       </section>
 
-      <section className="rounded-card border border-accent/15 bg-accent-soft/60 p-4">
+      <section className="rounded-card bg-accent-soft/60 p-4">
         <div className="flex items-start gap-3">
           <span className="grid size-9 shrink-0 place-items-center rounded-control bg-panel text-accent shadow-subtle">
             <Sparkles aria-hidden="true" size={16} />
           </span>
           <div>
             <p className="text-[13px] font-semibold text-ink">官方资产已安装</p>
-            <p className="mt-1 text-[11px] leading-5 text-muted">
+            <p className="mt-1 text-pretty text-[11px] leading-5 text-muted">
               正式应用前会自动创建文章快照，只更新主题引用，不改变原文。
             </p>
           </div>
@@ -154,42 +160,58 @@ export function ThemeCatalog() {
       </section>
 
       {themes.isPending ? (
-        <section className="grid min-h-72 place-items-center rounded-card border border-line bg-panel text-[12px] text-muted">
+        <section className="grid min-h-72 place-items-center rounded-card bg-panel text-xs text-muted shadow-subtle">
           正在读取已安装主题…
         </section>
       ) : themes.isError ? (
-        <section className="grid min-h-72 place-items-center rounded-card border border-danger/20 bg-danger-soft text-[12px] text-danger">
+        <section className="grid min-h-72 place-items-center rounded-card bg-danger-soft px-6 text-center text-xs text-danger shadow-subtle">
           主题服务暂时不可用，请稍后重试。
         </section>
       ) : visibleThemes.length === 0 ? (
-        <section className="grid min-h-72 place-items-center rounded-card border border-line bg-panel text-center">
+        <section className="grid min-h-72 place-items-center rounded-card bg-panel px-6 text-center shadow-subtle">
           <div>
-            <Palette aria-hidden="true" className="mx-auto text-faint" size={24} />
-            <p className="mt-3 text-sm font-semibold text-ink">没有匹配的主题</p>
-            <p className="mt-1 text-[12px] text-muted">试试“政务”或“长文”。</p>
+            <Palette aria-hidden="true" className="mx-auto text-muted" size={24} />
+            <p className="mt-3 text-balance text-sm font-semibold text-ink">没有匹配的主题</p>
+            <p className="mt-1 text-pretty text-xs text-muted">
+              请清除筛选，或改用“政务”“长文”等更宽泛的关键词。
+            </p>
+            <button
+              className="mt-4 min-h-10 rounded-control border border-line px-4 py-2 text-xs font-medium text-ink transition-[background-color,border-color,transform] duration-150 hover:bg-hover active:scale-[0.96]"
+              onClick={() => {
+                setFilters({});
+                setQuery("");
+              }}
+              type="button"
+            >
+              清除筛选与搜索
+            </button>
           </div>
         </section>
       ) : (
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {visibleThemes.map((theme) => (
             <article
-              className="group rounded-card border border-line bg-panel p-4 shadow-subtle transition hover:-translate-y-0.5 hover:border-line-strong hover:shadow-raised"
+              className="group rounded-card bg-panel p-4 shadow-subtle transition-shadow duration-150 hover:shadow-raised"
               key={theme.manifest.themeId}
             >
               <ThemeArtwork theme={theme} />
               <div className="mt-4 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[14px] font-semibold text-ink">{theme.manifest.name}</p>
+                  <p className="text-balance text-sm font-semibold text-ink">
+                    {theme.manifest.name}
+                  </p>
                   <p className="mt-1 text-[11px] text-muted">
                     {summarizeThemeCategories(theme.manifest.categories)}
                   </p>
                 </div>
-                <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-1 text-[10px] font-medium text-success">
+                <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-1 text-[11px] font-medium text-success">
                   <ShieldCheck aria-hidden="true" size={11} />
                   已安装
                 </span>
               </div>
-              <p className="mt-3 text-[12px] leading-5 text-muted">{theme.manifest.description}</p>
+              <p className="mt-3 text-pretty text-xs leading-5 text-muted">
+                {theme.manifest.description}
+              </p>
               <div className="mt-4 flex items-center justify-between">
                 <div className="flex -space-x-1">
                   {theme.preview.accentColors.map((color) => (
@@ -202,7 +224,7 @@ export function ThemeCatalog() {
                   ))}
                 </div>
                 <button
-                  className="inline-flex h-8 items-center gap-1.5 rounded-control border border-line px-3 text-[11px] font-medium text-ink hover:bg-hover"
+                  className="inline-flex h-10 items-center gap-1.5 rounded-control border border-line px-3 text-[11px] font-medium text-ink transition-[background-color,border-color,transform] duration-150 hover:bg-hover active:scale-[0.96]"
                   onClick={() => setSelected(theme)}
                   type="button"
                 >
@@ -222,21 +244,21 @@ export function ThemeCatalog() {
         open={selected !== null}
       >
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-zinc-950/35 backdrop-blur-[2px]" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 grid max-h-[90vh] w-[min(920px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 gap-5 overflow-y-auto rounded-card border border-line bg-panel p-5 shadow-raised md:grid-cols-[minmax(0,1fr)_300px]">
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-overlay backdrop-blur-[2px]" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 grid max-h-[90vh] w-[min(920px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 gap-5 overflow-y-auto rounded-card bg-panel p-5 shadow-raised md:grid-cols-[minmax(0,1fr)_300px]">
             {selected === null ? null : (
               <>
                 <ThemeArtwork large theme={selected} />
                 <div className="flex flex-col">
-                  <Dialog.Title className="text-xl font-semibold tracking-tight text-ink">
+                  <Dialog.Title className="text-balance text-xl font-semibold tracking-tight text-ink">
                     {selected.manifest.name}
                   </Dialog.Title>
-                  <Dialog.Description className="mt-2 text-[12px] leading-6 text-muted">
+                  <Dialog.Description className="mt-2 text-pretty text-xs leading-6 text-muted">
                     {selected.manifest.description}
                   </Dialog.Description>
-                  <dl className="mt-6 space-y-3 text-[12px]">
+                  <dl className="mt-6 space-y-3 text-xs">
                     <div className="flex justify-between gap-4">
-                      <dt className="text-faint">分类</dt>
+                      <dt className="text-muted">分类</dt>
                       <dd className="text-ink">
                         {selected.manifest.categories
                           .filter((category) => category.includes(":"))
@@ -245,33 +267,30 @@ export function ThemeCatalog() {
                       </dd>
                     </div>
                     <div className="flex justify-between gap-4">
-                      <dt className="text-faint">适用场景</dt>
+                      <dt className="text-muted">适用场景</dt>
                       <dd className="text-right text-ink">
                         {selected.manifest.recommendedContentTypes.join("、")}
                       </dd>
                     </div>
                     <div className="flex justify-between gap-4">
-                      <dt className="text-faint">兼容状态</dt>
+                      <dt className="text-muted">兼容状态</dt>
                       <dd className="inline-flex items-center gap-1 text-success">
                         <Check aria-hidden="true" size={12} />
                         {selected.manifest.compatibilityLevel} · 三模式通过
                       </dd>
                     </div>
                     <div className="flex justify-between gap-4">
-                      <dt className="text-faint">安装状态</dt>
+                      <dt className="text-muted">安装状态</dt>
                       <dd className="text-success">已安装 v{selected.manifest.version}</dd>
                     </div>
                   </dl>
                   <div className="mt-auto space-y-2 pt-8">
-                    <button
-                      className="h-10 w-full rounded-control bg-accent text-[12px] font-semibold text-white"
-                      onClick={() => setSelected(null)}
-                      type="button"
-                    >
+                    <div className="flex min-h-10 items-center justify-center gap-2 rounded-control bg-success-soft px-3 text-xs font-medium text-success">
+                      <Check aria-hidden="true" size={14} />
                       已安装，可在编辑器应用
-                    </button>
+                    </div>
                     <button
-                      className="h-10 w-full rounded-control border border-line text-[12px] font-medium text-ink hover:bg-hover"
+                      className="h-10 w-full rounded-control bg-accent text-xs font-semibold text-white shadow-subtle transition-[background-color,transform,box-shadow] duration-150 hover:bg-accent-strong hover:shadow-raised active:scale-[0.96]"
                       onClick={() => setSelected(null)}
                       type="button"
                     >

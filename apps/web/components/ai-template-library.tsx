@@ -66,7 +66,7 @@ function TemplateThumbnail({ template }: { readonly template: AiLayoutTemplateSu
   return (
     <div
       aria-label={`${template.name}模板缩略预演`}
-      className="h-36 overflow-hidden rounded-t-[11px] border-b border-line p-3"
+      className="ui-media h-36 overflow-hidden rounded-t-[11px] border-b border-line p-3"
       data-preview-variant={variant}
       role="img"
       style={{ backgroundColor: surface }}
@@ -222,13 +222,13 @@ export function AiTemplateLibrary({
   const resetPage = (): void => setPage(1);
 
   return (
-    <section aria-label="AI 模板库" className="mt-4 rounded-card border border-line bg-panel">
+    <section aria-busy={loading} aria-label="AI 模板库" className="ui-surface mt-4 overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
         <div>
           <h3 className="text-[12px] font-semibold text-ink">
             {view === "recommended" ? "内容匹配的 6 套模板" : "浏览全部 AI 模板"}
           </h3>
-          <p className="mt-1 text-[9px] leading-4 text-muted">
+          <p className="mt-1 text-[11px] leading-5 text-muted">
             {view === "recommended"
               ? "选中一套作为 AI 设计起点，生成时仍只返回 6 个候选。"
               : `共 ${String(templates.length)} 套，每页最多 ${String(PAGE_SIZE)} 套。`}
@@ -236,7 +236,7 @@ export function AiTemplateLibrary({
         </div>
         {view === "recommended" ? (
           <button
-            className="inline-flex min-h-11 items-center rounded-control border border-line px-3 text-[10px] font-semibold text-ink hover:bg-hover"
+            className="ui-interactive inline-flex min-h-11 items-center rounded-control border border-line px-3 text-[12px] font-semibold text-ink hover:bg-hover"
             onClick={openCatalog}
             ref={browseButtonRef}
             type="button"
@@ -245,7 +245,7 @@ export function AiTemplateLibrary({
           </button>
         ) : (
           <button
-            className="inline-flex min-h-11 items-center gap-1 rounded-control border border-line px-3 text-[10px] font-semibold text-ink hover:bg-hover"
+            className="ui-interactive inline-flex min-h-11 items-center gap-1 rounded-control border border-line px-3 text-[12px] font-semibold text-ink hover:bg-hover"
             onClick={showRecommended}
             type="button"
           >
@@ -265,13 +265,17 @@ export function AiTemplateLibrary({
               size={14}
             />
             <input
-              className="h-11 w-full rounded-control border border-line bg-panel pr-3 pl-9 text-[11px] text-ink outline-none placeholder:text-faint focus:border-accent"
+              autoComplete="off"
+              className="h-11 w-full rounded-control border border-line bg-panel-sunken pr-3 pl-9 text-base text-ink outline-none transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-faint hover:border-line-strong focus:border-accent sm:text-[12px]"
+              name="ai-template-search"
               onChange={(event) => {
                 setQuery(event.currentTarget.value);
                 resetPage();
               }}
               placeholder="搜索名称、场景或风格"
               ref={searchInputRef}
+              spellCheck={false}
+              type="search"
               value={query}
             />
           </label>
@@ -285,7 +289,7 @@ export function AiTemplateLibrary({
             ).map(([id, label]) => (
               <button
                 aria-pressed={filter === id}
-                className={`min-h-11 shrink-0 rounded-control px-3 text-[10px] font-medium ${
+                className={`ui-interactive min-h-11 shrink-0 rounded-control px-3 text-[11px] font-medium ${
                   filter === id ? "bg-accent text-white" : "bg-panel-muted text-muted"
                 }`}
                 key={id}
@@ -302,7 +306,7 @@ export function AiTemplateLibrary({
           <div aria-label="模板分类" className="flex gap-1.5 overflow-x-auto pb-1">
             <button
               aria-pressed={categoryId === "all"}
-              className={`min-h-11 shrink-0 rounded-control px-3 text-[10px] font-medium ${
+              className={`ui-interactive min-h-11 shrink-0 rounded-control px-3 text-[11px] font-medium ${
                 categoryId === "all" ? "bg-accent-soft text-accent" : "bg-panel-muted text-muted"
               }`}
               onClick={() => {
@@ -316,7 +320,7 @@ export function AiTemplateLibrary({
             {categories.map((category) => (
               <button
                 aria-pressed={categoryId === category.id}
-                className={`min-h-11 shrink-0 rounded-control px-3 text-[10px] font-medium ${
+                className={`ui-interactive min-h-11 shrink-0 rounded-control px-3 text-[11px] font-medium ${
                   categoryId === category.id
                     ? "bg-accent-soft text-accent"
                     : "bg-panel-muted text-muted"
@@ -349,7 +353,7 @@ export function AiTemplateLibrary({
         <div className="px-4 pt-4">
           <button
             aria-pressed={selectedTemplateId === null}
-            className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-control border px-3 py-2 text-left transition ${
+            className={`ui-interactive flex min-h-11 w-full items-center justify-between gap-3 rounded-control border px-3 py-2.5 text-left ${
               selectedTemplateId === null
                 ? "border-accent bg-accent-soft text-accent"
                 : "border-line bg-panel-muted text-muted hover:border-line-strong"
@@ -357,8 +361,8 @@ export function AiTemplateLibrary({
             onClick={() => onSelectTemplate(null)}
             type="button"
           >
-            <span className="text-[10px] font-semibold">由 AI 自动匹配</span>
-            <span className="text-right text-[8px] leading-4">不指定模板，根据正文自主选择</span>
+            <span className="text-[12px] font-semibold">由 AI 自动匹配</span>
+            <span className="text-right text-[11px] leading-5">不指定模板，根据正文自主选择</span>
           </button>
         </div>
       ) : null}
@@ -379,7 +383,7 @@ export function AiTemplateLibrary({
           <div>
             <p className="text-[12px] font-semibold text-ink">没有匹配的模板</p>
             <button
-              className="mt-3 min-h-11 rounded-control border border-line px-4 text-[10px] font-medium text-muted"
+              className="ui-interactive mt-3 min-h-11 rounded-control border border-line px-4 text-[12px] font-medium text-muted hover:bg-hover hover:text-ink"
               onClick={() => {
                 setQuery("");
                 setCategoryId("all");
@@ -407,7 +411,7 @@ export function AiTemplateLibrary({
             const imageShortfall = Math.max(0, (minimumSourceImages ?? 0) - sourceImageCount);
             return (
               <article
-                className={`relative overflow-hidden rounded-card border bg-panel shadow-subtle transition ${
+                className={`ui-interactive relative overflow-hidden rounded-card border bg-panel shadow-subtle ${
                   selected
                     ? "border-accent ring-2 ring-accent/15"
                     : "border-line hover:border-line-strong"
@@ -419,7 +423,7 @@ export function AiTemplateLibrary({
                 <button
                   aria-label={favorite ? `取消收藏${template.name}` : `收藏${template.name}`}
                   aria-pressed={favorite}
-                  className={`absolute top-2 right-2 grid size-11 place-items-center rounded-full border border-white/70 shadow-subtle ${
+                  className={`ui-interactive absolute top-2 right-2 grid size-11 place-items-center rounded-full border border-white/70 shadow-subtle ${
                     favorite ? "bg-warning-soft text-warning" : "bg-panel/90 text-muted"
                   }`}
                   onClick={() => onToggleFavorite(template.templateId)}
@@ -440,33 +444,33 @@ export function AiTemplateLibrary({
                       {template.name}
                     </span>
                     {selected ? (
-                      <span className="shrink-0 rounded-full bg-accent-soft px-2 py-1 text-[8px] font-semibold text-accent">
+                      <span className="shrink-0 rounded-full bg-accent-soft px-2 py-1 text-[11px] font-semibold text-accent">
                         已选择
                       </span>
                     ) : null}
                   </span>
-                  <span className="mt-1 block text-[9px] text-accent">
+                  <span className="mt-1 block text-[11px] text-accent">
                     {template.categoryLabel} · {template.structureLabel}
                   </span>
-                  <span className="mt-2 line-clamp-2 block text-[9px] leading-4 text-muted">
+                  <span className="mt-2 line-clamp-2 block text-[11px] leading-5 text-muted">
                     {template.description}
                   </span>
                   <span className="mt-2 flex flex-wrap gap-1">
                     {template.tags.slice(0, 2).map((tag) => (
                       <span
-                        className="rounded-full bg-panel-muted px-2 py-0.5 text-[8px] text-faint"
+                        className="rounded-full bg-panel-muted px-2 py-0.5 text-[11px] text-faint"
                         key={tag}
                       >
                         {tag}
                       </span>
                     ))}
                     {recent ? (
-                      <span className="rounded-full bg-panel-muted px-2 py-0.5 text-[8px] text-muted">
+                      <span className="rounded-full bg-panel-muted px-2 py-0.5 text-[11px] text-muted">
                         最近使用
                       </span>
                     ) : null}
                     {imageShortfall > 0 ? (
-                      <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[8px] text-warning">
+                      <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] text-warning">
                         建议先补 {imageShortfall} 张图
                       </span>
                     ) : null}
@@ -492,7 +496,7 @@ export function AiTemplateLibrary({
           >
             <ChevronLeft aria-hidden="true" size={15} />
           </button>
-          <span className="min-w-20 text-center text-[10px] text-muted">
+          <span className="min-w-20 text-center text-[12px] text-muted">
             {safePage} / {pageCount}
           </span>
           <button

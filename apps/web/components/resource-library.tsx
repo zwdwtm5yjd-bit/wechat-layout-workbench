@@ -184,12 +184,12 @@ export function ResourceLibrary() {
       <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-[12px] font-medium text-accent">PRIVATE ASSETS</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">素材库</h1>
+          <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">我的素材</h1>
           <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted">
             管理文章图片和 DOCX 原文件。上传、查重、缩略图、引用保护、短时预览和回收站已经接通。
           </p>
         </div>
-        <label className="inline-flex h-10 cursor-pointer items-center gap-2 self-start rounded-control bg-accent px-4 text-[12px] font-semibold text-white shadow-subtle hover:bg-accent-strong">
+        <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 self-start rounded-control bg-accent px-4 text-[12px] font-semibold text-white shadow-subtle transition-[background-color,box-shadow,transform] duration-150 hover:bg-accent-strong focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-2 focus-within:ring-offset-canvas active:scale-[0.96]">
           {uploadMutation.isPending ? (
             <LoaderCircle aria-hidden="true" className="animate-spin" size={15} />
           ) : (
@@ -198,6 +198,7 @@ export function ResourceLibrary() {
           {uploadMutation.isPending ? "正在校验并上传…" : "上传素材"}
           <input
             accept="image/png,image/jpeg,image/webp,image/gif,.docx"
+            aria-label="选择要上传的素材"
             className="sr-only"
             disabled={uploadMutation.isPending}
             multiple
@@ -246,8 +247,8 @@ export function ResourceLibrary() {
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-2">
-            <label className="relative block">
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <label className="relative block min-w-0 flex-1 sm:flex-none">
               <span className="sr-only">搜索素材</span>
               <Search
                 aria-hidden="true"
@@ -255,14 +256,14 @@ export function ResourceLibrary() {
                 size={12}
               />
               <input
-                className="h-8 w-48 rounded-control border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
+                className="h-10 w-full rounded-control border border-line bg-panel pr-2 pl-8 text-base text-ink outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent focus:ring-2 focus:ring-accent/15 sm:h-8 sm:w-48 sm:text-[11px]"
                 onChange={(event) => setSearch(event.currentTarget.value)}
                 placeholder="搜索名称、文件夹、标签"
                 value={search}
               />
             </label>
             <button
-              className="inline-flex h-8 items-center gap-1.5 self-start rounded-control border border-line px-3 text-[11px] text-muted hover:bg-hover"
+              className="inline-flex h-10 items-center gap-1.5 self-start rounded-control border border-line px-3 text-[11px] text-muted hover:bg-hover sm:h-8"
               onClick={() => void resourcesQuery.refetch()}
               type="button"
             >
@@ -283,7 +284,7 @@ export function ResourceLibrary() {
           <div className="grid min-h-72 place-items-center px-6 text-center">
             <div>
               <Archive aria-hidden="true" className="mx-auto text-danger" size={23} />
-              <p className="mt-3 text-[13px] font-semibold text-ink">无法读取素材库</p>
+              <p className="mt-3 text-[13px] font-semibold text-ink">无法读取我的素材</p>
               <p className="mt-1 text-[11px] text-muted">{errorMessage(resourcesQuery.error)}</p>
             </div>
           </div>
@@ -410,7 +411,7 @@ export function ResourceLibrary() {
                   素材名称
                 </span>
                 <input
-                  className="h-9 w-full rounded-md border border-line bg-panel px-3 text-[11px] text-ink outline-none focus:border-accent"
+                  className="h-10 w-full rounded-md border border-line bg-panel px-3 text-base text-ink outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent focus:ring-2 focus:ring-accent/15 sm:h-9 sm:text-[11px]"
                   maxLength={120}
                   onChange={(event) => setEditName(event.currentTarget.value)}
                   value={editName}
@@ -422,7 +423,7 @@ export function ResourceLibrary() {
                   文件夹
                 </span>
                 <input
-                  className="h-9 w-full rounded-md border border-line bg-panel px-3 text-[11px] text-ink outline-none focus:border-accent"
+                  className="h-10 w-full rounded-md border border-line bg-panel px-3 text-base text-ink outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent focus:ring-2 focus:ring-accent/15 sm:h-9 sm:text-[11px]"
                   maxLength={80}
                   onChange={(event) => setEditFolder(event.currentTarget.value)}
                   placeholder="例如：品牌照片、活动现场"
@@ -435,7 +436,7 @@ export function ResourceLibrary() {
                   标签
                 </span>
                 <input
-                  className="h-9 w-full rounded-md border border-line bg-panel px-3 text-[11px] text-ink outline-none focus:border-accent"
+                  className="h-10 w-full rounded-md border border-line bg-panel px-3 text-base text-ink outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent focus:ring-2 focus:ring-accent/15 sm:h-9 sm:text-[11px]"
                   onChange={(event) => setEditTags(event.currentTarget.value)}
                   placeholder="用逗号分隔，例如：人物，秋季，横图"
                   value={editTags}
@@ -515,7 +516,7 @@ export function ResourceLibrary() {
             {preview === null ? null : preview.mimeType.startsWith("image/") ? (
               <img
                 alt={preview.name}
-                className="mx-auto max-h-[75vh] max-w-full rounded-control object-contain"
+                className="mx-auto max-h-[75vh] max-w-full rounded-control border border-line bg-panel-muted object-contain"
                 src={preview.url}
               />
             ) : (
@@ -535,7 +536,7 @@ export function ResourceLibrary() {
                 </div>
               </div>
             )}
-            <Dialog.Close className="mt-4 h-9 w-full rounded-control border border-line text-[12px] text-ink">
+            <Dialog.Close className="mt-4 min-h-10 w-full rounded-control border border-line text-[12px] text-ink transition-[background-color,border-color,color,transform] duration-150 hover:bg-hover active:scale-[0.96]">
               关闭预览
             </Dialog.Close>
           </Dialog.Content>

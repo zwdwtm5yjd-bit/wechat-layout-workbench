@@ -308,7 +308,7 @@ describe("EditorDeliveryActions AI candidate comparison", () => {
     expect(screen.getAllByText("非最终成稿")).toHaveLength(6);
 
     const firstCard = cards[0]!;
-    expect(within(firstCard).getByText("章节组织").className).toContain("text-[10px]");
+    expect(within(firstCard).getByText("章节组织").className).toContain("text-[11px]");
     expect(within(firstCard).getByText(/\d+ 个章节/u).className).toContain("text-[11px]");
   });
 

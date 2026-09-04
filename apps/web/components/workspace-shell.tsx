@@ -7,7 +7,6 @@ import {
   ChevronsRight,
   CircleHelp,
   FileText,
-  HardDrive,
   ImageUp,
   LayoutDashboard,
   ListChecks,
@@ -20,11 +19,12 @@ import {
   Sparkles,
   Upload,
   UserRound,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { DropdownMenu, Tooltip } from "radix-ui";
+import { Dialog, DropdownMenu, Tooltip } from "radix-ui";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { getCurrentUser, logout, type AuthUser } from "../lib/auth/client";
@@ -38,7 +38,7 @@ import { useWorkspaceUiStore } from "../stores/workspace-ui-store";
 import { ProductMark } from "./product-mark";
 
 interface NavigationItem {
-  readonly href?: string;
+  readonly href: string;
   readonly icon: LucideIcon;
   readonly label: string;
 }
@@ -48,12 +48,18 @@ const navigationItems: readonly NavigationItem[] = [
   { href: "/workspace/articles", icon: FileText, label: "文章" },
   { href: "/workspace/themes", icon: Paintbrush, label: "主题" },
   { href: "/workspace/components", icon: Blocks, label: "组件" },
-  { href: "/workspace/visual-assets", icon: Sparkles, label: "视觉素材" },
+  { href: "/workspace/visual-assets", icon: Sparkles, label: "官方素材" },
   { href: "/workspace/accounts", icon: Radio, label: "公众号" },
-  { href: "/workspace/resources", icon: ImageUp, label: "素材库" },
+  { href: "/workspace/resources", icon: ImageUp, label: "我的素材" },
   { href: "/workspace/jobs", icon: ListChecks, label: "任务中心" },
   { href: "/workspace/settings", icon: Settings, label: "设置" },
 ];
+
+function isNavigationItemActive(pathname: string, href: string) {
+  return href === "/workspace"
+    ? pathname === href
+    : pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
@@ -62,7 +68,9 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
   const setCommandPaletteOpen = useWorkspaceUiStore((state) => state.setCommandPaletteOpen);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [compactEditor, setCompactEditor] = useState(defaultWorkspacePreferences.compactEditor);
+  const isArticleEditor = /^\/workspace\/articles\/[^/]+$/.test(pathname);
   const isArticleWorkspace =
     /^\/workspace\/articles\/[^/]+(?:\/preview)?$/.test(pathname) &&
     pathname !== "/workspace/articles";
@@ -153,11 +161,11 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
             : pathname === "/workspace/components"
               ? { description: "微信安全基础区块", title: "组件" }
               : pathname === "/workspace/visual-assets"
-                ? { description: "静态与动态原创 SVG", title: "视觉素材" }
+                ? { description: "静态与动态原创 SVG", title: "官方素材" }
                 : pathname.startsWith("/workspace/accounts")
                   ? { description: "内容归属与默认发布空间", title: "公众号" }
                   : pathname === "/workspace/resources"
-                    ? { description: "私有上传、引用保护与回收站", title: "素材库" }
+                    ? { description: "私有上传、引用保护与回收站", title: "我的素材" }
                     : pathname === "/workspace/jobs"
                       ? { description: "后台导入进度与失败重试", title: "任务中心" }
                       : pathname === "/workspace/help"
@@ -168,6 +176,12 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
 
   return (
     <div className="min-h-screen bg-canvas">
+      <a
+        className="fixed top-3 left-3 z-[100] -translate-y-20 rounded-control bg-accent px-4 py-2 text-[13px] font-semibold text-white shadow-raised transition-transform duration-150 focus-visible:translate-y-0 active:scale-[0.96]"
+        href="#main-content"
+      >
+        跳到主要内容
+      </a>
       <aside
         className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-line bg-panel transition-[width] duration-200 lg:flex ${
           effectiveCollapsed ? "w-[72px]" : "w-56"
@@ -185,31 +199,25 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
         <nav aria-label="主导航" className="flex-1 space-y-1 px-2.5 py-3">
           {navigationItems.map((item) => {
             const Icon = item.icon;
-            const active =
-              item.href === "/workspace"
-                ? pathname === item.href
-                : item.href !== undefined &&
-                  (pathname === item.href || pathname.startsWith(`${item.href}/`));
-            const navigationClassName = `flex h-10 w-full items-center rounded-control text-[13px] font-medium transition ${
+            const active = isNavigationItemActive(pathname, item.href);
+            const navigationClassName = `flex h-10 w-full items-center rounded-control text-[13px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${
               effectiveCollapsed ? "justify-center px-0" : "gap-3 px-3"
             } ${
               active
                 ? "bg-accent-soft text-accent-strong"
                 : "text-muted hover:bg-hover hover:text-ink"
             }`;
-            const navigationControl =
-              item.href === undefined ? null : (
-                <Link
-                  aria-current={active ? "page" : undefined}
-                  className={navigationClassName}
-                  href={item.href}
-                >
-                  <Icon aria-hidden="true" size={18} strokeWidth={1.9} />
-                  {effectiveCollapsed ? null : <span>{item.label}</span>}
-                </Link>
-              );
-
-            if (navigationControl === null) return null;
+            const navigationControl = (
+              <Link
+                aria-current={active ? "page" : undefined}
+                aria-label={effectiveCollapsed ? item.label : undefined}
+                className={navigationClassName}
+                href={item.href}
+              >
+                <Icon aria-hidden="true" size={18} strokeWidth={1.9} />
+                {effectiveCollapsed ? null : <span>{item.label}</span>}
+              </Link>
+            );
 
             return effectiveCollapsed ? (
               <Tooltip.Root key={item.label}>
@@ -232,16 +240,9 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
         </nav>
         <div className="space-y-1 border-t border-line px-2.5 py-3">
           <Link
-            className={`flex h-10 w-full items-center rounded-control text-muted transition hover:bg-hover hover:text-ink ${
-              effectiveCollapsed ? "justify-center" : "gap-3 px-3"
-            }`}
-            href="/workspace/resources"
-          >
-            <HardDrive aria-hidden="true" size={17} />
-            {effectiveCollapsed ? null : <span className="text-[13px]">存储与素材</span>}
-          </Link>
-          <Link
-            className={`flex h-10 w-full items-center rounded-control text-muted transition hover:bg-hover hover:text-ink ${
+            aria-current={pathname === "/workspace/help" ? "page" : undefined}
+            aria-label={effectiveCollapsed ? "帮助" : undefined}
+            className={`flex h-10 w-full items-center rounded-control text-muted transition-[background-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-[0.96] ${
               effectiveCollapsed ? "justify-center" : "gap-3 px-3"
             }`}
             href="/workspace/help"
@@ -253,7 +254,7 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
             <DropdownMenu.Trigger asChild>
               <button
                 aria-label="打开用户菜单"
-                className={`flex h-11 w-full items-center rounded-control transition hover:bg-hover ${
+                className={`flex h-11 w-full items-center rounded-control transition-[background-color,transform] duration-150 hover:bg-hover active:scale-[0.96] ${
                   effectiveCollapsed ? "justify-center" : "gap-3 px-2"
                 }`}
                 type="button"
@@ -308,7 +309,7 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
         {isArticleWorkspace ? null : (
           <button
             aria-label={collapsed ? "展开导航" : "收起导航"}
-            className="absolute top-20 -right-3 grid size-6 place-items-center rounded-full border border-line bg-panel text-faint shadow-subtle transition hover:text-ink"
+            className="absolute top-20 -right-5 grid size-10 place-items-center rounded-full border border-line bg-panel text-faint shadow-subtle transition-[background-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-[0.96]"
             onClick={toggleSidebar}
             type="button"
           >
@@ -338,7 +339,7 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
           </div>
           <div className="flex items-center gap-2">
             <button
-              className="hidden h-9 min-w-56 items-center gap-2 rounded-control border border-line bg-panel-muted px-3 text-left text-[12px] text-muted transition hover:border-line-strong md:flex"
+              className="hidden h-10 min-w-56 items-center gap-2 rounded-control border border-line bg-panel-muted px-3 text-left text-[12px] text-muted transition-[background-color,border-color,color,transform] duration-150 hover:border-line-strong active:scale-[0.96] md:flex"
               onClick={() => {
                 setCommandPaletteOpen(true);
               }}
@@ -352,14 +353,14 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
             </button>
             <Link
               aria-label="导入文章"
-              className="hidden h-9 items-center gap-2 rounded-control border border-line bg-panel px-3 text-[12px] font-medium text-ink transition hover:bg-hover sm:flex"
+              className="hidden h-10 items-center gap-2 rounded-control border border-line bg-panel px-3 text-[12px] font-medium text-ink transition-[background-color,border-color,color,transform] duration-150 hover:bg-hover active:scale-[0.96] sm:flex"
               href="/workspace/imports/paste"
             >
               <Upload aria-hidden="true" size={15} />
               导入
             </Link>
             <Link
-              className="flex h-9 items-center gap-2 rounded-control bg-accent px-3.5 text-[12px] font-semibold text-white shadow-subtle transition hover:bg-accent-strong"
+              className="flex h-10 items-center gap-2 rounded-control bg-accent px-3.5 text-[12px] font-semibold text-white shadow-subtle transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-[0.96]"
               href="/workspace/articles?new=1"
             >
               <Plus aria-hidden="true" size={15} />
@@ -368,24 +369,122 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
             </Link>
             <Link
               aria-label="通知"
-              className="grid size-9 place-items-center rounded-control border border-line text-muted transition hover:bg-hover hover:text-ink"
+              className="grid size-10 place-items-center rounded-control border border-line text-muted transition-[background-color,border-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-[0.96]"
               href="/workspace/jobs"
             >
               <Bell aria-hidden="true" size={16} />
             </Link>
-            <button
-              aria-label="打开菜单"
-              className="grid size-9 place-items-center rounded-control border border-line text-muted transition hover:bg-hover hover:text-ink lg:hidden"
-              onClick={() => {
-                setCommandPaletteOpen(true);
-              }}
-              type="button"
-            >
-              <Menu aria-hidden="true" size={17} />
-            </button>
+            <Dialog.Root onOpenChange={setMobileNavigationOpen} open={mobileNavigationOpen}>
+              <Dialog.Trigger asChild>
+                <button
+                  aria-label="打开主导航"
+                  className="grid size-10 place-items-center rounded-control border border-line text-muted transition-[background-color,border-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-[0.96] lg:hidden"
+                  type="button"
+                >
+                  <Menu aria-hidden="true" size={17} />
+                </button>
+              </Dialog.Trigger>
+              <Dialog.Portal>
+                <Dialog.Overlay className="fixed inset-0 z-50 bg-zinc-950/40 backdrop-blur-[2px]" />
+                <Dialog.Content className="fixed inset-y-0 right-0 z-[51] flex w-[min(360px,calc(100vw-24px))] flex-col border-l border-line bg-panel shadow-raised">
+                  <div className="flex min-h-16 items-center justify-between gap-4 border-b border-line px-4 py-3">
+                    <div className="min-w-0">
+                      <Dialog.Title className="text-[15px] font-semibold text-ink">
+                        工作区导航
+                      </Dialog.Title>
+                      <Dialog.Description className="mt-0.5 text-[11px] text-muted">
+                        快速前往工作区各项功能
+                      </Dialog.Description>
+                    </div>
+                    <Dialog.Close asChild>
+                      <button
+                        aria-label="关闭主导航"
+                        className="grid size-10 shrink-0 place-items-center rounded-control border border-line text-muted transition-[background-color,border-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-[0.96]"
+                        type="button"
+                      >
+                        <X aria-hidden="true" size={18} />
+                      </button>
+                    </Dialog.Close>
+                  </div>
+
+                  <nav aria-label="移动端主导航" className="flex-1 overflow-y-auto px-3 py-4">
+                    <ul className="space-y-1">
+                      {navigationItems.map((item) => {
+                        const Icon = item.icon;
+                        const active = isNavigationItemActive(pathname, item.href);
+
+                        return (
+                          <li key={item.href}>
+                            <Link
+                              aria-current={active ? "page" : undefined}
+                              className={`flex min-h-11 items-center gap-3 rounded-control px-3 text-[14px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${
+                                active
+                                  ? "bg-accent-soft text-accent-strong"
+                                  : "text-muted hover:bg-hover hover:text-ink"
+                              }`}
+                              href={item.href}
+                              onClick={() => setMobileNavigationOpen(false)}
+                            >
+                              <Icon aria-hidden="true" size={19} strokeWidth={1.9} />
+                              <span>{item.label}</span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </nav>
+
+                  <div className="space-y-2 border-t border-line p-3">
+                    <Link
+                      aria-current={pathname === "/workspace/help" ? "page" : undefined}
+                      className={`flex min-h-11 items-center gap-3 rounded-control px-3 text-[14px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${
+                        pathname === "/workspace/help"
+                          ? "bg-accent-soft text-accent-strong"
+                          : "text-muted hover:bg-hover hover:text-ink"
+                      }`}
+                      href="/workspace/help"
+                      onClick={() => setMobileNavigationOpen(false)}
+                    >
+                      <CircleHelp aria-hidden="true" size={19} />
+                      <span>帮助</span>
+                    </Link>
+                    <div className="flex items-center gap-3 rounded-control border border-line bg-panel-muted p-3">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-zinc-900 text-white">
+                        <UserRound aria-hidden="true" size={16} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-semibold text-ink">
+                          {currentUser?.displayName ?? "正在验证…"}
+                        </span>
+                        <span className="block truncate text-[11px] text-muted">
+                          {currentUser?.email ?? "私有工作台"}
+                        </span>
+                      </span>
+                      <button
+                        aria-label="退出登录"
+                        className="min-h-9 shrink-0 rounded-control px-2.5 text-[12px] font-medium text-muted transition-[background-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-[0.96] disabled:cursor-wait disabled:opacity-60"
+                        disabled={loggingOut}
+                        onClick={() => void handleLogout()}
+                        type="button"
+                      >
+                        {loggingOut ? "退出中…" : "退出"}
+                      </button>
+                    </div>
+                  </div>
+                </Dialog.Content>
+              </Dialog.Portal>
+            </Dialog.Root>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+        <main
+          className={`mx-auto w-full ${
+            isArticleEditor
+              ? "max-w-[1800px] px-3 py-4 sm:px-4 lg:px-5 lg:py-6"
+              : "max-w-[1440px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8"
+          }`}
+          id="main-content"
+          tabIndex={-1}
+        >
           {children}
         </main>
       </div>

@@ -188,15 +188,19 @@ export function ArticleManager() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[12px] font-medium text-accent">CONTENT WORKSPACE</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">文章</h1>
-          <p className="mt-2 text-[13px] text-muted">集中管理文章状态、版本入口与回收站。</p>
+          <p className="text-xs font-medium text-accent">CONTENT WORKSPACE</p>
+          <h1 className="mt-1 text-balance text-2xl font-semibold tracking-[-0.035em] text-ink">
+            文章
+          </h1>
+          <p className="mt-2 text-pretty text-[13px] text-muted">
+            集中管理文章状态、版本入口与回收站。
+          </p>
         </div>
         <button
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-control bg-accent px-4 text-[13px] font-semibold text-white shadow-subtle transition hover:bg-accent-strong"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-control bg-accent px-4 text-[13px] font-semibold text-white shadow-subtle transition-[background-color,transform,box-shadow] duration-150 hover:bg-accent-strong hover:shadow-raised active:scale-[0.96]"
           onClick={() => {
             setCreateOpen(true);
           }}
@@ -207,13 +211,17 @@ export function ArticleManager() {
         </button>
       </section>
 
-      <section className="rounded-card border border-line bg-panel shadow-subtle">
+      <section className="overflow-hidden rounded-card bg-panel shadow-subtle">
         <div className="flex flex-col gap-3 border-b border-line p-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex gap-1 overflow-x-auto pb-1 lg:pb-0" role="tablist">
+          <div
+            aria-label="按文章状态筛选"
+            className="flex gap-1 overflow-x-auto pb-1 lg:pb-0"
+            role="tablist"
+          >
             {filters.map((item) => (
               <button
                 aria-selected={filter === item.value}
-                className={`shrink-0 rounded-control px-3 py-2 text-[12px] font-medium transition ${
+                className={`min-h-10 shrink-0 rounded-control px-3 py-2 text-xs font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${
                   filter === item.value
                     ? "bg-accent-soft text-accent-strong"
                     : "text-muted hover:bg-hover hover:text-ink"
@@ -229,7 +237,7 @@ export function ArticleManager() {
               </button>
             ))}
           </div>
-          <form className="flex gap-2" onSubmit={submitSearch}>
+          <form className="flex w-full gap-2 lg:w-auto" onSubmit={submitSearch}>
             <label className="relative min-w-0 flex-1 lg:w-72">
               <span className="sr-only">搜索文章</span>
               <Search
@@ -238,7 +246,7 @@ export function ArticleManager() {
                 size={15}
               />
               <input
-                className="h-9 w-full rounded-control border border-line bg-panel-muted pr-9 pl-9 text-[12px] text-ink outline-none transition placeholder:text-faint focus:border-accent focus:ring-3 focus:ring-indigo-100"
+                className="h-10 w-full rounded-control border border-line bg-panel-muted pr-11 pl-9 text-base text-ink outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted focus:border-accent focus:ring-3 focus:ring-accent/20"
                 maxLength={200}
                 onChange={(event) => {
                   setSearchDraft(event.target.value);
@@ -249,7 +257,7 @@ export function ArticleManager() {
               {searchDraft === "" ? null : (
                 <button
                   aria-label="清除搜索"
-                  className="absolute top-1/2 right-2 grid size-6 -translate-y-1/2 place-items-center rounded-md text-faint hover:bg-hover hover:text-ink"
+                  className="absolute top-1/2 right-0 grid size-10 -translate-y-1/2 place-items-center rounded-control text-muted transition-[background-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-[0.96]"
                   onClick={() => {
                     setSearchDraft("");
                     setSearch("");
@@ -261,7 +269,7 @@ export function ArticleManager() {
               )}
             </label>
             <button
-              className="h-9 rounded-control border border-line bg-panel px-3 text-[12px] font-medium text-ink transition hover:bg-hover"
+              className="h-10 rounded-control border border-line bg-panel px-4 text-xs font-medium text-ink transition-[background-color,border-color,transform] duration-150 hover:bg-hover active:scale-[0.96]"
               type="submit"
             >
               搜索
@@ -279,10 +287,12 @@ export function ArticleManager() {
         ) : articlesQuery.isError ? (
           <div className="grid min-h-72 place-items-center px-6 text-center">
             <div>
-              <p className="text-sm font-semibold text-danger">文章列表加载失败</p>
-              <p className="mt-2 text-[12px] text-muted">{errorMessage(articlesQuery.error)}</p>
+              <p className="text-balance text-sm font-semibold text-danger">文章列表加载失败</p>
+              <p className="mt-2 text-pretty text-xs text-muted">
+                {errorMessage(articlesQuery.error)}
+              </p>
               <button
-                className="mt-4 rounded-control border border-line px-3 py-2 text-[12px] font-medium text-ink hover:bg-hover"
+                className="mt-4 min-h-10 rounded-control border border-line px-4 py-2 text-xs font-medium text-ink transition-[background-color,border-color,transform] duration-150 hover:bg-hover active:scale-[0.96]"
                 onClick={() => {
                   void articlesQuery.refetch();
                 }}
@@ -302,17 +312,21 @@ export function ArticleManager() {
                   <FileText aria-hidden="true" size={20} />
                 )}
               </span>
-              <h2 className="mt-4 text-sm font-semibold text-ink">
+              <h2 className="mt-4 text-balance text-sm font-semibold text-ink">
                 {filter === "trash"
                   ? "回收站是空的"
                   : search === ""
                     ? "还没有符合条件的文章"
                     : "没有找到文章"}
               </h2>
-              <p className="mt-2 text-[12px] leading-5 text-muted">
+              <p className="mt-2 text-pretty text-xs leading-5 text-muted">
                 {filter === "trash"
-                  ? "删除的文章会在这里保留 30 天。"
-                  : "新建一篇空白文章，开始建立你的内容工作流。"}
+                  ? "删除的文章会在这里保留 30 天，无需进一步处理。"
+                  : search !== ""
+                    ? "请清除搜索词或换一个关键词继续查找。"
+                    : filter !== "all"
+                      ? "切换到“全部”查看所有文章，或从右上角新建文章。"
+                      : "点击右上角“新建空白文章”，开始建立内容工作流。"}
               </p>
             </div>
           </div>
@@ -321,7 +335,7 @@ export function ArticleManager() {
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[860px] border-collapse text-left">
                 <thead>
-                  <tr className="border-b border-line bg-panel-muted text-[11px] font-medium text-faint">
+                  <tr className="border-b border-line bg-panel-muted text-[11px] font-medium text-muted">
                     <th className="px-5 py-3">文章</th>
                     <th className="px-4 py-3">状态</th>
                     <th className="px-4 py-3">内容</th>
@@ -352,7 +366,7 @@ export function ArticleManager() {
                 />
               ))}
             </div>
-            <div className="border-t border-line px-5 py-3 text-[11px] text-faint">
+            <div className="border-t border-line px-5 py-3 text-[11px] text-muted">
               共 {articlesQuery.data.pagination.total} 篇文章
             </div>
           </>
@@ -381,11 +395,11 @@ interface ArticleItemProps {
 
 function ArticleTableRow({ article, busy, onAction }: ArticleItemProps) {
   return (
-    <tr className="border-b border-line/80 last:border-0 hover:bg-panel-muted">
+    <tr className="border-b border-line/80 transition-colors duration-150 last:border-0 hover:bg-panel-muted">
       <td className="max-w-sm px-5 py-4">
         {article.deletedAt === null ? (
           <Link
-            className="block truncate text-[13px] font-semibold text-ink hover:text-accent"
+            className="block truncate text-[13px] font-semibold text-ink transition-colors duration-150 hover:text-accent"
             href={`/workspace/articles/${article.id}`}
           >
             {article.title}
@@ -393,13 +407,13 @@ function ArticleTableRow({ article, busy, onAction }: ArticleItemProps) {
         ) : (
           <p className="truncate text-[13px] font-semibold text-ink">{article.title}</p>
         )}
-        <p className="mt-1 truncate text-[11px] text-faint">
+        <p className="mt-1 truncate text-[11px] text-muted">
           {article.subtitle ?? `${article.contentType} · ${article.sourceType}`}
         </p>
       </td>
       <td className="px-4 py-4">
         <span
-          className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium ${statusTone(article.status)}`}
+          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium ${statusTone(article.status)}`}
         >
           {article.deletedAt === null ? statusLabels[article.status] : "回收站"}
         </span>
@@ -433,12 +447,12 @@ function ArticleTableRow({ article, busy, onAction }: ArticleItemProps) {
 
 function ArticleCard({ article, busy, onAction }: ArticleItemProps) {
   return (
-    <article className="rounded-card border border-line bg-panel p-4">
+    <article className="rounded-card bg-panel p-4 shadow-subtle">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           {article.deletedAt === null ? (
             <Link
-              className="block truncate text-[13px] font-semibold text-ink hover:text-accent"
+              className="block truncate text-[13px] font-semibold text-ink transition-colors duration-150 hover:text-accent"
               href={`/workspace/articles/${article.id}`}
             >
               {article.title}
@@ -446,13 +460,13 @@ function ArticleCard({ article, busy, onAction }: ArticleItemProps) {
           ) : (
             <p className="truncate text-[13px] font-semibold text-ink">{article.title}</p>
           )}
-          <p className="mt-1 text-[11px] text-faint">{formatTime(article.updatedAt)}</p>
+          <p className="mt-1 text-[11px] text-muted">{formatTime(article.updatedAt)}</p>
         </div>
         <ArticleActions article={article} busy={busy} onAction={onAction} />
       </div>
       <div className="mt-4 flex items-center justify-between">
         <span
-          className={`rounded-full px-2.5 py-1 text-[10px] font-medium ${statusTone(article.status)}`}
+          className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${statusTone(article.status)}`}
         >
           {article.deletedAt === null ? statusLabels[article.status] : "回收站"}
         </span>
@@ -470,7 +484,7 @@ function ArticleActions({ article, busy, onAction }: ArticleItemProps) {
       <DropdownMenu.Trigger asChild>
         <button
           aria-label={`打开“${article.title}”操作菜单`}
-          className="grid size-8 place-items-center rounded-control text-muted transition hover:bg-hover hover:text-ink disabled:opacity-50"
+          className="grid size-10 place-items-center rounded-control text-muted transition-[background-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-[0.96] disabled:opacity-50"
           disabled={busy}
           type="button"
         >
@@ -480,7 +494,7 @@ function ArticleActions({ article, busy, onAction }: ArticleItemProps) {
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="end"
-          className="z-50 min-w-40 rounded-control border border-line bg-panel p-1.5 shadow-raised"
+          className="z-50 min-w-40 rounded-control bg-panel p-1.5 shadow-raised"
           sideOffset={5}
         >
           {article.deletedAt === null ? (
@@ -537,7 +551,7 @@ function ActionItem({
 }) {
   return (
     <DropdownMenu.Item
-      className={`flex items-center gap-2 rounded-md px-2.5 py-2 text-[12px] outline-none data-[highlighted]:bg-hover ${
+      className={`flex min-h-10 items-center gap-2 rounded-control px-2.5 py-2 text-xs outline-none transition-colors duration-150 data-[highlighted]:bg-hover ${
         danger ? "text-danger" : "text-muted data-[highlighted]:text-ink"
       }`}
       onSelect={onSelect}
@@ -577,18 +591,20 @@ function CreateArticleDialog({
   return (
     <Dialog.Root onOpenChange={onOpenChange} open={open}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50 bg-zinc-950/30 backdrop-blur-[2px]" />
-        <Dialog.Content className="dialog-content fixed top-1/2 left-1/2 z-50 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-card border border-line bg-panel p-5 shadow-raised sm:p-6">
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50 bg-overlay backdrop-blur-[2px]" />
+        <Dialog.Content className="dialog-content fixed top-1/2 left-1/2 z-50 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-card bg-panel p-5 shadow-raised sm:p-6">
           <div className="flex items-start justify-between">
             <div>
-              <Dialog.Title className="text-base font-semibold text-ink">新建空白文章</Dialog.Title>
-              <Dialog.Description className="mt-1 text-[12px] leading-5 text-muted">
+              <Dialog.Title className="text-balance text-base font-semibold text-ink">
+                新建空白文章
+              </Dialog.Title>
+              <Dialog.Description className="mt-1 text-pretty text-xs leading-5 text-muted">
                 创建后会同步建立一份独立的 Document Schema 文档。
               </Dialog.Description>
             </div>
             <Dialog.Close
               aria-label="关闭"
-              className="grid size-8 place-items-center rounded-control text-faint hover:bg-hover hover:text-ink"
+              className="grid size-10 place-items-center rounded-control text-muted transition-[background-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-[0.96]"
               disabled={busy}
             >
               <X aria-hidden="true" size={16} />
@@ -599,7 +615,7 @@ function CreateArticleDialog({
               <span className="mb-2 block text-[12px] font-medium text-ink">文章标题</span>
               <input
                 autoFocus
-                className="h-10 w-full rounded-control border border-line bg-panel px-3 text-[13px] text-ink outline-none transition placeholder:text-faint focus:border-accent focus:ring-3 focus:ring-indigo-100"
+                className="h-11 w-full rounded-control border border-line bg-panel px-3 text-base text-ink outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted focus:border-accent focus:ring-3 focus:ring-accent/20"
                 disabled={busy}
                 maxLength={500}
                 name="title"
@@ -611,7 +627,7 @@ function CreateArticleDialog({
               <label className="block">
                 <span className="mb-2 block text-[12px] font-medium text-ink">内容类型</span>
                 <select
-                  className="h-10 w-full rounded-control border border-line bg-panel px-3 text-[13px] text-ink outline-none focus:border-accent focus:ring-3 focus:ring-indigo-100"
+                  className="h-11 w-full rounded-control border border-line bg-panel px-3 text-base text-ink outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent focus:ring-3 focus:ring-accent/20"
                   defaultValue="general"
                   disabled={busy}
                   name="contentType"
@@ -624,7 +640,7 @@ function CreateArticleDialog({
               <label className="block">
                 <span className="mb-2 block text-[12px] font-medium text-ink">排版强度</span>
                 <select
-                  className="h-10 w-full rounded-control border border-line bg-panel px-3 text-[13px] text-ink outline-none focus:border-accent focus:ring-3 focus:ring-indigo-100"
+                  className="h-11 w-full rounded-control border border-line bg-panel px-3 text-base text-ink outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent focus:ring-3 focus:ring-accent/20"
                   defaultValue="standard"
                   disabled={busy}
                   name="layoutStrength"
@@ -637,13 +653,13 @@ function CreateArticleDialog({
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Dialog.Close
-                className="h-9 rounded-control border border-line px-4 text-[12px] font-medium text-muted hover:bg-hover"
+                className="h-10 rounded-control border border-line px-4 text-xs font-medium text-muted transition-[background-color,border-color,transform] duration-150 hover:bg-hover active:scale-[0.96]"
                 disabled={busy}
               >
                 取消
               </Dialog.Close>
               <button
-                className="inline-flex h-9 items-center gap-2 rounded-control bg-accent px-4 text-[12px] font-semibold text-white hover:bg-accent-strong disabled:cursor-wait disabled:opacity-70"
+                className="inline-flex h-10 items-center gap-2 rounded-control bg-accent px-4 text-xs font-semibold text-white shadow-subtle transition-[background-color,transform,box-shadow] duration-150 hover:bg-accent-strong hover:shadow-raised active:scale-[0.96] disabled:cursor-wait disabled:opacity-70"
                 disabled={busy}
                 type="submit"
               >

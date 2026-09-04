@@ -76,6 +76,10 @@ const commands: readonly CommandItem[] = [
   },
 ];
 
+function commandOptionId(command: CommandItem): string {
+  return `command-palette-option-${commands.indexOf(command)}`;
+}
+
 export function CommandPalette() {
   const router = useRouter();
   const open = useWorkspaceUiStore((state) => state.commandPaletteOpen);
@@ -93,6 +97,7 @@ export function CommandPalette() {
             .includes(normalizedQuery),
         );
   }, [query]);
+  const activeCommand = visibleCommands[activeIndex];
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -115,6 +120,12 @@ export function CommandPalette() {
     }
   }, [open]);
 
+  useEffect(() => {
+    if (!open || activeCommand === undefined) return;
+
+    document.getElementById(commandOptionId(activeCommand))?.scrollIntoView({ block: "nearest" });
+  }, [activeCommand, open]);
+
   const execute = (command: CommandItem) => {
     setOpen(false);
 
@@ -136,9 +147,16 @@ export function CommandPalette() {
           <div className="flex items-center gap-3 border-b border-line px-4">
             <Search aria-hidden="true" className="text-faint" size={19} />
             <input
+              aria-activedescendant={
+                activeCommand === undefined ? undefined : commandOptionId(activeCommand)
+              }
+              aria-autocomplete="list"
+              aria-controls="command-palette-options"
+              aria-expanded={open}
               aria-label="搜索命令"
+              autoComplete="off"
               autoFocus
-              className="h-14 min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-faint"
+              className="h-14 min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-faint"
               onChange={(event) => {
                 setQuery(event.target.value);
                 setActiveIndex(0);
@@ -165,27 +183,38 @@ export function CommandPalette() {
                 }
               }}
               placeholder="搜索页面或执行命令…"
+              role="combobox"
+              spellCheck={false}
               value={query}
             />
             <Dialog.Close
               aria-label="关闭命令面板"
-              className="rounded-control p-1.5 text-faint transition hover:bg-hover hover:text-ink"
+              className="grid size-10 shrink-0 place-items-center rounded-control text-faint transition-[background-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-95"
             >
               <X aria-hidden="true" size={17} />
             </Dialog.Close>
           </div>
-          <div className="max-h-[360px] overflow-y-auto p-2">
+          <div
+            aria-label={visibleCommands.length === 0 ? undefined : "命令结果"}
+            className="max-h-[360px] overflow-y-auto p-2"
+            id="command-palette-options"
+            role={visibleCommands.length === 0 ? undefined : "listbox"}
+          >
             {visibleCommands.length === 0 ? (
-              <p className="px-4 py-10 text-center text-sm text-muted">没有匹配的命令</p>
+              <p className="px-4 py-10 text-center text-sm text-muted" role="status">
+                没有找到匹配项，请尝试其他关键词。
+              </p>
             ) : (
               visibleCommands.map((command, index) => {
                 const Icon = command.icon;
 
                 return (
                   <button
-                    className={`flex w-full items-center gap-3 rounded-control px-3 py-3 text-left transition ${
+                    aria-selected={activeIndex === index}
+                    className={`flex w-full items-center gap-3 rounded-control px-3 py-3 text-left transition-[background-color,transform] duration-150 active:scale-[0.99] ${
                       activeIndex === index ? "bg-accent-soft" : "hover:bg-hover"
                     }`}
+                    id={commandOptionId(command)}
                     key={command.label}
                     onClick={() => {
                       execute(command);
@@ -193,12 +222,14 @@ export function CommandPalette() {
                     onMouseEnter={() => {
                       setActiveIndex(index);
                     }}
+                    role="option"
+                    tabIndex={-1}
                     type="button"
                   >
                     <span
                       className={`grid size-9 shrink-0 place-items-center rounded-control border ${
                         activeIndex === index
-                          ? "border-indigo-200 bg-panel text-accent"
+                          ? "border-accent/20 bg-panel text-accent"
                           : "border-line bg-panel-muted text-muted"
                       }`}
                     >

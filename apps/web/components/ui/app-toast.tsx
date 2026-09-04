@@ -15,7 +15,7 @@ import {
 interface ToastInput {
   readonly description?: string;
   readonly title: string;
-  readonly tone?: "default" | "success" | "warning";
+  readonly tone?: "default" | "error" | "success" | "warning";
 }
 
 interface ToastMessage extends ToastInput {
@@ -47,44 +47,62 @@ export function AppToastProvider({ children }: Readonly<{ children: ReactNode }>
     <ToastContext.Provider value={value}>
       <Toast.Provider duration={5_000} label="通知" swipeDirection="right">
         {children}
-        {messages.map((message) => (
-          <Toast.Root
-            className="toast-root grid grid-cols-[1fr_auto] gap-x-4 rounded-card border border-line bg-panel px-4 py-3 shadow-raised"
-            key={message.id}
-            onOpenChange={(open) => {
-              if (!open) {
-                dismiss(message.id);
+        {messages.map((message) => {
+          const persistent = message.tone === "error" || message.tone === "warning";
+
+          return (
+            <Toast.Root
+              className={
+                message.tone === "error"
+                  ? "toast-root grid grid-cols-[1fr_auto] gap-x-3 rounded-card border border-danger/20 bg-danger-soft px-4 py-3 shadow-raised"
+                  : message.tone === "warning"
+                    ? "toast-root grid grid-cols-[1fr_auto] gap-x-3 rounded-card border border-warning/20 bg-warning-soft px-4 py-3 shadow-raised"
+                    : message.tone === "success"
+                      ? "toast-root grid grid-cols-[1fr_auto] gap-x-3 rounded-card border border-success/20 bg-success-soft px-4 py-3 shadow-raised"
+                      : "toast-root grid grid-cols-[1fr_auto] gap-x-3 rounded-card border border-line bg-panel px-4 py-3 shadow-raised"
               }
-            }}
-            type="foreground"
-          >
-            <div>
-              <Toast.Title
-                className={
-                  message.tone === "success"
-                    ? "text-sm font-semibold text-success"
-                    : message.tone === "warning"
-                      ? "text-sm font-semibold text-warning"
-                      : "text-sm font-semibold text-ink"
+              duration={persistent ? Number.POSITIVE_INFINITY : 5_000}
+              key={message.id}
+              onOpenChange={(open) => {
+                if (!open) {
+                  dismiss(message.id);
                 }
-              >
-                {message.title}
-              </Toast.Title>
-              {message.description === undefined ? null : (
-                <Toast.Description className="mt-1 text-[13px] leading-5 text-muted">
-                  {message.description}
-                </Toast.Description>
-              )}
-            </div>
-            <Toast.Close
-              aria-label="关闭通知"
-              className="rounded-control p-1 text-faint transition hover:bg-hover hover:text-ink"
+              }}
+              type={persistent ? "foreground" : "background"}
             >
-              <X aria-hidden="true" size={16} />
-            </Toast.Close>
-          </Toast.Root>
-        ))}
-        <Toast.Viewport className="fixed right-4 bottom-4 z-[100] grid w-[min(380px,calc(100vw-32px))] gap-2 outline-none" />
+              <div className="self-center">
+                <Toast.Title
+                  className={
+                    message.tone === "success"
+                      ? "text-sm font-semibold text-success"
+                      : message.tone === "warning"
+                        ? "text-sm font-semibold text-warning"
+                        : message.tone === "error"
+                          ? "text-sm font-semibold text-danger"
+                          : "text-sm font-semibold text-ink"
+                  }
+                >
+                  {message.title}
+                </Toast.Title>
+                {message.description === undefined ? null : (
+                  <Toast.Description className="mt-1 text-[13px] leading-5 text-muted">
+                    {message.description}
+                  </Toast.Description>
+                )}
+              </div>
+              <Toast.Close
+                aria-label="关闭通知"
+                className="grid size-10 place-items-center self-start rounded-control text-faint transition-[background-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-95"
+              >
+                <X aria-hidden="true" size={16} />
+              </Toast.Close>
+            </Toast.Root>
+          );
+        })}
+        <Toast.Viewport
+          className="fixed right-4 bottom-4 z-[100] grid w-[min(380px,calc(100vw-32px))] gap-2 outline-none"
+          label="通知（{hotkey}）"
+        />
       </Toast.Provider>
     </ToastContext.Provider>
   );

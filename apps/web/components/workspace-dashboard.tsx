@@ -39,16 +39,16 @@ export function WorkspaceDashboard({ today }: { readonly today: string }) {
   const articles = articlesQuery.data?.items ?? [];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
       <section className="grid gap-4 xl:grid-cols-12">
-        <div className="relative overflow-hidden rounded-card border border-line bg-panel p-6 shadow-subtle sm:p-7 xl:col-span-8">
-          <div className="pointer-events-none absolute top-[-90px] right-[-70px] size-64 rounded-full bg-indigo-100/80 blur-3xl" />
+        <div className="relative overflow-hidden rounded-card bg-panel p-6 shadow-subtle sm:p-8 xl:col-span-8">
+          <div className="pointer-events-none absolute top-[-90px] right-[-70px] size-64 rounded-full bg-accent-soft/80 blur-3xl" />
           <div className="relative">
-            <p className="text-[12px] font-medium text-muted">{today}</p>
-            <h1 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-ink">
+            <p className="text-xs font-medium text-muted">{today}</p>
+            <h1 className="mt-2 max-w-3xl text-balance text-2xl font-semibold tracking-[-0.035em] text-ink sm:text-[30px] sm:leading-[1.25]">
               把一篇原稿，做成可发布的公众号成稿
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
+            <p className="mt-3 max-w-2xl text-pretty text-sm leading-6 text-muted">
               按“导入原稿 → 检查结构 → 选择成稿 → 完善并发布”一步步完成；需要时随时进入自由编辑。
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -57,57 +57,59 @@ export function WorkspaceDashboard({ today }: { readonly today: string }) {
                 基础服务正常
               </span>
               {articlesQuery.isPending ? (
-                <span className="inline-flex items-center gap-1.5 text-[12px] text-faint">
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted">
                   <LoaderCircle aria-hidden="true" className="animate-spin" size={12} />
                   正在读取最近文章
                 </span>
               ) : (
-                <span className="text-[12px] text-faint">
+                <span className="text-xs text-muted">
                   {articlesQuery.data?.pagination.total ?? 0} 篇文章在工作台中
                 </span>
               )}
             </div>
           </div>
         </div>
-        <div className="rounded-card bg-[#26225f] p-6 text-white shadow-subtle sm:p-7 xl:col-span-4">
+        <div className="rounded-card bg-ink p-6 text-white shadow-subtle sm:p-7 xl:col-span-4">
           <div className="flex items-center justify-between">
-            <span className="grid size-10 place-items-center rounded-[10px] bg-white/10 text-indigo-100">
+            <span className="grid size-10 place-items-center rounded-control bg-accent text-white shadow-subtle">
               <Sparkles aria-hidden="true" size={19} />
             </span>
-            <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-medium text-indigo-100">
+            <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white/70">
               已上线
             </span>
           </div>
-          <p className="mt-5 text-[12px] font-medium text-indigo-200">成稿向导</p>
-          <p className="mt-1 text-lg font-semibold">三套方案 + 自由编辑</p>
+          <p className="mt-5 text-xs font-medium text-white/65">成稿向导</p>
+          <p className="mt-1 text-balance text-lg font-semibold">三套方案 + 自由编辑</p>
           <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full w-full rounded-full bg-indigo-300" />
+            <div className="h-full w-full rounded-full bg-accent" />
           </div>
-          <p className="mt-3 text-[11px] leading-5 text-indigo-100/70">
+          <p className="mt-3 text-pretty text-xs leading-5 text-white/70">
             自动建立阅读层级和视觉节奏，也可上传、保存、替换自己的图片素材。
           </p>
         </div>
       </section>
 
       <section>
-        <div className="mb-3 flex items-end justify-between">
+        <div className="mb-4 flex items-end justify-between">
           <div>
-            <h2 className="text-base font-semibold text-ink">快速开始</h2>
-            <p className="mt-1 text-[12px] text-muted">选择一种方式开始排版</p>
+            <h2 className="text-balance text-lg font-semibold text-ink">快速开始</h2>
+            <p className="mt-1 text-pretty text-xs text-muted">
+              先走完主流程，再根据需要进入其他入口。
+            </p>
           </div>
         </div>
         <QuickStartGrid />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-12">
-        <div className="rounded-card border border-line bg-panel shadow-subtle xl:col-span-8">
+        <div className="rounded-card bg-panel shadow-subtle xl:col-span-8">
           <div className="flex items-center justify-between border-b border-line px-5 py-4">
             <div>
-              <h2 className="text-[15px] font-semibold text-ink">最近文章</h2>
-              <p className="mt-1 text-[11px] text-muted">按最近更新时间排序</p>
+              <h2 className="text-balance text-base font-semibold text-ink">最近文章</h2>
+              <p className="mt-1 text-xs text-muted">按最近更新时间排序</p>
             </div>
             <Link
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-accent hover:text-accent-strong"
+              className="inline-flex items-center gap-1 text-xs font-medium text-accent transition-colors duration-150 hover:text-accent-strong"
               href="/workspace/articles"
             >
               查看全部
@@ -131,7 +133,7 @@ export function WorkspaceDashboard({ today }: { readonly today: string }) {
                     : "文章服务暂时不可用"}
                 </p>
                 <button
-                  className="mt-4 rounded-control border border-line px-3 py-2 text-[11px] text-ink hover:bg-hover"
+                  className="mt-4 rounded-control border border-line px-3 py-2 text-xs font-medium text-ink transition-[background-color,border-color,transform] duration-150 hover:bg-hover active:scale-[0.96]"
                   onClick={() => void articlesQuery.refetch()}
                   type="button"
                 >
@@ -155,7 +157,7 @@ export function WorkspaceDashboard({ today }: { readonly today: string }) {
             <div className="divide-y divide-line">
               {articles.map((article) => (
                 <Link
-                  className="flex items-center gap-4 px-5 py-3.5 transition hover:bg-hover"
+                  className="flex items-center gap-4 px-5 py-3.5 transition-colors duration-150 hover:bg-hover active:bg-panel-muted"
                   href={`/workspace/articles/${article.id}`}
                   key={article.id}
                 >
@@ -163,17 +165,17 @@ export function WorkspaceDashboard({ today }: { readonly today: string }) {
                     <FileText aria-hidden="true" size={15} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12px] font-medium text-ink">
+                    <span className="block truncate text-xs font-medium text-ink">
                       {article.title}
                     </span>
-                    <span className="mt-1 block text-[10px] text-faint">
+                    <span className="mt-1 block text-[11px] text-muted">
                       {formatUpdatedAt(article.updatedAt)}
                     </span>
                   </span>
-                  <span className="hidden rounded-full bg-panel-muted px-2.5 py-1 text-[10px] text-muted sm:inline">
+                  <span className="hidden rounded-full bg-panel-muted px-2.5 py-1 text-[11px] text-muted sm:inline">
                     {articleStatus(article)}
                   </span>
-                  <span className="w-12 text-right font-mono text-[10px] text-faint">
+                  <span className="w-12 text-right text-[11px] font-medium tabular-nums text-muted">
                     {article.compatibilityScore === null
                       ? "未检查"
                       : `${article.compatibilityScore}分`}
@@ -185,47 +187,49 @@ export function WorkspaceDashboard({ today }: { readonly today: string }) {
         </div>
 
         <div className="grid gap-4 xl:col-span-4">
-          <section className="rounded-card border border-line bg-panel p-5 shadow-subtle">
+          <section className="rounded-card bg-panel p-5 shadow-subtle">
             <div className="flex items-center justify-between">
               <span className="grid size-9 place-items-center rounded-control bg-accent-soft text-accent">
                 <Radio aria-hidden="true" size={17} />
               </span>
-              <span className="text-[11px] text-faint">公众号品牌</span>
+              <span className="text-[11px] text-muted">公众号品牌</span>
             </div>
-            <h2 className="mt-4 text-[14px] font-semibold text-ink">公众号品牌空间已开放</h2>
-            <p className="mt-2 text-[12px] leading-5 text-muted">
+            <h2 className="mt-4 text-balance text-sm font-semibold text-ink">
+              公众号品牌空间已开放
+            </h2>
+            <p className="mt-2 text-pretty text-xs leading-5 text-muted">
               可创建多个公众号品牌空间、设置默认账号，并管理启用与归档状态。
             </p>
             <Link
-              className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-medium text-accent"
+              className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-accent transition-colors duration-150 hover:text-accent-strong"
               href="/workspace/accounts"
             >
               管理公众号
               <ArrowRight aria-hidden="true" size={13} />
             </Link>
           </section>
-          <section className="rounded-card border border-line bg-panel p-5 shadow-subtle">
+          <section className="rounded-card bg-panel p-5 shadow-subtle">
             <div className="flex items-center justify-between">
               <span className="grid size-9 place-items-center rounded-control bg-warning-soft text-warning">
                 <PackageOpen aria-hidden="true" size={17} />
               </span>
-              <span className="text-[11px] text-faint">视觉资产</span>
+              <span className="text-[11px] text-muted">视觉资产</span>
             </div>
-            <h2 className="mt-4 text-[14px] font-semibold text-ink">预览目录已开放</h2>
-            <p className="mt-2 text-[12px] leading-5 text-muted">
+            <h2 className="mt-4 text-balance text-sm font-semibold text-ink">预览目录已开放</h2>
+            <p className="mt-2 text-pretty text-xs leading-5 text-muted">
               可查看 10 套正式主题和 53 个已安装组件（含原创 PNG / SVG
               高级模块），均使用精确版本资产。
             </p>
-            <div className="mt-4 flex items-center gap-3 text-[11px] text-faint">
+            <div className="mt-4 flex items-center gap-3 text-[11px] text-muted">
               <Link
-                className="inline-flex items-center gap-1 hover:text-accent"
+                className="inline-flex items-center gap-1 transition-colors duration-150 hover:text-accent"
                 href="/workspace/themes"
               >
                 <Palette aria-hidden="true" size={12} />
                 10 主题
               </Link>
               <Link
-                className="inline-flex items-center gap-1 hover:text-accent"
+                className="inline-flex items-center gap-1 transition-colors duration-150 hover:text-accent"
                 href="/workspace/components"
               >
                 <Sparkles aria-hidden="true" size={12} />

@@ -10,23 +10,26 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <main className="grid min-h-screen bg-panel lg:grid-cols-[minmax(360px,40%)_1fr]">
-      <section className="relative hidden min-h-screen overflow-hidden bg-[#29246d] px-10 py-10 text-white lg:flex lg:flex-col xl:px-14 xl:py-12">
+      <section className="relative hidden min-h-screen overflow-hidden bg-sidebar-bg px-10 py-10 text-white lg:flex lg:flex-col xl:px-14 xl:py-12">
         <div className="login-visual-grid pointer-events-none absolute inset-0 opacity-50" />
-        <div className="pointer-events-none absolute -top-32 -left-28 size-80 rounded-full bg-indigo-400/25 blur-3xl" />
-        <div className="pointer-events-none absolute right-[-80px] bottom-12 size-72 rounded-full bg-violet-400/20 blur-3xl" />
+        <div className="pointer-events-none absolute -top-32 -left-28 size-80 rounded-full bg-accent/35 blur-3xl" />
+        <div className="pointer-events-none absolute right-[-80px] bottom-12 size-72 rounded-full bg-highlight/20 blur-3xl" />
         <div className="relative z-10">
           <ProductMark inverse />
         </div>
         <div className="relative z-10 my-auto max-w-[520px] py-16">
-          <p className="text-[12px] font-semibold tracking-[0.18em] text-indigo-200 uppercase">
+          <p className="text-[12px] font-semibold tracking-[0.18em] text-sidebar-muted uppercase">
             Content design workspace
           </p>
-          <h1 className="mt-5 text-[clamp(32px,4vw,56px)] leading-[1.08] font-semibold tracking-[-0.045em]">
+          <p
+            aria-hidden="true"
+            className="mt-5 text-[clamp(32px,4vw,56px)] leading-[1.08] font-semibold tracking-[-0.045em]"
+          >
             让定稿文章，
             <br />
             更快成为好设计。
-          </h1>
-          <p className="mt-6 max-w-md text-[15px] leading-7 text-indigo-100/80">
+          </p>
+          <p className="mt-6 max-w-md text-[15px] leading-7 text-sidebar-muted">
             在一个克制、清晰的工作台里完成结构确认、主题应用、组件编排和微信发布准备。
           </p>
           <div aria-hidden="true" className="relative mt-12 h-[290px] max-w-[510px]">
@@ -64,7 +67,7 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
-        <p className="relative z-10 text-[11px] text-indigo-200/65">
+        <p className="relative z-10 text-[11px] text-sidebar-muted">
           私有云端部署 · 内容与凭据由你掌控
         </p>
       </section>
@@ -77,9 +80,9 @@ export default function LoginPage() {
           <p className="text-[12px] font-semibold tracking-[0.12em] text-accent uppercase">
             欢迎回来
           </p>
-          <h2 className="mt-3 text-[28px] font-semibold tracking-[-0.035em] text-ink">
+          <h1 className="mt-3 text-[28px] font-semibold tracking-[-0.035em] text-ink">
             登录你的工作台
-          </h2>
+          </h1>
           <p className="mt-2 text-sm leading-6 text-muted">使用私有部署中配置的 Owner 账号继续。</p>
           <LoginForm />
           <p className="mt-8 text-center text-[11px] text-faint">一键视觉 · V0.1 基础框架</p>

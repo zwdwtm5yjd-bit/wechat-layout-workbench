@@ -103,7 +103,7 @@ describe("AiTemplateLibrary", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "浏览全部 50 套" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "搜索 AI 模板" }), {
+    fireEvent.change(screen.getByRole("searchbox", { name: "搜索 AI 模板" }), {
       target: { value: "独有搜索词" },
     });
 

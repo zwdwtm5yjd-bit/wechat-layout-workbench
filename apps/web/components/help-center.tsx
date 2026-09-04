@@ -11,24 +11,28 @@ import Link from "next/link";
 
 const steps = [
   {
+    action: "开始导入",
     title: "1. 创建或导入",
     description: "空白文章、粘贴正文、DOCX 和公开网页都可进入同一工作流。",
     href: "/workspace/imports/paste",
     icon: FileInput,
   },
   {
+    action: "查看导入任务",
     title: "2. 确认结构",
     description: "导入内容先清洗，再逐块确认标题、正文、列表、引用和图片关系。",
     href: "/workspace/jobs",
     icon: Layers3,
   },
   {
+    action: "打开文章",
     title: "3. 编辑与排版",
     description: "编辑器支持自动保存、组件插入、主题试穿、文本锁定和历史快照。",
     href: "/workspace/articles",
     icon: Sparkles,
   },
   {
+    action: "继续排版",
     title: "4. 预览与复制",
     description: "在手机、平板和微信安全模式下检查，生成兼容报告后复制到公众号。",
     href: "/workspace/articles",
@@ -71,7 +75,7 @@ export function HelpCenter() {
           const Icon = step.icon;
           return (
             <Link
-              className="group rounded-card border border-line bg-panel p-5 shadow-subtle transition hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-raised"
+              className="group rounded-card border border-line bg-panel p-5 shadow-subtle transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-raised active:translate-y-0 active:scale-[0.99]"
               href={step.href}
               key={step.title}
             >
@@ -81,7 +85,7 @@ export function HelpCenter() {
               <h2 className="mt-4 text-[13px] font-semibold text-ink">{step.title}</h2>
               <p className="mt-2 text-[11px] leading-5 text-muted">{step.description}</p>
               <span className="mt-4 inline-flex items-center gap-1 text-[11px] font-medium text-accent">
-                打开功能
+                {step.action}
                 <ArrowRight aria-hidden="true" size={12} />
               </span>
             </Link>
@@ -104,7 +108,7 @@ export function HelpCenter() {
             ))}
           </dl>
         </div>
-        <aside className="rounded-card bg-[#26225f] p-6 text-white shadow-subtle">
+        <aside className="rounded-card bg-accent-strong p-6 text-white shadow-subtle">
           <span className="grid size-10 place-items-center rounded-control bg-white/10 text-indigo-100">
             <ShieldCheck aria-hidden="true" size={19} />
           </span>
@@ -117,7 +121,7 @@ export function HelpCenter() {
             <li>· 所有关键修改写入审计日志</li>
           </ul>
           <Link
-            className="mt-6 inline-flex h-9 items-center gap-2 rounded-control bg-white px-3 text-[11px] font-semibold text-[#26225f]"
+            className="mt-6 inline-flex h-10 items-center gap-2 rounded-control bg-white px-3 text-[11px] font-semibold text-accent-strong transition-[background-color,transform] duration-150 hover:bg-accent-soft active:scale-[0.98]"
             href="/workspace/settings"
           >
             查看工作台设置

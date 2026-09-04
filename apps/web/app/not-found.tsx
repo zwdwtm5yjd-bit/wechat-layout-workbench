@@ -10,13 +10,13 @@ export default function NotFoundPage() {
         </span>
         <p className="mt-5 text-xs font-semibold tracking-[0.12em] text-accent uppercase">404</p>
         <h1 className="mt-2 text-xl font-semibold text-ink">没有找到这个页面</h1>
-        <p className="mt-3 text-sm leading-6 text-muted">地址可能已改变，或者功能尚未开放。</p>
+        <p className="mt-3 text-sm leading-6 text-muted">链接可能已失效，或地址输入有误。</p>
         <Link
-          className="mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-control border border-line bg-panel px-4 text-sm font-semibold text-ink transition hover:bg-hover"
+          className="mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-control border border-line bg-panel px-4 text-sm font-semibold text-ink transition-[background-color,border-color,transform] duration-150 hover:border-line-strong hover:bg-hover active:scale-[0.98]"
           href="/"
         >
           <ArrowLeft aria-hidden="true" size={16} />
-          返回入口
+          返回首页
         </Link>
       </section>
     </main>

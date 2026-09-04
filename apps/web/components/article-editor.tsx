@@ -197,7 +197,7 @@ function EditorComponentThumbnail({ component }: { readonly component: Component
       <span className="relative block h-24 overflow-hidden bg-[#fbf8f1]" aria-hidden="true">
         <img alt="" className="h-full w-full object-cover" loading="lazy" src={sample.assetPath} />
         <span className="absolute inset-x-2 bottom-2 rounded bg-white/85 px-2 py-1.5 shadow-sm backdrop-blur">
-          <span className="block truncate text-[8px] font-semibold text-zinc-800">
+          <span className="block truncate text-[11px] font-semibold text-zinc-800">
             {sample.title ?? "原创视觉模块"}
           </span>
         </span>
@@ -211,50 +211,50 @@ function EditorComponentThumbnail({ component }: { readonly component: Component
   if (layoutKey === "heading") {
     const title = sample.title ?? "清晰的小节标题";
     let heading: ReactNode = (
-      <span className="block border-l-[3px] border-indigo-500 py-1 pl-2 text-[10px] font-semibold leading-4 text-zinc-800">
+      <span className="block border-l-[3px] border-indigo-500 py-1 pl-2 text-[12px] font-semibold leading-4 text-zinc-800">
         {title}
       </span>
     );
     if (variant === "ribbon") {
       heading = (
-        <span className="block rounded bg-indigo-600 px-3 py-2 text-center text-[10px] font-semibold text-white shadow-sm">
+        <span className="block rounded bg-indigo-600 px-3 py-2 text-center text-[12px] font-semibold text-white shadow-sm">
           {title}
         </span>
       );
     } else if (variant === "framed") {
       heading = (
-        <span className="block rounded border border-amber-400 px-3 py-2 text-center text-[10px] font-semibold text-zinc-800">
+        <span className="block rounded border border-amber-400 px-3 py-2 text-center text-[12px] font-semibold text-zinc-800">
           {title}
         </span>
       );
     } else if (variant === "pill") {
       heading = (
-        <span className="inline-block rounded-full bg-indigo-50 px-3 py-1.5 text-[10px] font-semibold text-indigo-700">
+        <span className="inline-block rounded-full bg-indigo-50 px-3 py-1.5 text-[12px] font-semibold text-indigo-700">
           {title}
         </span>
       );
     } else if (variant === "marker") {
       heading = (
-        <span className="block border-b-2 border-indigo-400 pb-1.5 text-[10px] font-semibold text-zinc-800">
+        <span className="block border-b-2 border-indigo-400 pb-1.5 text-[12px] font-semibold text-zinc-800">
           {title}
         </span>
       );
     } else if (variant === "underlined") {
       heading = (
-        <span className="block text-[10px] font-semibold text-zinc-800">
+        <span className="block text-[12px] font-semibold text-zinc-800">
           {title}
           <span className="mt-1.5 block h-px w-10 bg-indigo-400" />
         </span>
       );
     } else if (variant === "centered") {
       heading = (
-        <span className="block text-center text-[10px] font-semibold tracking-wide text-zinc-800">
+        <span className="block text-center text-[12px] font-semibold tracking-wide text-zinc-800">
           {title}
         </span>
       );
     } else if (variant === "dot") {
       heading = (
-        <span className="flex items-start gap-2 text-[10px] font-semibold text-zinc-800">
+        <span className="flex items-start gap-2 text-[12px] font-semibold text-zinc-800">
           <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-indigo-500" />
           <span>{title}</span>
         </span>
@@ -262,10 +262,10 @@ function EditorComponentThumbnail({ component }: { readonly component: Component
     } else if (variant === "numbered") {
       heading = (
         <span className="flex items-start gap-2">
-          <span className="border-b-2 border-indigo-500 text-[9px] font-bold text-indigo-600">
+          <span className="border-b-2 border-indigo-500 text-[11px] font-bold text-indigo-600">
             01
           </span>
-          <span className="text-[10px] font-semibold text-zinc-800">{title}</span>
+          <span className="text-[12px] font-semibold text-zinc-800">{title}</span>
         </span>
       );
     }
@@ -292,7 +292,7 @@ function EditorComponentThumbnail({ component }: { readonly component: Component
     return (
       <span className="flex h-24 items-center bg-[#fbfaf8] p-2.5" aria-hidden="true">
         <span
-          className={`relative line-clamp-3 w-full rounded px-2.5 py-2 text-[8px] leading-3.5 ${toneClass}`}
+          className={`relative line-clamp-3 w-full rounded px-2.5 py-2 text-[11px] leading-3.5 ${toneClass}`}
         >
           {quotation ? (
             <span className="absolute top-0.5 left-1.5 text-xl leading-none text-amber-300">“</span>
@@ -338,7 +338,7 @@ function EditorComponentThumbnail({ component }: { readonly component: Component
         >
           <span className="block text-lg font-bold tracking-tight text-indigo-600">
             {value}
-            <span className="text-[8px]">{unit}</span>
+            <span className="text-[11px]">{unit}</span>
           </span>
           <span className="mt-0.5 block text-[7px] text-zinc-500">
             {sample.title ?? "核心数据"}
@@ -385,7 +385,7 @@ function EditorComponentThumbnail({ component }: { readonly component: Component
         <span
           className={`h-px flex-1 ${dashed ? "border-t border-dashed border-zinc-400" : "bg-zinc-300"}`}
         />
-        {ornament ? <span className="text-[9px] text-indigo-500">◆</span> : null}
+        {ornament ? <span className="text-[11px] text-indigo-500">◆</span> : null}
         {ornament ? <span className="h-px flex-1 bg-zinc-300" /> : null}
       </span>
     );
@@ -397,7 +397,7 @@ function EditorComponentThumbnail({ component }: { readonly component: Component
       aria-hidden="true"
     >
       <Blocks size={16} />
-      <span className="mt-1 text-[8px]">完整组件</span>
+      <span className="mt-1 text-[11px]">完整组件</span>
     </span>
   );
 }
@@ -565,7 +565,7 @@ function ToolbarButton({
     <button
       aria-label={label}
       aria-pressed={active}
-      className="grid size-8 place-items-center rounded-md text-muted transition hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-35 data-[active=true]:bg-accent-soft data-[active=true]:text-accent"
+      className="ui-interactive grid size-10 place-items-center rounded-md text-muted hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-35 data-[active=true]:bg-accent-soft data-[active=true]:text-accent"
       data-active={active}
       disabled={disabled}
       onClick={onClick}
@@ -604,7 +604,7 @@ function EditorToolbar({
   return (
     <div
       aria-label="编辑工具栏"
-      className="flex min-h-11 flex-wrap items-center gap-0.5 border-b border-line bg-panel px-2.5 py-1.5"
+      className="flex min-h-12 flex-wrap items-center gap-1 border-b border-line-subtle bg-panel px-3 py-2"
       role="toolbar"
     >
       <ToolbarButton
@@ -624,7 +624,7 @@ function EditorToolbar({
       <span aria-hidden="true" className="mx-1 h-5 w-px bg-line" />
       <select
         aria-label="字体"
-        className="h-8 max-w-32 rounded-md border border-line bg-panel px-2 text-[10px] text-ink outline-none focus:border-accent disabled:opacity-35"
+        className="h-10 max-w-36 rounded-md border border-line bg-panel-sunken px-2 text-base text-ink focus:border-accent disabled:opacity-35 sm:text-[12px]"
         disabled={!editable || !canFormatText}
         onChange={(event) =>
           applyTextStyle(editor, selection, "fontFamily", event.currentTarget.value)
@@ -640,7 +640,7 @@ function EditorToolbar({
       </select>
       <select
         aria-label="字号"
-        className="h-8 w-[66px] rounded-md border border-line bg-panel px-2 text-[10px] text-ink outline-none focus:border-accent disabled:opacity-35"
+        className="h-10 w-[72px] rounded-md border border-line bg-panel-sunken px-2 text-base text-ink focus:border-accent disabled:opacity-35 sm:text-[12px]"
         disabled={!editable || !canFormatText}
         onChange={(event) =>
           applyTextStyle(editor, selection, "fontSize", Number(event.currentTarget.value))
@@ -656,7 +656,7 @@ function EditorToolbar({
       </select>
       <label
         aria-label="文字颜色"
-        className="grid size-8 cursor-pointer place-items-center rounded-md text-muted hover:bg-hover"
+        className="ui-interactive grid size-10 cursor-pointer place-items-center rounded-md text-muted hover:bg-hover focus-within:outline-3 focus-within:outline-offset-2 focus-within:outline-[var(--color-border-focus)]"
         title="文字颜色"
       >
         <Palette aria-hidden="true" size={15} />
@@ -734,7 +734,7 @@ function EditorToolbar({
       >
         <Strikethrough aria-hidden="true" size={15} />
       </ToolbarButton>
-      <span className="ml-auto hidden text-[10px] text-faint sm:block">
+      <span className="ml-auto hidden text-[12px] tabular-nums text-faint sm:block">
         {getEditorTextLength(editor).toLocaleString("zh-CN")} 字
       </span>
     </div>
@@ -790,7 +790,7 @@ function OutlineBlock({
         size={13}
       />
       <span className="min-w-0 flex-1">
-        <span className="block text-[10px] font-medium text-faint">
+        <span className="block text-[12px] font-medium text-faint">
           {String(block.index + 1).padStart(2, "0")} · {nodeLabels[block.type] ?? block.type}
         </span>
         <span className="mt-0.5 block truncate text-[11px] text-ink">
@@ -1398,7 +1398,8 @@ export function ArticleEditor({
 
   return (
     <section
-      className="overflow-hidden rounded-card border border-line bg-panel shadow-subtle"
+      className="ui-surface overflow-hidden"
+      data-ui-editor="true"
       data-editor-revision={renderRevision}
       onKeyDown={handleKeyboardShortcut}
     >
@@ -1411,7 +1412,7 @@ export function ArticleEditor({
           <span className="text-muted">可调整样式和移动区块；改字前需先解锁对应区块。</span>
           {hasUnlockedSourceBlocks ? (
             <button
-              className="sm:ml-auto inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-accent/20 bg-panel px-2.5 text-[10px] font-medium text-accent hover:bg-hover disabled:opacity-45"
+              className="ui-interactive inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md border border-accent/20 bg-panel px-3 text-[12px] font-medium text-accent hover:bg-hover disabled:opacity-45 sm:ml-auto"
               disabled={!lockActionsEnabled || lockMutationPending}
               onClick={() => {
                 void persistLockChange(lockAllSourceBlocks(currentDocument));
@@ -1439,7 +1440,7 @@ export function ArticleEditor({
           </button>
         </div>
       )}
-      <div className="grid min-h-[680px] xl:h-[calc(100vh-96px)] xl:min-h-0 xl:grid-cols-[344px_minmax(0,1fr)_312px]">
+      <div className="grid min-h-[680px] xl:h-[calc(100dvh-112px)] xl:min-h-0 xl:grid-cols-[300px_minmax(0,1fr)_288px]">
         {mobileEditorPanel === null ? null : (
           <button
             aria-label="关闭编辑面板"
@@ -1463,7 +1464,7 @@ export function ArticleEditor({
             <p className="text-[12px] font-semibold text-ink">排版工具</p>
             <button
               aria-label="关闭排版工具"
-              className="grid size-8 place-items-center rounded-md text-muted hover:bg-hover hover:text-ink"
+              className="ui-interactive grid size-10 place-items-center rounded-md text-muted hover:bg-hover hover:text-ink"
               onClick={() => setMobileEditorPanel(null)}
               ref={mobileToolsCloseRef}
               type="button"
@@ -1481,7 +1482,7 @@ export function ArticleEditor({
               <button
                 aria-controls={leftPanelContentId}
                 aria-selected={leftPanel === value}
-                className={`flex h-9 items-center justify-center gap-1.5 rounded-control text-[10px] font-medium transition ${
+                className={`flex h-10 items-center justify-center gap-1.5 rounded-control text-[12px] font-medium transition ${
                   leftPanel === value
                     ? "bg-panel text-accent shadow-subtle"
                     : "text-muted hover:bg-hover hover:text-ink"
@@ -1511,7 +1512,7 @@ export function ArticleEditor({
                   <div className="flex items-center gap-2">
                     <ListTree aria-hidden="true" className="text-accent" size={15} />
                     <p className="text-[12px] font-semibold text-ink">文章结构</p>
-                    <span className="ml-auto rounded-full bg-panel px-2 py-0.5 text-[9px] text-faint">
+                    <span className="ml-auto rounded-full bg-panel px-2 py-0.5 text-[11px] text-faint">
                       {blocks.length}
                     </span>
                   </div>
@@ -1541,7 +1542,7 @@ export function ArticleEditor({
                   ))}
                 </div>
                 <div className="border-t border-line p-3">
-                  <p className="mb-2 text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
+                  <p className="mb-2 text-[12px] font-medium tracking-[0.08em] text-faint uppercase">
                     插入区块
                   </p>
                   <div className="grid grid-cols-2 gap-1.5">
@@ -1549,7 +1550,7 @@ export function ArticleEditor({
                       const Icon = item.icon;
                       return (
                         <button
-                          className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-control border border-line bg-panel text-[10px] text-muted transition hover:border-line-strong hover:text-ink disabled:opacity-45"
+                          className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-control border border-line bg-panel text-[12px] text-muted transition hover:border-line-strong hover:text-ink disabled:opacity-45"
                           disabled={!editable}
                           key={item.type}
                           onClick={() => insertBlockAfterSelection(editor, item.type)}
@@ -1566,7 +1567,7 @@ export function ArticleEditor({
             ) : leftPanel === "themes" ? (
               <div className="space-y-3 p-3">
                 <div className="rounded-control border border-accent/15 bg-accent-soft p-3">
-                  <p className="text-[10px] leading-5 text-muted">
+                  <p className="text-[12px] leading-5 text-muted">
                     试穿只改变当前画布；正式应用会先创建快照，再持久化主题版本，原文保持不变。
                   </p>
                 </div>
@@ -1578,14 +1579,14 @@ export function ArticleEditor({
                     size={12}
                   />
                   <input
-                    className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
+                    className="h-10 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[12px] text-ink outline-none focus:border-accent"
                     onChange={(event) => setThemeQuery(event.target.value)}
                     placeholder="搜索通知、党建、中秋节…"
                     value={themeQuery}
                   />
                 </label>
                 {themes.length === 0 ? (
-                  <p className="rounded-control border border-line bg-panel p-3 text-[10px] text-muted">
+                  <p className="rounded-control border border-line bg-panel p-3 text-[12px] text-muted">
                     正在读取已安装主题…
                   </p>
                 ) : null}
@@ -1608,7 +1609,7 @@ export function ArticleEditor({
                           <p className="text-[11px] font-semibold text-ink">
                             {theme.manifest.name}
                           </p>
-                          <p className="mt-1 text-[9px] text-faint">
+                          <p className="mt-1 text-[11px] text-faint">
                             {summarizeThemeCategories(theme.manifest.categories, true)} · v
                             {theme.manifest.version}
                           </p>
@@ -1628,13 +1629,13 @@ export function ArticleEditor({
                           />
                         ))}
                       </div>
-                      <p className="mt-2 text-[9px] leading-4 text-muted">
+                      <p className="mt-2 text-[11px] leading-4 text-muted">
                         {theme.manifest.description}
                       </p>
                       <div className="mt-3 grid grid-cols-2 gap-1.5">
                         <button
                           aria-pressed={previewing}
-                          className="h-7 rounded-md border border-line text-[9px] font-medium text-ink hover:bg-hover"
+                          className="h-10 rounded-md border border-line text-[11px] font-medium text-ink hover:bg-hover"
                           onClick={() =>
                             setPreviewThemeId((current) => (current === themeId ? null : themeId))
                           }
@@ -1643,7 +1644,7 @@ export function ArticleEditor({
                           {previewing ? "取消试穿" : "试穿"}
                         </button>
                         <button
-                          className="h-7 rounded-md bg-accent text-[9px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                          className="h-10 rounded-md bg-accent text-[11px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
                           disabled={
                             !editable ||
                             applyingThemeId !== null ||
@@ -1668,7 +1669,7 @@ export function ArticleEditor({
               <div className="space-y-3 p-3">
                 <div className="px-1">
                   <p className="text-[11px] font-semibold text-ink">插入排版组件</p>
-                  <p className="mt-1 text-[9px] leading-4 text-muted">
+                  <p className="mt-1 text-[11px] leading-4 text-muted">
                     先选类型，再按场景缩小范围；点击预览即可插入当前段落之后。
                   </p>
                 </div>
@@ -1676,7 +1677,7 @@ export function ArticleEditor({
                   {EDITOR_COMPONENT_SECTIONS.map((section) => (
                     <button
                       aria-pressed={componentSection === section.id}
-                      className={`shrink-0 rounded-md px-2.5 py-2 text-[10px] font-medium transition ${
+                      className={`shrink-0 rounded-md px-2.5 py-2 text-[12px] font-medium transition ${
                         componentSection === section.id
                           ? "bg-accent text-white shadow-subtle"
                           : "bg-panel text-muted hover:bg-hover hover:text-ink"
@@ -1690,7 +1691,7 @@ export function ArticleEditor({
                     >
                       {section.label}
                       <span
-                        className={`ml-1 text-[8px] ${componentSection === section.id ? "text-white/70" : "text-faint"}`}
+                        className={`ml-1 text-[11px] ${componentSection === section.id ? "text-white/70" : "text-faint"}`}
                       >
                         {componentSectionCounts[section.id]}
                       </span>
@@ -1704,7 +1705,7 @@ export function ArticleEditor({
                   >
                     <button
                       aria-pressed={componentDetail === "all"}
-                      className={`rounded-md px-2 py-1 text-[9px] ${
+                      className={`rounded-md px-2 py-1 text-[11px] ${
                         componentDetail === "all"
                           ? "bg-accent-soft font-medium text-accent-strong"
                           : "text-muted hover:bg-hover"
@@ -1717,7 +1718,7 @@ export function ArticleEditor({
                     {componentDetails.map((detail) => (
                       <button
                         aria-pressed={componentDetail === detail}
-                        className={`rounded-md px-2 py-1 text-[9px] ${
+                        className={`rounded-md px-2 py-1 text-[11px] ${
                           componentDetail === detail
                             ? "bg-accent-soft font-medium text-accent-strong"
                             : "text-muted hover:bg-hover"
@@ -1739,7 +1740,7 @@ export function ArticleEditor({
                     size={12}
                   />
                   <input
-                    className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
+                    className="h-10 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[12px] text-ink outline-none focus:border-accent"
                     onChange={(event) => setComponentQuery(event.target.value)}
                     placeholder="搜索全部排版模块"
                     value={componentQuery}
@@ -1748,7 +1749,7 @@ export function ArticleEditor({
                 <div className="flex items-center gap-2">
                   <select
                     aria-label="按使用场景筛选组件"
-                    className="h-8 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
+                    className="h-10 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[11px] text-ink outline-none focus:border-accent"
                     onChange={(event) =>
                       setComponentScene(event.target.value as EditorComponentScene)
                     }
@@ -1760,16 +1761,16 @@ export function ArticleEditor({
                       </option>
                     ))}
                   </select>
-                  <span className="shrink-0 text-[9px] tabular-nums text-faint">
+                  <span className="shrink-0 text-[11px] tabular-nums text-faint">
                     {visibleEditorComponents.length} 个结果
                   </span>
                 </div>
                 {visibleEditorComponents.length === 0 ? (
                   <div className="rounded-control border border-dashed border-line p-5 text-center">
                     <Blocks aria-hidden="true" className="mx-auto text-faint" size={18} />
-                    <p className="mt-2 text-[10px] font-medium text-ink">这个分类没有匹配项</p>
+                    <p className="mt-2 text-[12px] font-medium text-ink">这个分类没有匹配项</p>
                     <button
-                      className="mt-2 text-[9px] font-medium text-accent"
+                      className="mt-2 text-[11px] font-medium text-accent"
                       onClick={() => {
                         setComponentQuery("");
                         setComponentScene("all");
@@ -1805,10 +1806,10 @@ export function ArticleEditor({
                       >
                         <EditorComponentThumbnail component={component} />
                         <span className="block border-t border-line px-2 py-2">
-                          <span className="block truncate text-[9px] font-semibold text-ink">
+                          <span className="block truncate text-[11px] font-semibold text-ink">
                             {component.name}
                           </span>
-                          <span className="mt-0.5 block truncate text-[8px] text-faint">
+                          <span className="mt-0.5 block truncate text-[11px] text-faint">
                             {component.category}
                           </span>
                         </span>
@@ -1822,18 +1823,18 @@ export function ArticleEditor({
                 <div className="px-1">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[12px] font-semibold text-ink">图片与装饰</p>
-                    <span className="rounded-full bg-accent-soft px-2 py-1 text-[8px] font-semibold text-accent">
+                    <span className="rounded-full bg-accent-soft px-2 py-1 text-[11px] font-semibold text-accent">
                       {STATIC_ASSET_COUNT + DYNAMIC_ASSET_COUNT} 个可用变体
                     </span>
                   </div>
-                  <p className="mt-1 text-[9px] leading-4 text-muted">
+                  <p className="mt-1 text-[11px] leading-4 text-muted">
                     先按用途找素材，再明确点击“插入”；新素材会优先展示。
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-1 rounded-md bg-panel p-1">
                   {(["official", "personal"] as const).map((source) => (
                     <button
-                      className={`h-7 rounded text-[9px] font-medium ${
+                      className={`h-10 rounded text-[11px] font-medium ${
                         assetSource === source
                           ? "bg-accent-soft text-accent-strong"
                           : "text-muted hover:bg-hover"
@@ -1857,7 +1858,7 @@ export function ArticleEditor({
                     size={12}
                   />
                   <input
-                    className="h-8 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[10px] text-ink outline-none focus:border-accent"
+                    className="h-10 w-full rounded-md border border-line bg-panel pr-2 pl-8 text-[12px] text-ink outline-none focus:border-accent"
                     onChange={(event) => setAssetQuery(event.target.value)}
                     placeholder={
                       assetSource === "official"
@@ -1872,7 +1873,7 @@ export function ArticleEditor({
                     <div className="grid grid-cols-2 gap-1 rounded-md bg-panel p-1">
                       {(["static", "dynamic"] as const).map((motion) => (
                         <button
-                          className={`h-7 rounded text-[9px] font-medium ${
+                          className={`h-10 rounded text-[11px] font-medium ${
                             assetMotion === motion
                               ? "bg-accent-soft text-accent-strong"
                               : "text-muted hover:bg-hover"
@@ -1906,7 +1907,7 @@ export function ArticleEditor({
                       ).map(([value, label, count]) => (
                         <button
                           aria-pressed={assetCollection === value}
-                          className={`flex h-8 items-center justify-center gap-1 rounded-md border text-[9px] font-semibold transition ${
+                          className={`flex h-10 items-center justify-center gap-1 rounded-md border text-[11px] font-semibold transition ${
                             assetCollection === value
                               ? "border-accent/30 bg-accent-soft text-accent-strong"
                               : "border-line bg-panel text-muted hover:border-line-strong hover:text-ink"
@@ -1932,12 +1933,12 @@ export function ArticleEditor({
                     </div>
                     <div>
                       <div className="mb-1.5 flex items-center justify-between px-1">
-                        <p className="text-[9px] font-semibold tracking-[0.08em] text-faint uppercase">
+                        <p className="text-[11px] font-semibold tracking-[0.08em] text-faint uppercase">
                           按编辑任务
                         </p>
                         <button
                           aria-pressed={assetTaskGroup === "all"}
-                          className={`text-[9px] font-medium ${assetTaskGroup === "all" ? "text-accent" : "text-muted hover:text-ink"}`}
+                          className={`text-[11px] font-medium ${assetTaskGroup === "all" ? "text-accent" : "text-muted hover:text-ink"}`}
                           onClick={() => {
                             setAssetTaskGroup("all");
                             setAssetFunction("all");
@@ -1964,14 +1965,14 @@ export function ArticleEditor({
                             type="button"
                           >
                             <span className="flex items-center justify-between gap-1">
-                              <span className="text-[10px] font-semibold text-ink">
+                              <span className="text-[12px] font-semibold text-ink">
                                 {group.label}
                               </span>
-                              <span className="text-[8px] tabular-nums text-faint">
+                              <span className="text-[11px] tabular-nums text-faint">
                                 {assetTaskGroupCounts[group.id]}
                               </span>
                             </span>
-                            <span className="mt-0.5 block truncate text-[8px] text-muted">
+                            <span className="mt-0.5 block truncate text-[11px] text-muted">
                               {group.description}
                             </span>
                           </button>
@@ -1981,7 +1982,7 @@ export function ArticleEditor({
                     <div className="flex gap-1 overflow-x-auto pb-0.5" aria-label="素材细分类">
                       <button
                         aria-pressed={assetFunction === "all"}
-                        className={`h-7 shrink-0 rounded-md px-2.5 text-[9px] font-medium ${
+                        className={`h-10 shrink-0 rounded-md px-2.5 text-[11px] font-medium ${
                           assetFunction === "all"
                             ? "bg-ink text-white"
                             : "bg-panel text-muted hover:bg-hover"
@@ -2000,7 +2001,7 @@ export function ArticleEditor({
                         return (
                           <button
                             aria-pressed={assetFunction === item.id}
-                            className={`h-7 shrink-0 rounded-md px-2.5 text-[9px] font-medium ${
+                            className={`h-10 shrink-0 rounded-md px-2.5 text-[11px] font-medium ${
                               assetFunction === item.id
                                 ? "bg-ink text-white"
                                 : "bg-panel text-muted hover:bg-hover"
@@ -2018,7 +2019,7 @@ export function ArticleEditor({
                     <div className="flex items-center gap-2">
                       <select
                         aria-label="按视觉风格筛选素材"
-                        className="h-8 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
+                        className="h-10 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[11px] text-ink outline-none focus:border-accent"
                         onChange={(event) =>
                           setAssetStyle(event.target.value as VisualAssetStyle | "all")
                         }
@@ -2031,17 +2032,17 @@ export function ArticleEditor({
                           </option>
                         ))}
                       </select>
-                      <span className="shrink-0 text-[9px] tabular-nums text-faint">
+                      <span className="shrink-0 text-[11px] tabular-nums text-faint">
                         {visibleEditorAssets.length} 个结果
                       </span>
                     </div>
                     <div className="rounded-control border border-accent/15 bg-accent-soft px-3 py-2">
-                      <p className="flex items-center gap-1.5 text-[9px] font-semibold text-accent-strong">
+                      <p className="flex items-center gap-1.5 text-[11px] font-semibold text-accent-strong">
                         <MapPin aria-hidden="true" size={11} />
                         {insertionTargetLabel}
                       </p>
                       <p
-                        className="mt-1 truncate text-[8px] text-muted"
+                        className="mt-1 truncate text-[11px] text-muted"
                         title={insertionTargetSummary}
                       >
                         当前锚点：{insertionTargetSummary}
@@ -2049,7 +2050,7 @@ export function ArticleEditor({
                     </div>
                     {assetStatusMessage === null ? null : (
                       <p
-                        className="rounded-control bg-success-soft px-3 py-2 text-[9px] font-medium text-success"
+                        className="rounded-control bg-success-soft px-3 py-2 text-[11px] font-medium text-success"
                         role="status"
                       >
                         {assetStatusMessage}
@@ -2058,7 +2059,7 @@ export function ArticleEditor({
                     {visibleEditorAssets.length === 0 ? (
                       <div className="rounded-control border border-dashed border-line p-5 text-center">
                         <Sparkles aria-hidden="true" className="mx-auto text-faint" size={18} />
-                        <p className="mt-2 text-[10px] font-medium text-ink">
+                        <p className="mt-2 text-[12px] font-medium text-ink">
                           {assetCollection === "favorite"
                             ? "当前分类还没有收藏素材"
                             : assetCollection === "recent"
@@ -2066,7 +2067,7 @@ export function ArticleEditor({
                               : "这个分类没有匹配素材"}
                         </p>
                         <button
-                          className="mt-2 text-[9px] font-medium text-accent"
+                          className="mt-2 text-[11px] font-medium text-accent"
                           onClick={() => {
                             setAssetQuery("");
                             setAssetFunction("all");
@@ -2100,7 +2101,7 @@ export function ArticleEditor({
                                   }}
                                   type="button"
                                 >
-                                  <span className="rounded-full bg-zinc-950/70 px-2 py-1 text-[8px] font-semibold opacity-0 backdrop-blur transition group-hover:opacity-100 group-focus-within:opacity-100">
+                                  <span className="rounded-full bg-zinc-950/70 px-2 py-1 text-[11px] font-semibold opacity-0 backdrop-blur transition group-hover:opacity-100 group-focus-within:opacity-100">
                                     <Eye aria-hidden="true" className="mr-1 inline" size={9} />
                                     大图预览
                                   </span>
@@ -2112,7 +2113,7 @@ export function ArticleEditor({
                                   src={asset.previewPath}
                                 />
                                 <span
-                                  className={`pointer-events-none absolute top-1.5 left-1.5 z-20 rounded-full px-1.5 py-0.5 text-[8px] font-semibold text-white ${
+                                  className={`pointer-events-none absolute top-1.5 left-1.5 z-20 rounded-full px-1.5 py-0.5 text-[11px] font-semibold text-white ${
                                     asset.motion === "dynamic"
                                       ? "bg-violet-600/85"
                                       : "bg-zinc-900/70"
@@ -2121,7 +2122,7 @@ export function ArticleEditor({
                                   {asset.motion === "dynamic" ? "动态" : "静态"}
                                 </span>
                                 {isNewVisualAsset(asset) ? (
-                                  <span className="pointer-events-none absolute top-1.5 right-1.5 z-20 rounded-full bg-orange-500 px-1.5 py-0.5 text-[8px] font-semibold text-white">
+                                  <span className="pointer-events-none absolute top-1.5 right-1.5 z-20 rounded-full bg-orange-500 px-1.5 py-0.5 text-[11px] font-semibold text-white">
                                     上新
                                   </span>
                                 ) : null}
@@ -2131,7 +2132,7 @@ export function ArticleEditor({
                                       ? `取消收藏${asset.name}`
                                       : `收藏${asset.name}`
                                   }
-                                  className={`absolute right-1.5 bottom-1.5 z-20 grid size-7 place-items-center rounded-full border backdrop-blur transition ${
+                                  className={`absolute right-1.5 bottom-1.5 z-20 grid size-10 place-items-center rounded-full border backdrop-blur transition ${
                                     favoriteAssetIds.has(asset.id)
                                       ? "border-amber-300 bg-amber-50 text-amber-600"
                                       : "border-white/70 bg-white/85 text-zinc-500 hover:text-amber-600"
@@ -2147,16 +2148,16 @@ export function ArticleEditor({
                                 </button>
                               </div>
                               <div className="border-t border-line p-2.5">
-                                <p className="truncate text-[10px] font-semibold text-ink">
+                                <p className="truncate text-[12px] font-semibold text-ink">
                                   {asset.name}
                                 </p>
-                                <p className="mt-0.5 truncate text-[9px] text-faint">
+                                <p className="mt-0.5 truncate text-[11px] text-faint">
                                   {VISUAL_ASSET_FUNCTION_LABELS[asset.function]} ·{" "}
                                   {VISUAL_ASSET_STYLE_LABELS[asset.style]}
                                 </p>
                                 <button
                                   aria-label={`插入素材：${asset.name}`}
-                                  className={`mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-md text-[9px] font-semibold transition active:scale-[0.98] disabled:opacity-45 ${
+                                  className={`mt-2 flex h-10 w-full items-center justify-center gap-1.5 rounded-md text-[11px] font-semibold transition active:scale-[0.98] disabled:opacity-45 ${
                                     inserted
                                       ? "bg-emerald-600 text-white"
                                       : "bg-ink text-white hover:bg-accent"
@@ -2178,7 +2179,7 @@ export function ArticleEditor({
                         })}
                         {assetDisplayLimit < visibleEditorAssets.length ? (
                           <button
-                            className="col-span-2 h-9 rounded-control border border-line bg-panel text-[10px] font-medium text-muted hover:border-line-strong hover:text-ink"
+                            className="col-span-2 h-10 rounded-control border border-line bg-panel text-[12px] font-medium text-muted hover:border-line-strong hover:text-ink"
                             onClick={() => setAssetDisplayLimit((current) => current + 24)}
                             type="button"
                           >
@@ -2193,7 +2194,7 @@ export function ArticleEditor({
                     <div className="flex gap-1 overflow-x-auto pb-0.5" aria-label="我的素材文件夹">
                       <button
                         aria-pressed={personalFolder === "all"}
-                        className={`shrink-0 rounded-md px-2 py-1 text-[9px] ${
+                        className={`shrink-0 rounded-md px-2 py-1 text-[11px] ${
                           personalFolder === "all"
                             ? "bg-accent-soft font-medium text-accent-strong"
                             : "text-muted hover:bg-hover"
@@ -2205,7 +2206,7 @@ export function ArticleEditor({
                       </button>
                       <button
                         aria-pressed={personalFolder === "ungrouped"}
-                        className={`shrink-0 rounded-md px-2 py-1 text-[9px] ${
+                        className={`shrink-0 rounded-md px-2 py-1 text-[11px] ${
                           personalFolder === "ungrouped"
                             ? "bg-accent-soft font-medium text-accent-strong"
                             : "text-muted hover:bg-hover"
@@ -2218,7 +2219,7 @@ export function ArticleEditor({
                       {personalFolders.map((folder) => (
                         <button
                           aria-pressed={personalFolder === folder}
-                          className={`shrink-0 rounded-md px-2 py-1 text-[9px] ${
+                          className={`shrink-0 rounded-md px-2 py-1 text-[11px] ${
                             personalFolder === folder
                               ? "bg-accent-soft font-medium text-accent-strong"
                               : "text-muted hover:bg-hover"
@@ -2231,7 +2232,7 @@ export function ArticleEditor({
                         </button>
                       ))}
                     </div>
-                    <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-accent/35 bg-accent-soft text-[10px] font-semibold text-accent hover:border-accent disabled:opacity-45">
+                    <label className="ui-interactive flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-accent/35 bg-accent-soft px-3 text-[12px] font-semibold text-accent hover:border-accent focus-within:outline-3 focus-within:outline-offset-2 focus-within:outline-[var(--color-border-focus)] has-disabled:cursor-wait has-disabled:opacity-45">
                       {uploadPrivateResource.isPending ? (
                         <LoaderCircle aria-hidden="true" className="animate-spin" size={12} />
                       ) : (
@@ -2251,14 +2252,14 @@ export function ArticleEditor({
                       />
                     </label>
                     {privateResourcesQuery.isPending ? (
-                      <p className="rounded-control border border-line bg-panel p-4 text-center text-[10px] text-muted">
+                      <p className="rounded-control border border-line bg-panel p-4 text-center text-[12px] text-muted">
                         正在读取我的素材…
                       </p>
                     ) : visiblePrivateResources.length === 0 ? (
                       <div className="rounded-control border border-line bg-panel p-5 text-center">
                         <ImageIcon aria-hidden="true" className="mx-auto text-faint" size={18} />
-                        <p className="mt-2 text-[10px] font-medium text-ink">还没有匹配的图片</p>
-                        <p className="mt-1 text-[9px] leading-4 text-faint">
+                        <p className="mt-2 text-[12px] font-medium text-ink">还没有匹配的图片</p>
+                        <p className="mt-1 text-[11px] leading-4 text-faint">
                           上传后会永久保存在私有素材库，可反复使用。
                         </p>
                       </div>
@@ -2284,10 +2285,10 @@ export function ArticleEditor({
                                 )}
                               </div>
                               <div className="p-2.5">
-                                <p className="truncate text-[9px] font-semibold text-ink">
+                                <p className="truncate text-[11px] font-semibold text-ink">
                                   {resourceLabel(resource)}
                                 </p>
-                                <p className="mt-0.5 truncate text-[8px] text-faint">
+                                <p className="mt-0.5 truncate text-[11px] text-faint">
                                   {resource.folder ?? "未分组"}
                                   {resource.tags.length === 0
                                     ? ""
@@ -2295,7 +2296,7 @@ export function ArticleEditor({
                                 </p>
                                 <div className="mt-2 grid grid-cols-2 gap-1.5">
                                   <button
-                                    className="h-7 rounded-md bg-accent text-[9px] font-semibold text-white disabled:opacity-45"
+                                    className="h-10 rounded-md bg-accent text-[11px] font-semibold text-white disabled:opacity-45"
                                     disabled={!editable || url === undefined}
                                     onClick={() => {
                                       insertVisualAssetAfterSelection(editor, {
@@ -2310,7 +2311,7 @@ export function ArticleEditor({
                                     插入
                                   </button>
                                   <button
-                                    className="h-7 rounded-md border border-line text-[9px] font-medium text-ink hover:bg-hover disabled:opacity-35"
+                                    className="h-10 rounded-md border border-line text-[11px] font-medium text-ink hover:bg-hover disabled:opacity-35"
                                     disabled={
                                       !editable ||
                                       selection?.type !== "imageBlock" ||
@@ -2345,7 +2346,7 @@ export function ArticleEditor({
         </aside>
 
         <div
-          className="min-w-0 bg-[#efefed] xl:flex xl:min-h-0 xl:flex-col"
+          className="min-w-0 bg-panel-sunken xl:flex xl:min-h-0 xl:flex-col"
           data-preview-theme={visualTheme === undefined ? "default" : themePreviewKey(visualTheme)}
           style={
             {
@@ -2359,7 +2360,7 @@ export function ArticleEditor({
             <button
               aria-controls={mobileToolsPanelId}
               aria-expanded={mobileEditorPanel === "tools"}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-control border border-line bg-panel text-[10px] font-semibold text-ink shadow-subtle"
+              className="ui-interactive inline-flex h-10 items-center justify-center gap-2 rounded-control bg-panel text-[12px] font-semibold text-ink shadow-subtle"
               onClick={() => setMobileEditorPanel("tools")}
               ref={mobileToolsTriggerRef}
               type="button"
@@ -2370,7 +2371,7 @@ export function ArticleEditor({
             <button
               aria-controls={mobilePropertiesPanelId}
               aria-expanded={mobileEditorPanel === "properties"}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-control border border-line bg-panel text-[10px] font-semibold text-ink shadow-subtle"
+              className="ui-interactive inline-flex h-10 items-center justify-center gap-2 rounded-control bg-panel text-[12px] font-semibold text-ink shadow-subtle"
               onClick={() => setMobileEditorPanel("properties")}
               ref={mobilePropertiesTriggerRef}
               type="button"
@@ -2381,7 +2382,7 @@ export function ArticleEditor({
           </div>
           <EditorToolbar editable={editable} editor={editor} selection={selection} />
           <div
-            className="editor-canvas-scroll overflow-auto px-5 py-8 sm:px-8 xl:min-h-0 xl:flex-1"
+            className="editor-canvas-scroll overflow-auto px-3 py-6 sm:px-5 sm:py-8 xl:min-h-0 xl:flex-1"
             onDragLeave={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
                 setDropTargetId(null);
@@ -2391,7 +2392,7 @@ export function ArticleEditor({
             onDrop={handleCanvasDrop}
           >
             <div
-              className="editor-canvas-shell relative mx-auto max-w-[677px] bg-white shadow-[0_4px_22px_rgb(24_24_27/8%)]"
+              className="editor-canvas-shell relative mx-auto w-full max-w-[677px] bg-white shadow-raised"
               ref={canvasShellRef}
               style={{
                 backgroundColor: visualTheme?.preview.accentColors[1] ?? "#ffffff",
@@ -2405,7 +2406,7 @@ export function ArticleEditor({
                 >
                   <button
                     aria-label="拖动当前区块"
-                    className="grid size-7 cursor-grab place-items-center rounded-md border border-line bg-panel text-faint shadow-subtle hover:text-ink active:cursor-grabbing"
+                    className="ui-interactive grid size-10 cursor-grab place-items-center rounded-md border border-line bg-panel text-faint shadow-subtle hover:text-ink active:cursor-grabbing"
                     disabled={!editable}
                     draggable={editable}
                     onDragEnd={() => {
@@ -2446,11 +2447,11 @@ export function ArticleEditor({
           <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-panel px-4 py-3">
             <div>
               <p className="text-[12px] font-semibold text-ink">区块属性</p>
-              <p className="mt-0.5 text-[10px] text-faint">仅作用于当前选中区块</p>
+              <p className="mt-0.5 text-[12px] text-faint">仅作用于当前选中区块</p>
             </div>
             <button
               aria-label="关闭区块属性"
-              className="grid size-8 place-items-center rounded-md text-muted hover:bg-hover hover:text-ink xl:hidden"
+              className="ui-interactive grid size-10 place-items-center rounded-md text-muted hover:bg-hover hover:text-ink xl:hidden"
               onClick={() => setMobileEditorPanel(null)}
               ref={mobilePropertiesCloseRef}
               type="button"
@@ -2466,21 +2467,24 @@ export function ArticleEditor({
           ) : (
             <div className="space-y-5 p-4">
               <div>
-                <p className="text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
+                <p className="text-[12px] font-medium tracking-[0.08em] text-faint uppercase">
                   当前区块
                 </p>
                 <div className="mt-2 rounded-control border border-line bg-panel-muted p-3">
                   <p className="text-[12px] font-semibold text-ink">
                     {nodeLabels[selection.type] ?? selection.type}
                   </p>
-                  <p className="mt-1 truncate font-mono text-[9px] text-faint">
+                  <p
+                    className="mt-1 truncate font-mono text-[11px] text-faint"
+                    title={selection.blockId}
+                  >
                     {selection.blockId}
                   </p>
                   <p
                     className={
                       selection.locked
-                        ? "mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-accent"
-                        : "mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-success"
+                        ? "mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-accent"
+                        : "mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-success"
                     }
                   >
                     {selection.locked ? (
@@ -2491,7 +2495,7 @@ export function ArticleEditor({
                     {selection.locked ? "原文区块已锁定" : "区块文字可编辑"}
                   </p>
                   {typeof selection.attributes.componentId === "string" ? (
-                    <p className="mt-2 break-all font-mono text-[9px] leading-4 text-faint">
+                    <p className="mt-2 break-all font-mono text-[11px] leading-4 text-faint">
                       {selection.attributes.componentId}@
                       {String(selection.attributes.componentVersion ?? "unknown")}
                     </p>
@@ -2502,19 +2506,19 @@ export function ArticleEditor({
               {!(["imageBlock", "divider", "svgInteraction"] as const).includes(
                 selection.type as "imageBlock" | "divider" | "svgInteraction",
               ) ? (
-                <div className="rounded-control border border-accent/20 bg-accent-soft/45 p-3">
+                <div className="rounded-control bg-accent-soft/55 p-3 shadow-subtle">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[10px] font-semibold text-ink">文字格式</p>
-                    <span className="text-[8px] text-faint">
+                    <p className="text-[12px] font-semibold text-ink">文字格式</p>
+                    <span className="text-[11px] text-faint">
                       {editor.state.selection.empty ? "当前区块" : "已选文字"}
                     </span>
                   </div>
                   <div className="mt-3 grid grid-cols-[1fr_76px] gap-2">
                     <label className="block">
-                      <span className="mb-1 block text-[8px] text-faint">字体</span>
+                      <span className="mb-1.5 block text-[11px] text-faint">字体</span>
                       <select
                         aria-label="属性栏字体"
-                        className="h-8 w-full rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
+                        className="h-10 w-full rounded-md border border-line bg-panel px-2 text-base text-ink focus:border-accent xl:text-[12px]"
                         disabled={!editable || (textLocked && selection.locked)}
                         onChange={(event) =>
                           applyTextStyle(editor, selection, "fontFamily", event.currentTarget.value)
@@ -2536,10 +2540,10 @@ export function ArticleEditor({
                       </select>
                     </label>
                     <label className="block">
-                      <span className="mb-1 block text-[8px] text-faint">字号</span>
+                      <span className="mb-1.5 block text-[11px] text-faint">字号</span>
                       <select
                         aria-label="属性栏字号"
-                        className="h-8 w-full rounded-md border border-line bg-panel px-2 text-[9px] text-ink outline-none focus:border-accent"
+                        className="h-10 w-full rounded-md border border-line bg-panel px-2 text-base text-ink focus:border-accent xl:text-[12px]"
                         disabled={!editable || (textLocked && selection.locked)}
                         onChange={(event) =>
                           applyTextStyle(
@@ -2561,10 +2565,10 @@ export function ArticleEditor({
                   </div>
                   <div className="mt-3 grid grid-cols-[76px_1fr] items-end gap-2">
                     <label className="block">
-                      <span className="mb-1 block text-[8px] text-faint">文字颜色</span>
+                      <span className="mb-1.5 block text-[11px] text-faint">文字颜色</span>
                       <input
                         aria-label="属性栏文字颜色"
-                        className="h-8 w-full cursor-pointer rounded-md border border-line bg-panel p-1"
+                        className="h-10 w-full cursor-pointer rounded-md border border-line bg-panel p-1"
                         disabled={!editable || (textLocked && selection.locked)}
                         onChange={(event) =>
                           applyTextStyle(editor, selection, "textColor", event.currentTarget.value)
@@ -2586,12 +2590,12 @@ export function ArticleEditor({
                         const value = typeof current === "number" ? current : fallback;
                         return (
                           <label className="block" key={attribute}>
-                            <span className="mb-1 flex justify-between text-[8px] text-faint">
+                            <span className="mb-1 flex justify-between text-[11px] text-faint">
                               {label}
                               <span>{value}</span>
                             </span>
                             <input
-                              className="h-8 w-full accent-indigo-600"
+                              className="h-10 w-full accent-indigo-600"
                               disabled={!editable || (textLocked && selection.locked)}
                               max={max}
                               min={min}
@@ -2619,16 +2623,16 @@ export function ArticleEditor({
                 selection.type === "imageBlock") &&
               (componentAttributeFields[selection.type]?.length ?? 0) > 0 ? (
                 <div>
-                  <p className="text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
+                  <p className="text-[12px] font-medium tracking-[0.08em] text-faint uppercase">
                     {selection.type === "imageBlock" ? "图片信息" : "组件文字槽"}
                   </p>
                   <div className="mt-2 space-y-2">
                     {componentAttributeFields[selection.type]?.map((field) => (
                       <label className="block" key={field.attribute}>
-                        <span className="mb-1 block text-[9px] text-muted">{field.label}</span>
+                        <span className="mb-1.5 block text-[11px] text-muted">{field.label}</span>
                         <input
                           aria-label={field.label}
-                          className="h-9 w-full rounded-md border border-line bg-panel px-2.5 text-[10px] text-ink outline-none focus:border-accent disabled:opacity-45"
+                          className="h-10 w-full rounded-md border border-line bg-panel px-2.5 text-base text-ink focus:border-accent disabled:opacity-45 xl:text-[12px]"
                           disabled={!editable || (textLocked && selection.locked)}
                           maxLength={field.maxLength}
                           onChange={(event) => {
@@ -2643,7 +2647,7 @@ export function ArticleEditor({
                   </div>
                   {selection.type === "imageBlock" &&
                   String(selection.attributes.resourceId).startsWith("component_slot_") ? (
-                    <p className="mt-2 text-[9px] leading-4 text-warning">
+                    <p className="mt-2 text-[11px] leading-4 text-warning">
                       图片槽尚未选择资源；正式复制前需替换为文章资源。
                     </p>
                   ) : null}
@@ -2653,7 +2657,7 @@ export function ArticleEditor({
               {selection.type === "imageBlock" ? (
                 <div className="space-y-4 rounded-control border border-line bg-panel-muted p-3">
                   <div>
-                    <p className="text-[10px] font-medium text-ink">显示宽度</p>
+                    <p className="text-[12px] font-medium text-ink">显示宽度</p>
                     <div className="mt-2 grid grid-cols-3 gap-1">
                       {(
                         [
@@ -2663,7 +2667,7 @@ export function ArticleEditor({
                         ] as const
                       ).map(([value, label]) => (
                         <button
-                          className={`h-8 rounded-md border text-[9px] ${
+                          className={`h-10 rounded-md border text-[11px] ${
                             selection.attributes.widthMode === value ||
                             (selection.attributes.widthMode === undefined && value === "full")
                               ? "border-accent bg-accent-soft text-accent"
@@ -2682,7 +2686,7 @@ export function ArticleEditor({
                     </div>
                     {selection.attributes.widthMode === "percent" ? (
                       <label className="mt-3 block">
-                        <span className="flex items-center justify-between text-[9px] text-muted">
+                        <span className="flex items-center justify-between text-[11px] text-muted">
                           图片宽度
                           <span>{String(selection.attributes.widthPercent ?? 80)}%</span>
                         </span>
@@ -2705,10 +2709,10 @@ export function ArticleEditor({
                   </div>
                   <div>
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[10px] font-medium text-ink">位置与层级</p>
+                      <p className="text-[12px] font-medium text-ink">位置与层级</p>
                       <button
                         aria-pressed={selection.attributes.freePosition === true}
-                        className={`rounded-md px-2 py-1 text-[8px] font-medium ${
+                        className={`rounded-md px-2 py-1 text-[11px] font-medium ${
                           selection.attributes.freePosition === true
                             ? "bg-accent text-white"
                             : "border border-line bg-panel text-muted"
@@ -2738,7 +2742,7 @@ export function ArticleEditor({
                             (selection.attributes.horizontalAlign === undefined &&
                               value === "center")
                           }
-                          className={`h-8 rounded-md border text-[9px] ${
+                          className={`h-10 rounded-md border text-[11px] ${
                             selection.attributes.horizontalAlign === value ||
                             (selection.attributes.horizontalAlign === undefined &&
                               value === "center")
@@ -2760,7 +2764,7 @@ export function ArticleEditor({
                     </div>
                     {selection.attributes.freePosition === true ? (
                       <div className="mt-3 space-y-3 rounded-md border border-accent/15 bg-panel p-2.5">
-                        <p className="text-[8px] leading-4 text-accent">
+                        <p className="text-[11px] leading-4 text-accent">
                           可直接在画布中拖动；也可用下面的数值精确调整。
                         </p>
                         {(
@@ -2775,7 +2779,7 @@ export function ArticleEditor({
                           const value = typeof current === "number" ? current : fallback;
                           return (
                             <label className="block" key={attribute}>
-                              <span className="flex justify-between text-[8px] text-faint">
+                              <span className="flex justify-between text-[11px] text-faint">
                                 {label}
                                 <span>
                                   {value}
@@ -2800,7 +2804,7 @@ export function ArticleEditor({
                           );
                         })}
                         <button
-                          className="h-7 w-full rounded-md border border-line text-[8px] text-muted hover:bg-hover"
+                          className="h-10 w-full rounded-md border border-line text-[11px] text-muted hover:bg-hover"
                           disabled={!editable}
                           onClick={() =>
                             updateBlockAttributes(editor, selection.blockId, {
@@ -2818,7 +2822,7 @@ export function ArticleEditor({
                     ) : null}
                   </div>
                   <div>
-                    <p className="text-[10px] font-medium text-ink">裁切方式</p>
+                    <p className="text-[12px] font-medium text-ink">裁切方式</p>
                     <div className="mt-2 grid grid-cols-3 gap-1">
                       {(
                         [
@@ -2828,7 +2832,7 @@ export function ArticleEditor({
                         ] as const
                       ).map(([value, label]) => (
                         <button
-                          className={`h-8 rounded-md border text-[9px] ${
+                          className={`h-10 rounded-md border text-[11px] ${
                             selection.attributes.objectFit === value ||
                             (selection.attributes.objectFit === undefined && value === "contain")
                               ? "border-accent bg-accent-soft text-accent"
@@ -2847,7 +2851,7 @@ export function ArticleEditor({
                     </div>
                     {selection.attributes.objectFit === "cover" ? (
                       <div className="mt-3 space-y-2 rounded-md border border-line bg-panel p-2.5">
-                        <p className="text-[8px] text-faint">裁切焦点</p>
+                        <p className="text-[11px] text-faint">裁切焦点</p>
                         {(
                           [
                             ["objectPositionX", "左右焦点"],
@@ -2858,7 +2862,7 @@ export function ArticleEditor({
                           const value = typeof current === "number" ? current : 50;
                           return (
                             <label className="block" key={attribute}>
-                              <span className="flex justify-between text-[8px] text-faint">
+                              <span className="flex justify-between text-[11px] text-faint">
                                 {label}
                                 <span>{value}%</span>
                               </span>
@@ -2881,7 +2885,7 @@ export function ArticleEditor({
                       </div>
                     ) : null}
                     <label className="mt-3 block">
-                      <span className="flex justify-between text-[8px] text-faint">
+                      <span className="flex justify-between text-[11px] text-faint">
                         透明度
                         <span>{Math.round(Number(selection.attributes.opacity ?? 1) * 100)}%</span>
                       </span>
@@ -2902,7 +2906,7 @@ export function ArticleEditor({
                     </label>
                   </div>
                   <button
-                    className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-accent/25 bg-panel text-[9px] font-medium text-accent hover:bg-hover"
+                    className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-md border border-accent/25 bg-panel text-[11px] font-medium text-accent hover:bg-hover"
                     onClick={() => {
                       setLeftPanel("assets");
                       setAssetSource("personal");
@@ -2919,12 +2923,12 @@ export function ArticleEditor({
                 <div className="rounded-control border border-warning/20 bg-warning-soft p-3">
                   {unlockCandidate === selection.blockId ? (
                     <>
-                      <p className="text-[10px] leading-5 text-warning">
+                      <p className="text-[12px] leading-5 text-warning">
                         解锁后，后续文字修改会进入差异报告。当前版本会先保存，再开放输入。
                       </p>
                       <div className="mt-2 flex gap-1.5">
                         <button
-                          className="h-8 flex-1 rounded-md bg-warning px-2 text-[10px] font-medium text-white disabled:opacity-45"
+                          className="h-10 flex-1 rounded-md bg-warning px-2 text-[12px] font-medium text-white disabled:opacity-45"
                           disabled={!lockActionsEnabled || lockMutationPending}
                           onClick={() => {
                             void unlockBlock(selection.blockId);
@@ -2934,7 +2938,7 @@ export function ArticleEditor({
                           确认解锁
                         </button>
                         <button
-                          className="h-8 rounded-md border border-line bg-panel px-2 text-[10px] text-muted"
+                          className="h-10 rounded-md border border-line bg-panel px-2 text-[12px] text-muted"
                           onClick={() => setUnlockCandidate(null)}
                           type="button"
                         >
@@ -2944,7 +2948,7 @@ export function ArticleEditor({
                     </>
                   ) : (
                     <button
-                      className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-warning/25 bg-panel text-[10px] font-medium text-warning hover:bg-hover disabled:opacity-45"
+                      className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-md border border-warning/25 bg-panel text-[12px] font-medium text-warning hover:bg-hover disabled:opacity-45"
                       disabled={!lockActionsEnabled || lockMutationPending}
                       onClick={() => setUnlockCandidate(selection.blockId)}
                       type="button"
@@ -2958,9 +2962,9 @@ export function ArticleEditor({
 
               <div className="rounded-control border border-line bg-panel-muted p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[10px] font-medium text-ink">自由样式</p>
+                  <p className="text-[12px] font-medium text-ink">自由样式</p>
                   <button
-                    className="text-[9px] font-medium text-accent hover:text-accent-strong disabled:opacity-40"
+                    className="text-[11px] font-medium text-accent hover:text-accent-strong disabled:opacity-40"
                     disabled={!editable}
                     onClick={() =>
                       updateBlockAttributes(editor, selection.blockId, { styleOverrides: {} })
@@ -2983,10 +2987,10 @@ export function ArticleEditor({
                     const value = overrides?.[attribute];
                     return (
                       <label className="text-center" key={attribute}>
-                        <span className="mb-1.5 block text-[8px] text-faint">{label}</span>
+                        <span className="mb-1.5 block text-[11px] text-faint">{label}</span>
                         <input
                           aria-label={`${label}颜色`}
-                          className="h-7 w-full cursor-pointer rounded border border-line bg-panel p-0.5 disabled:opacity-40"
+                          className="h-10 w-full cursor-pointer rounded border border-line bg-panel p-0.5 disabled:opacity-40"
                           disabled={!editable}
                           onChange={(event) =>
                             updateBlockAttributes(editor, selection.blockId, {
@@ -3022,7 +3026,7 @@ export function ArticleEditor({
                     const value = typeof current === "number" ? current : fallback;
                     return (
                       <label className="block" key={attribute}>
-                        <span className="flex items-center justify-between text-[8px] text-faint">
+                        <span className="flex items-center justify-between text-[11px] text-faint">
                           {label}
                           <span>{value}px</span>
                         </span>
@@ -3060,14 +3064,14 @@ export function ArticleEditor({
               </div>
 
               <div>
-                <p className="text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
+                <p className="text-[12px] font-medium tracking-[0.08em] text-faint uppercase">
                   对齐
                 </p>
                 <div className="mt-2 grid grid-cols-4 gap-1">
                   {alignmentOptions.map(({ alignment, icon: Icon, label }) => (
                     <button
                       aria-label={label}
-                      className="grid h-8 place-items-center rounded-md border border-line text-muted hover:bg-hover hover:text-ink disabled:opacity-40"
+                      className="grid h-10 place-items-center rounded-md border border-line text-muted hover:bg-hover hover:text-ink disabled:opacity-40"
                       disabled={!editable}
                       key={alignment}
                       onClick={() => {
@@ -3090,7 +3094,7 @@ export function ArticleEditor({
               </div>
 
               <div>
-                <p className="text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
+                <p className="text-[12px] font-medium tracking-[0.08em] text-faint uppercase">
                   段间距
                 </p>
                 <div className="mt-2 grid grid-cols-3 gap-1">
@@ -3101,7 +3105,7 @@ export function ArticleEditor({
                   ].map((spacing) => (
                     <button
                       aria-label={`${spacing.label}段间距`}
-                      className="h-8 rounded-md border border-line text-[10px] text-muted hover:bg-hover hover:text-ink disabled:opacity-40"
+                      className="h-10 rounded-md border border-line text-[12px] text-muted hover:bg-hover hover:text-ink disabled:opacity-40"
                       disabled={!editable}
                       key={spacing.value}
                       onClick={() => {
@@ -3123,12 +3127,12 @@ export function ArticleEditor({
               </div>
 
               <div>
-                <p className="text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
+                <p className="text-[12px] font-medium tracking-[0.08em] text-faint uppercase">
                   区块操作
                 </p>
                 <div className="mt-2 grid grid-cols-2 gap-1.5">
                   <button
-                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-control border border-line text-[10px] text-muted hover:bg-hover hover:text-ink disabled:opacity-40"
+                    className="inline-flex h-10 items-center justify-center gap-1.5 rounded-control border border-line text-[12px] text-muted hover:bg-hover hover:text-ink disabled:opacity-40"
                     disabled={!editable || !selection.canMoveUp}
                     onClick={() => runBlockCommand((current, id) => moveBlock(current, id, -1))}
                     type="button"
@@ -3137,7 +3141,7 @@ export function ArticleEditor({
                     上移
                   </button>
                   <button
-                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-control border border-line text-[10px] text-muted hover:bg-hover hover:text-ink disabled:opacity-40"
+                    className="inline-flex h-10 items-center justify-center gap-1.5 rounded-control border border-line text-[12px] text-muted hover:bg-hover hover:text-ink disabled:opacity-40"
                     disabled={!editable || !selection.canMoveDown}
                     onClick={() => runBlockCommand((current, id) => moveBlock(current, id, 1))}
                     type="button"
@@ -3146,7 +3150,7 @@ export function ArticleEditor({
                     下移
                   </button>
                   <button
-                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-control border border-line text-[10px] text-muted hover:bg-hover hover:text-ink disabled:opacity-40"
+                    className="inline-flex h-10 items-center justify-center gap-1.5 rounded-control border border-line text-[12px] text-muted hover:bg-hover hover:text-ink disabled:opacity-40"
                     disabled={!editable}
                     onClick={() => runBlockCommand(duplicateBlock)}
                     type="button"
@@ -3155,7 +3159,7 @@ export function ArticleEditor({
                     复制
                   </button>
                   <button
-                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-control border border-danger/15 text-[10px] text-danger hover:bg-danger-soft disabled:opacity-40"
+                    className="inline-flex h-10 items-center justify-center gap-1.5 rounded-control border border-danger/15 text-[12px] text-danger hover:bg-danger-soft disabled:opacity-40"
                     disabled={!editable}
                     onClick={() => runBlockCommand(deleteBlock)}
                     type="button"
@@ -3166,7 +3170,7 @@ export function ArticleEditor({
                 </div>
               </div>
 
-              <div className="rounded-control bg-panel-muted p-3 text-[10px] leading-5 text-faint">
+              <div className="rounded-control bg-panel-muted p-3 text-[12px] leading-5 text-faint">
                 <p className="flex items-center gap-1.5 font-medium text-muted">
                   <ChevronsUpDown aria-hidden="true" size={12} />
                   快捷操作
@@ -3179,20 +3183,20 @@ export function ArticleEditor({
           )}
           <div className="border-t border-line p-4">
             <div className="flex items-center justify-between">
-              <p className="text-[10px] font-medium tracking-[0.08em] text-faint uppercase">
+              <p className="text-[12px] font-medium tracking-[0.08em] text-faint uppercase">
                 原文变化检测
               </p>
               <span
                 className={
                   textChangeReport.changedCharacters === 0
-                    ? "text-[10px] font-medium text-success"
-                    : "text-[10px] font-medium text-warning"
+                    ? "text-[12px] font-medium text-success"
+                    : "text-[12px] font-medium text-warning"
                 }
               >
                 {textChangeReport.changedCharacters === 0 ? "文字一致" : "存在变化"}
               </span>
             </div>
-            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px]">
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px]">
               <div className="flex justify-between gap-2">
                 <dt className="text-faint">原文字数</dt>
                 <dd className="font-mono text-muted">{textChangeReport.originalCharacters}</dd>

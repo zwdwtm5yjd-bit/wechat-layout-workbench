@@ -575,12 +575,12 @@ export function EditorDeliveryActions({
           </span>
           <div className="min-w-0">
             <p className="text-[12px] font-semibold text-ink">交付工具</p>
-            <p className="mt-0.5 truncate text-[10px] text-faint">预览 → 兼容检查 → 复制到公众号</p>
+            <p className="mt-0.5 truncate text-[11px] text-faint">预览 → 兼容检查 → 复制到公众号</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
-            className="inline-flex h-9 items-center gap-2 rounded-control border border-line px-3 text-[11px] font-medium text-ink hover:bg-hover"
+            className="inline-flex min-h-10 items-center gap-2 rounded-control border border-line px-3 text-[11px] font-medium text-ink transition-[background-color,border-color,color,transform] duration-150 hover:bg-hover active:scale-[0.96]"
             onClick={() => setLayoutOpen(true)}
             type="button"
           >
@@ -588,16 +588,16 @@ export function EditorDeliveryActions({
             智能排版
           </button>
           <button
-            className="inline-flex h-9 items-center gap-2 rounded-control border border-line px-3 text-[11px] font-medium text-ink hover:bg-hover"
+            className="inline-flex min-h-10 items-center gap-2 rounded-control border border-line px-3 text-[11px] font-medium text-ink transition-[background-color,border-color,color,transform] duration-150 hover:bg-hover active:scale-[0.96]"
             onClick={() => router.push(`/workspace/articles/${articleId}/preview`)}
             type="button"
           >
             <Eye aria-hidden="true" size={14} />
             预览
-            <kbd className="text-[9px] text-faint">⌘P</kbd>
+            <kbd className="text-[11px] text-faint">⌘P</kbd>
           </button>
           <button
-            className="inline-flex h-9 items-center gap-2 rounded-control border border-line px-3 text-[11px] font-medium text-ink hover:bg-hover"
+            className="inline-flex min-h-10 items-center gap-2 rounded-control border border-line px-3 text-[11px] font-medium text-ink transition-[background-color,border-color,color,transform] duration-150 hover:bg-hover active:scale-[0.96]"
             onClick={() => setCompatibilityOpen(true)}
             type="button"
           >
@@ -607,8 +607,8 @@ export function EditorDeliveryActions({
               <span
                 className={
                   renderOutput.canCopy
-                    ? "rounded-full bg-success-soft px-1.5 py-0.5 text-[9px] text-success"
-                    : "rounded-full bg-danger-soft px-1.5 py-0.5 text-[9px] text-danger"
+                    ? "rounded-full bg-success-soft px-1.5 py-0.5 text-[11px] text-success"
+                    : "rounded-full bg-danger-soft px-1.5 py-0.5 text-[11px] text-danger"
                 }
               >
                 {renderOutput.compatibilityReport.score}
@@ -616,7 +616,7 @@ export function EditorDeliveryActions({
             )}
           </button>
           <button
-            className="inline-flex h-9 items-center gap-2 rounded-control bg-accent px-3 text-[11px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex min-h-10 items-center gap-2 rounded-control bg-accent px-3 text-[11px] font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-45"
             disabled={saveStatus !== "saved"}
             onClick={() => setCopyOpen(true)}
             type="button"
@@ -642,7 +642,8 @@ export function EditorDeliveryActions({
               </div>
               <Dialog.Close
                 aria-label="关闭快速排版"
-                className="grid size-9 shrink-0 place-items-center rounded-control text-faint hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                className="grid size-10 shrink-0 place-items-center rounded-control border border-transparent text-faint transition-[background-color,border-color,color,transform] duration-150 hover:border-line hover:bg-hover hover:text-ink active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                type="button"
               >
                 <X aria-hidden="true" size={15} />
               </Dialog.Close>
@@ -651,15 +652,15 @@ export function EditorDeliveryActions({
               {favoriteAnnouncement}
             </p>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5 sm:px-6 sm:pb-6">
-              <div className="mt-5 rounded-control border border-line bg-panel-muted p-4">
+              <div className="mt-5 rounded-control border border-accent/15 bg-accent-soft/35 p-4">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[10px] font-semibold text-accent">
+                  <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-semibold text-accent">
                     {analysis.gene.articleTypeLabel}
                   </span>
-                  <span className="rounded-full border border-line bg-panel px-2.5 py-1 text-[10px] text-muted">
+                  <span className="rounded-full border border-line bg-panel px-2.5 py-1 text-[11px] text-muted">
                     {analysis.gene.emotionLabel}
                   </span>
-                  <span className="text-[10px] leading-5 text-muted">{analysis.gene.summary}</span>
+                  <span className="text-[11px] leading-5 text-muted">{analysis.gene.summary}</span>
                 </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-4">
                   {[
@@ -669,13 +670,13 @@ export function EditorDeliveryActions({
                     ["建议补图", `${imagePreparationTasks.length} 张`],
                   ].map(([label, value]) => (
                     <div key={label}>
-                      <p className="text-[9px] text-faint">{label}</p>
+                      <p className="text-[11px] text-faint">{label}</p>
                       <p className="mt-1 text-[12px] font-semibold text-ink">{value}</p>
                     </div>
                   ))}
                 </div>
                 {analysis.gene.structureSignals.length === 0 ? null : (
-                  <p className="mt-3 text-[9px] leading-4 text-faint">
+                  <p className="mt-3 text-[11px] leading-5 text-faint">
                     结构线索：{analysis.gene.structureSignals.join(" · ")}
                   </p>
                 )}
@@ -689,12 +690,12 @@ export function EditorDeliveryActions({
                       </span>
                       <div>
                         <p className="text-[11px] font-semibold text-ink">2 · 配图准备</p>
-                        <p className="mt-0.5 text-[9px] leading-4 text-muted">
+                        <p className="mt-0.5 text-[11px] leading-5 text-muted">
                           把缺图位置变成任务；上传的真实图片会参与下一步 AI 排版。
                         </p>
                       </div>
                     </div>
-                    <span className="rounded-full bg-panel px-2.5 py-1 text-[9px] font-medium text-muted">
+                    <span className="rounded-full bg-panel px-2.5 py-1 text-[11px] font-medium text-muted">
                       {imagePreparationTasks.length === 0
                         ? "已经图文平衡"
                         : `已处理 ${resolvedImageTaskCount}/${imagePreparationTasks.length}`}
@@ -711,7 +712,7 @@ export function EditorDeliveryActions({
                     />
                     <div>
                       <p className="text-[11px] font-semibold text-ink">当前图片密度已足够</p>
-                      <p className="mt-1 text-[9px] leading-4 text-muted">
+                      <p className="mt-1 text-[11px] leading-5 text-muted">
                         无需为了凑数再加图，可直接选择排版方向。
                       </p>
                     </div>
@@ -738,14 +739,14 @@ export function EditorDeliveryActions({
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="truncate text-[10px] font-semibold text-ink">
+                              <p className="truncate text-[11px] font-semibold text-ink">
                                 {String(index + 1).padStart(2, "0")} · {task.sectionLabel}
                               </p>
                               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[8px] font-medium text-accent">
+                                <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">
                                   {task.purposeLabel}
                                 </span>
-                                <span className="rounded-full bg-panel-muted px-2 py-0.5 text-[8px] text-muted">
+                                <span className="rounded-full bg-panel-muted px-2 py-0.5 text-[11px] text-muted">
                                   {task.aspectRatio === "portrait"
                                     ? "竖图"
                                     : task.aspectRatio === "square"
@@ -755,7 +756,7 @@ export function EditorDeliveryActions({
                               </div>
                             </div>
                             <span
-                              className={`shrink-0 rounded-full px-2 py-1 text-[8px] font-medium ${
+                              className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium ${
                                 resolution?.status === "selected"
                                   ? "bg-success-soft text-success"
                                   : resolution?.status === "skipped"
@@ -770,16 +771,16 @@ export function EditorDeliveryActions({
                                   : "待补图"}
                             </span>
                           </div>
-                          <p className="mt-2 text-[9px] leading-4 text-muted">{task.reason}</p>
+                          <p className="mt-2 text-[11px] leading-5 text-muted">{task.reason}</p>
 
                           <div className="mt-2 flex items-center gap-2 rounded-md bg-panel-muted px-2.5 py-2">
-                            <p className="min-w-0 flex-1 truncate text-[9px] text-muted">
+                            <p className="min-w-0 flex-1 truncate text-[11px] text-muted">
                               搜图词：
                               <span className="font-medium text-ink">{task.searchQuery}</span>
                             </p>
                             <button
                               aria-label={`复制搜图词 ${task.searchQuery}`}
-                              className="grid size-7 shrink-0 place-items-center rounded-md bg-panel text-faint hover:text-accent"
+                              className="grid size-10 shrink-0 place-items-center rounded-md bg-panel text-faint transition-[background-color,color,transform] duration-150 hover:bg-hover hover:text-accent active:scale-[0.96]"
                               onClick={() => {
                                 void navigator.clipboard
                                   .writeText(task.searchQuery)
@@ -802,7 +803,7 @@ export function EditorDeliveryActions({
 
                           {selectedResource === null ? null : (
                             <div className="mt-3 flex items-center gap-3 rounded-md border border-line bg-panel p-2">
-                              <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-md bg-panel-muted">
+                              <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-md border border-line bg-panel-muted">
                                 {selectedUrl === undefined ? (
                                   <Images aria-hidden="true" className="text-faint" size={16} />
                                 ) : (
@@ -814,14 +815,14 @@ export function EditorDeliveryActions({
                                 )}
                               </span>
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-[9px] font-semibold text-ink">
+                                <p className="truncate text-[11px] font-semibold text-ink">
                                   {resourceLabel(selectedResource)}
                                 </p>
-                                <p className="mt-0.5 text-[8px] text-success">将插入该内容之后</p>
+                                <p className="mt-0.5 text-[11px] text-success">将插入该内容之后</p>
                               </div>
                               <button
                                 aria-label={`移除${task.sectionLabel}已选图片`}
-                                className="shrink-0 text-[8px] text-muted hover:text-danger"
+                                className="min-h-10 shrink-0 rounded-md px-2 text-[11px] text-muted transition-[background-color,color,transform] duration-150 hover:bg-danger-soft hover:text-danger active:scale-[0.96]"
                                 onClick={() =>
                                   setImageTaskResolutions((current) => {
                                     const next = { ...current };
@@ -837,7 +838,7 @@ export function EditorDeliveryActions({
                           )}
 
                           <div className="mt-3 grid grid-cols-3 gap-1.5">
-                            <label className="inline-flex h-8 cursor-pointer items-center justify-center gap-1 rounded-md bg-accent text-[8px] font-semibold text-white hover:bg-accent-strong focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
+                            <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 rounded-md bg-accent px-1 text-[11px] font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-accent-strong focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent active:scale-[0.96]">
                               {uploadingImageTaskId === task.taskId ? (
                                 <LoaderCircle
                                   aria-hidden="true"
@@ -865,7 +866,7 @@ export function EditorDeliveryActions({
                             <button
                               aria-expanded={pickerOpen}
                               aria-label={`为${task.sectionLabel}从我的素材选择图片`}
-                              className="h-8 rounded-md border border-line bg-panel text-[8px] font-medium text-ink hover:bg-hover"
+                              className="min-h-10 rounded-md border border-line bg-panel px-1 text-[11px] font-medium text-ink transition-[background-color,border-color,color,transform] duration-150 hover:bg-hover active:scale-[0.96]"
                               onClick={() =>
                                 setResourcePickerTaskId((current) =>
                                   current === task.taskId ? null : task.taskId,
@@ -877,7 +878,7 @@ export function EditorDeliveryActions({
                             </button>
                             <button
                               aria-label={`${task.sectionLabel}这处不配图`}
-                              className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-line bg-panel text-[8px] font-medium text-muted hover:bg-hover"
+                              className="inline-flex min-h-10 items-center justify-center gap-1 rounded-md border border-line bg-panel px-1 text-[11px] font-medium text-muted transition-[background-color,border-color,color,transform] duration-150 hover:bg-hover active:scale-[0.96]"
                               onClick={() => resolveImageTask(task.taskId, { status: "skipped" })}
                               type="button"
                             >
@@ -889,14 +890,14 @@ export function EditorDeliveryActions({
                           {pickerOpen ? (
                             <div className="mt-3 rounded-md border border-line bg-panel p-2">
                               {privateImagesQuery.isPending ? (
-                                <p className="py-4 text-center text-[9px] text-muted">
+                                <p className="py-4 text-center text-[11px] text-muted">
                                   正在读取我的素材…
                                 </p>
                               ) : privateImagesQuery.isError ? (
                                 <div className="py-4 text-center">
-                                  <p className="text-[9px] text-danger">素材库暂时无法读取</p>
+                                  <p className="text-[11px] text-danger">我的素材暂时无法读取</p>
                                   <button
-                                    className="mt-2 text-[8px] font-medium text-accent hover:underline"
+                                    className="mt-2 min-h-10 rounded-md px-3 text-[11px] font-medium text-accent transition-[background-color,color,transform] duration-150 hover:bg-accent-soft hover:underline active:scale-[0.96]"
                                     onClick={() => void privateImagesQuery.refetch()}
                                     type="button"
                                   >
@@ -904,8 +905,8 @@ export function EditorDeliveryActions({
                                   </button>
                                 </div>
                               ) : privateImages.length === 0 ? (
-                                <p className="py-4 text-center text-[9px] text-faint">
-                                  素材库还没有图片，可直接上传。
+                                <p className="py-4 text-center text-[11px] text-faint">
+                                  我的素材还没有图片，可直接上传。
                                 </p>
                               ) : (
                                 <div className="grid max-h-52 grid-cols-3 gap-2 overflow-y-auto">
@@ -913,7 +914,7 @@ export function EditorDeliveryActions({
                                     const url = privateImageUrlsQuery.data?.[resource.id];
                                     return (
                                       <button
-                                        className="overflow-hidden rounded-md border border-line bg-panel-muted text-left hover:border-accent"
+                                        className="min-h-10 overflow-hidden rounded-md border border-line bg-panel-muted text-left transition-[background-color,border-color,transform] duration-150 hover:border-accent active:scale-[0.96]"
                                         key={resource.id}
                                         onClick={() =>
                                           resolveImageTask(task.taskId, {
@@ -933,13 +934,13 @@ export function EditorDeliveryActions({
                                           ) : (
                                             <img
                                               alt={resourceLabel(resource)}
-                                              className="h-full w-full object-cover"
+                                              className="h-full w-full border border-line object-cover"
                                               loading="lazy"
                                               src={url}
                                             />
                                           )}
                                         </span>
-                                        <span className="block truncate border-t border-line px-1.5 py-1 text-[7px] text-ink">
+                                        <span className="block truncate border-t border-line px-1.5 py-1.5 text-[11px] text-ink">
                                           {resourceLabel(resource)}
                                         </span>
                                       </button>
@@ -957,13 +958,13 @@ export function EditorDeliveryActions({
 
                 {imagePreparationTasks.length === 0 ? null : (
                   <div className="flex flex-col gap-3 border-t border-line bg-panel-muted p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-[9px] leading-4 text-muted">
+                    <p className="text-[11px] leading-5 text-muted">
                       {selectedImageTaskCount > 0
                         ? `已选 ${selectedImageTaskCount} 张真实图片，保存后 AI 会重新阅读全文与图片。`
                         : "图片不是必填项；可明确略过，不会生成空白占位图。"}
                     </p>
                     <button
-                      className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-control bg-accent px-4 text-[9px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
+                      className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-control bg-accent px-4 text-[11px] font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-45"
                       disabled={
                         saveStatus !== "saved" || imageTaskSaving || uploadingImageTaskId !== null
                       }
@@ -985,7 +986,7 @@ export function EditorDeliveryActions({
                 )}
                 {imageTaskError === null ? null : (
                   <p
-                    className="border-t border-danger/15 bg-danger-soft px-4 py-2.5 text-[9px] text-danger"
+                    className="border-t border-danger/15 bg-danger-soft px-4 py-2.5 text-[11px] text-danger"
                     role="alert"
                   >
                     {imageTaskError}
@@ -1009,7 +1010,7 @@ export function EditorDeliveryActions({
                 ).map(([mode, label, description]) => (
                   <button
                     aria-selected={layoutMode === mode}
-                    className={`rounded-control border p-3 text-left transition ${
+                    className={`min-h-10 rounded-control border p-3 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 active:scale-[0.96] ${
                       layoutMode === mode
                         ? "border-accent bg-accent-soft ring-2 ring-accent/10"
                         : "border-line bg-panel hover:border-line-strong"
@@ -1023,7 +1024,7 @@ export function EditorDeliveryActions({
                     type="button"
                   >
                     <span className="block text-[11px] font-semibold text-ink">{label}</span>
-                    <span className="mt-1 block text-[9px] leading-4 text-muted">
+                    <span className="mt-1 block text-[11px] leading-5 text-muted">
                       {description}
                     </span>
                   </button>
@@ -1033,12 +1034,12 @@ export function EditorDeliveryActions({
                 <section className="mt-4 rounded-control border border-line bg-panel-muted p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <p className="text-[10px] font-semibold text-ink">选择排版大模型</p>
-                      <p className="mt-1 text-[9px] leading-4 text-muted">
+                      <p className="text-[11px] font-semibold text-ink">选择排版大模型</p>
+                      <p className="mt-1 text-[11px] leading-5 text-muted">
                         自动选择会优先使用 DeepSeek，失败时依次切换通义千问和 Kimi。
                       </p>
                     </div>
-                    <span className="rounded-full bg-success-soft px-2 py-1 text-[9px] font-medium text-success">
+                    <span className="rounded-full bg-success-soft px-2 py-1 text-[11px] font-medium text-success">
                       {aiStatusQuery.data?.models.filter((model) => model.available).length ?? 0}{" "}
                       个节点可用
                     </span>
@@ -1046,7 +1047,7 @@ export function EditorDeliveryActions({
                   <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     <button
                       aria-pressed={providerId === "auto"}
-                      className={`rounded-control border p-3 text-left transition ${
+                      className={`min-h-10 rounded-control border p-3 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 active:scale-[0.96] ${
                         providerId === "auto"
                           ? "border-accent bg-panel ring-2 ring-accent/10"
                           : "border-line bg-panel hover:border-line-strong"
@@ -1059,20 +1060,20 @@ export function EditorDeliveryActions({
                       }}
                       type="button"
                     >
-                      <span className="flex items-center justify-between gap-2 text-[10px] font-semibold text-ink">
+                      <span className="flex items-center justify-between gap-2 text-[11px] font-semibold text-ink">
                         自动选择
-                        <span className="rounded-full bg-accent-soft px-1.5 py-0.5 text-[8px] text-accent">
+                        <span className="rounded-full bg-accent-soft px-1.5 py-0.5 text-[11px] text-accent">
                           推荐
                         </span>
                       </span>
-                      <span className="mt-1 block text-[8px] leading-4 text-muted">
+                      <span className="mt-1 block text-[11px] leading-5 text-muted">
                         自动容灾，优先低成本节点
                       </span>
                     </button>
                     {(aiStatusQuery.data?.models ?? []).map((model) => (
                       <button
                         aria-pressed={providerId === model.id}
-                        className={`rounded-control border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                        className={`min-h-10 rounded-control border p-3 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-45 ${
                           providerId === model.id
                             ? "border-accent bg-panel ring-2 ring-accent/10"
                             : "border-line bg-panel hover:border-line-strong"
@@ -1086,16 +1087,16 @@ export function EditorDeliveryActions({
                         }}
                         type="button"
                       >
-                        <span className="flex items-center justify-between gap-2 text-[10px] font-semibold text-ink">
+                        <span className="flex items-center justify-between gap-2 text-[11px] font-semibold text-ink">
                           {model.label}
                           <span
                             className={`size-1.5 rounded-full ${model.available ? "bg-success" : "bg-faint"}`}
                           />
                         </span>
-                        <span className="mt-1 block text-[8px] leading-4 text-muted">
+                        <span className="mt-1 block text-[11px] leading-5 text-muted">
                           {model.description}
                         </span>
-                        <span className="mt-1 block truncate font-mono text-[7px] text-faint">
+                        <span className="mt-1 block truncate font-mono text-[11px] text-faint">
                           {model.model}
                         </span>
                       </button>
@@ -1105,9 +1106,9 @@ export function EditorDeliveryActions({
               )}
               {layoutMode === "described" ? (
                 <label className="mt-4 block rounded-control border border-line bg-panel-muted p-4">
-                  <span className="text-[10px] font-semibold text-ink">你想要什么感觉？</span>
+                  <span className="text-[11px] font-semibold text-ink">你想要什么感觉？</span>
                   <textarea
-                    className="mt-2 min-h-20 w-full resize-y rounded-control border border-line bg-panel px-3 py-2 text-[11px] leading-5 text-ink outline-none focus:border-accent"
+                    className="mt-2 min-h-20 w-full resize-y rounded-control border border-line bg-panel px-3 py-2 text-base leading-6 text-ink outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent focus:ring-2 focus:ring-accent/15 sm:text-[11px] sm:leading-5"
                     maxLength={300}
                     onChange={(event) => {
                       candidateRequestGenerationRef.current += 1;
@@ -1116,13 +1117,13 @@ export function EditorDeliveryActions({
                     placeholder="例如：温暖的杂志感，米白底色，标题有手工纸气质，金句突出但不要太花。"
                     value={styleBrief}
                   />
-                  <span className="mt-1 block text-right text-[9px] text-faint">
+                  <span className="mt-1 block text-right text-[11px] text-faint">
                     {styleBrief.length}/300
                   </span>
                 </label>
               ) : null}
               {layoutMode === "original" ? (
-                <div className="mt-4 rounded-control border border-accent/20 bg-accent-soft p-4 text-[10px] leading-5 text-muted">
+                <div className="mt-4 rounded-control border border-accent/20 bg-accent-soft p-4 text-[11px] leading-5 text-muted">
                   模型会逐段决定哪些是标题、章节、导语、金句、数据卡和转场，再选择视觉语言。
                   不再使用内容指纹假装 AI，也不会插入占位图集。
                 </div>
@@ -1149,7 +1150,7 @@ export function EditorDeliveryActions({
                 />
               )}
               {layoutMode === "preset" || selectedProviderAvailable ? null : (
-                <div className="mt-4 rounded-control border border-warning/25 bg-warning-soft p-4 text-[10px] leading-5 text-warning">
+                <div className="mt-4 rounded-control border border-warning/25 bg-warning-soft p-4 text-[11px] leading-5 text-warning">
                   {providerId === "auto"
                     ? "尚未连接可用的 AI 模型。"
                     : `${selectedModel?.label ?? "所选模型"} 尚未配置。`}
@@ -1165,12 +1166,12 @@ export function EditorDeliveryActions({
                           ? `已生成 ${aiCandidates.length} 套可对比方案`
                           : "一次生成 6 种结构方向"}
                       </p>
-                      <p className="mt-1 text-[9px] leading-4 text-muted">
+                      <p className="mt-1 text-[11px] leading-5 text-muted">
                         模型只阅读全文一次，再派生六种结构表达，不会为每张卡重复消耗额度。
                       </p>
                     </div>
                     <button
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-control bg-accent px-4 text-[10px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-control bg-accent px-4 text-[11px] font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-45"
                       disabled={
                         saveStatus !== "saved" ||
                         !selectedProviderAvailable ||
@@ -1198,7 +1199,7 @@ export function EditorDeliveryActions({
                       {["报刊导读", "简报卡片", "数据证据", "极简长读", "纪实图文", "行动路线"].map(
                         (label) => (
                           <span
-                            className="rounded-full border border-line bg-panel-muted px-2.5 py-1 text-[8px] font-medium text-muted"
+                            className="rounded-full border border-line bg-panel-muted px-2.5 py-1 text-[11px] font-medium text-muted"
                             key={label}
                           >
                             {label}
@@ -1207,12 +1208,12 @@ export function EditorDeliveryActions({
                       )}
                     </div>
                   ) : (
-                    <p className="mt-3 text-[10px] leading-5 text-muted">
+                    <p className="mt-3 text-[11px] leading-5 text-muted">
                       下方统一对比首屏结构、章节、重点卡、图片策略和阅读节奏；星标会在当前浏览器置顶喜欢的方向。
                     </p>
                   )}
                   {candidateError === null ? null : (
-                    <p className="mt-3 rounded-control bg-danger-soft px-3 py-2 text-[9px] leading-4 text-danger">
+                    <p className="mt-3 rounded-control bg-danger-soft px-3 py-2 text-[11px] leading-5 text-danger">
                       {candidateError}
                     </p>
                   )}
@@ -1222,7 +1223,7 @@ export function EditorDeliveryActions({
                 <div className="mt-4 flex flex-wrap items-center gap-1.5 rounded-control border border-line bg-panel-muted p-2">
                   <button
                     aria-pressed={languageFamily === "all"}
-                    className={`rounded-md px-3 py-1.5 text-[9px] font-medium transition ${
+                    className={`min-h-10 rounded-md px-3 py-1.5 text-[11px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${
                       languageFamily === "all"
                         ? "bg-accent text-white"
                         : "bg-panel text-muted hover:text-ink"
@@ -1240,7 +1241,7 @@ export function EditorDeliveryActions({
                     return (
                       <button
                         aria-pressed={languageFamily === familyId}
-                        className={`rounded-md px-3 py-1.5 text-[9px] font-medium transition ${
+                        className={`min-h-10 rounded-md px-3 py-1.5 text-[11px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${
                           languageFamily === familyId
                             ? "bg-accent text-white"
                             : "bg-panel text-muted hover:text-ink"
@@ -1259,12 +1260,12 @@ export function EditorDeliveryActions({
                 <div className="sticky top-0 z-20 -mx-1 mt-4 flex items-center justify-between gap-3 rounded-control border border-line bg-panel/95 px-3 py-2.5 shadow-subtle backdrop-blur">
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold text-ink">六套结构预演</p>
-                    <p className="mt-0.5 text-[10px] leading-4 text-muted">
+                    <p className="mt-0.5 text-[11px] leading-5 text-muted">
                       <span className="lg:hidden">左右滑动逐套比较；</span>
                       预演用于看结构方向，应用后才生成可继续编辑的成稿。
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-full bg-panel-muted px-2.5 py-1 text-[10px] font-medium text-muted">
+                  <span className="shrink-0 rounded-full bg-panel-muted px-2.5 py-1 text-[11px] font-medium text-muted">
                     已收藏 {favoriteProfileIds.length}
                   </span>
                 </div>
@@ -1323,7 +1324,7 @@ export function EditorDeliveryActions({
                                   : `收藏${candidate.structureLabel}结构并置顶`
                               }
                               aria-pressed={favorite}
-                              className={`grid size-7 place-items-center rounded-full transition ${
+                              className={`grid size-10 place-items-center rounded-full transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${
                                 favorite
                                   ? "bg-warning-soft text-warning"
                                   : "bg-panel-muted text-faint hover:text-warning"
@@ -1342,7 +1343,7 @@ export function EditorDeliveryActions({
                             </button>
                           )}
                           {recommended ? (
-                            <span className="rounded-full bg-accent-soft px-2 py-1 text-[8px] font-semibold text-accent">
+                            <span className="rounded-full bg-accent-soft px-2 py-1 text-[11px] font-semibold text-accent">
                               {layoutMode === "preset" ? "内容匹配" : "AI 首选"}
                             </span>
                           ) : null}
@@ -1351,23 +1352,23 @@ export function EditorDeliveryActions({
                       {candidate === undefined ? null : (
                         <div className="mt-3">
                           <div className="mb-2 flex items-center justify-between gap-2">
-                            <span className="rounded-full bg-accent-soft px-2 py-1 text-[10px] font-semibold text-accent">
+                            <span className="rounded-full bg-accent-soft px-2 py-1 text-[11px] font-semibold text-accent">
                               结构预演
                             </span>
-                            <span className="text-[10px] text-faint">非最终成稿</span>
+                            <span className="text-[11px] text-faint">非最终成稿</span>
                           </div>
                           <AiLayoutCandidatePreview candidate={candidate} plan={plan} />
                         </div>
                       )}
                       <p className="mt-4 text-[14px] font-semibold text-ink">{plan.designName}</p>
-                      <p className="mt-1 text-[10px] font-medium text-accent">
+                      <p className="mt-1 text-[11px] font-medium text-accent">
                         {candidate === undefined
                           ? `${plan.languageName} · ${plan.tone}`
                           : `${candidate.structureLabel} · ${plan.languageName}`}
                       </p>
                       {candidate?.templateId === undefined ? null : (
                         <p
-                          className="mt-1 truncate font-mono text-[9px] text-faint"
+                          className="mt-1 truncate font-mono text-[11px] text-faint"
                           title={`${candidateTemplate?.name ?? candidate.structureLabel} · ${candidate.templateId}`}
                         >
                           模板 · {candidateTemplate?.name ?? candidate.structureLabel} ·{" "}
@@ -1376,7 +1377,7 @@ export function EditorDeliveryActions({
                       )}
                       <p className="mt-3 text-[11px] leading-5 text-muted">{plan.description}</p>
                       {comparison === null ? (
-                        <p className="mt-2 rounded-md bg-panel-muted px-2.5 py-2 text-[9px] leading-4 text-faint">
+                        <p className="mt-2 rounded-md bg-panel-muted px-2.5 py-2 text-[11px] leading-5 text-faint">
                           {plan.reasoning}
                         </p>
                       ) : (
@@ -1394,7 +1395,7 @@ export function EditorDeliveryActions({
                             ],
                           ].map(([label, value]) => (
                             <div className="bg-panel-muted px-2.5 py-2" key={label}>
-                              <p className="text-[10px] leading-4 text-faint">{label}</p>
+                              <p className="text-[11px] leading-4 text-faint">{label}</p>
                               <p
                                 className="mt-1 break-words text-[11px] leading-4 font-semibold text-ink"
                                 title={value}
@@ -1405,7 +1406,7 @@ export function EditorDeliveryActions({
                           ))}
                         </div>
                       )}
-                      <ul className="mt-3 flex-1 space-y-1.5 text-[10px] text-muted">
+                      <ul className="mt-3 flex-1 space-y-1.5 text-[11px] text-muted">
                         {(candidate?.differenceHighlights ?? plan.highlights)
                           .slice(0, candidate === undefined ? undefined : 2)
                           .map((highlight) => (
@@ -1416,7 +1417,7 @@ export function EditorDeliveryActions({
                           ))}
                       </ul>
                       <button
-                        className="mt-5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-control bg-accent text-[11px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
+                        className="mt-5 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-control bg-accent text-[11px] font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-45"
                         disabled={
                           saveStatus !== "saved" ||
                           applyingPlanId !== null ||
@@ -1448,7 +1449,7 @@ export function EditorDeliveryActions({
                   );
                 })}
               </div>
-              <p className="mt-4 text-center text-[10px] text-faint">
+              <p className="mt-4 text-center text-[11px] text-faint">
                 应用前自动保存安全快照；应用后仍可拖动区块、局部改样式、上传并保存自己的素材。
               </p>
             </div>
@@ -1469,7 +1470,8 @@ export function EditorDeliveryActions({
               </div>
               <Dialog.Close
                 aria-label="关闭兼容检查"
-                className="grid size-8 place-items-center rounded-control text-faint hover:bg-hover"
+                className="grid size-10 place-items-center rounded-control border border-transparent text-faint transition-[background-color,border-color,color,transform] duration-150 hover:border-line hover:bg-hover hover:text-ink active:scale-[0.96]"
+                type="button"
               >
                 <X aria-hidden="true" size={16} />
               </Dialog.Close>
@@ -1485,7 +1487,7 @@ export function EditorDeliveryActions({
                     兼容规则依赖已保存的文档版本。请在复制弹窗中生成正式内容，报告会同步显示在这里。
                   </p>
                   <button
-                    className="mt-5 h-9 rounded-control bg-accent px-4 text-[11px] font-semibold text-white disabled:opacity-45"
+                    className="mt-5 min-h-10 rounded-control bg-accent px-4 text-[11px] font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-[0.96] disabled:opacity-45"
                     disabled={saveStatus !== "saved"}
                     onClick={() => {
                       setCompatibilityOpen(false);
@@ -1513,7 +1515,7 @@ export function EditorDeliveryActions({
                       >
                         {renderOutput.canCopy ? "复制门禁已通过" : "发现阻断问题"}
                       </p>
-                      <p className="mt-1 text-[10px] text-muted">
+                      <p className="mt-1 text-[11px] text-muted">
                         规则 {renderOutput.compatibilityReport.ruleVersion}
                       </p>
                     </div>
@@ -1535,7 +1537,7 @@ export function EditorDeliveryActions({
                     <section key={severity}>
                       <div className="mb-2 flex items-center justify-between">
                         <h3 className={`text-[11px] font-semibold ${tone}`}>{label}</h3>
-                        <span className="text-[10px] text-faint">{issues.length}</span>
+                        <span className="text-[11px] text-faint">{issues.length}</span>
                       </div>
                       <ul className="space-y-2">
                         {issues.map((issue) => (
@@ -1544,9 +1546,9 @@ export function EditorDeliveryActions({
                             key={issue.issueId}
                           >
                             <p className="text-[11px] font-semibold text-ink">{issue.title}</p>
-                            <p className="mt-1 text-[10px] leading-5 text-muted">{issue.message}</p>
+                            <p className="mt-1 text-[11px] leading-5 text-muted">{issue.message}</p>
                             {issue.blockId === undefined ? null : (
-                              <p className="mt-1 font-mono text-[9px] text-faint">
+                              <p className="mt-1 font-mono text-[11px] text-faint">
                                 block {issue.blockId}
                               </p>
                             )}
@@ -1578,7 +1580,8 @@ export function EditorDeliveryActions({
             </Dialog.Description>
             <Dialog.Close
               aria-label="关闭复制弹窗"
-              className="absolute top-3 right-3 z-10 grid size-8 place-items-center rounded-control bg-panel text-faint shadow-subtle hover:bg-hover hover:text-ink"
+              className="absolute top-3 right-3 z-10 grid size-10 place-items-center rounded-control border border-line bg-panel text-faint shadow-subtle transition-[background-color,border-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-[0.96]"
+              type="button"
             >
               <X aria-hidden="true" size={16} />
             </Dialog.Close>

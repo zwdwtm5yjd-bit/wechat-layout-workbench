@@ -65,66 +65,83 @@ export function QuickStartGrid() {
   const secondaryItems = quickStartItems.filter((item) => item.label !== "粘贴文章");
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-8">
       <button
-        className="group grid w-full gap-5 overflow-hidden rounded-card border border-accent/20 bg-[#26225f] p-5 text-left text-white shadow-subtle transition hover:-translate-y-0.5 hover:shadow-raised md:grid-cols-[auto_1fr_auto] md:items-center"
+        className="group grid w-full gap-5 overflow-hidden rounded-card bg-accent p-5 text-left text-white shadow-subtle transition-[background-color,transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:bg-accent-strong hover:shadow-raised active:scale-[0.96] md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:p-6"
         onClick={() => router.push("/workspace/imports/paste")}
         type="button"
       >
-        <span className="grid size-12 place-items-center rounded-[12px] bg-white/12 text-indigo-100">
+        <span className="grid size-12 place-items-center rounded-control bg-white/15 text-white shadow-subtle">
           <ClipboardPaste aria-hidden="true" size={21} />
         </span>
-        <span>
-          <span className="block text-[15px] font-semibold">开始制作公众号文章</span>
-          <span className="mt-1 block text-[11px] leading-5 text-indigo-100/75">
+        <span className="min-w-0">
+          <span className="block text-balance text-lg font-semibold tracking-[-0.02em]">
+            开始制作公众号文章
+          </span>
+          <span className="mt-1 block max-w-3xl text-pretty text-[13px] leading-6 text-white/90">
             粘贴原稿后，依次检查结构、对比 6 种成稿方向、补充图片，最后预览并复制到公众号。
           </span>
-          <span className="mt-3 flex flex-wrap gap-2 text-[9px] text-indigo-100/65">
+          <span className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-medium text-white/80">
             {["1 导入原稿", "2 检查结构", "3 选择成稿", "4 完善并发布"].map((step) => (
-              <span className="rounded-full border border-white/10 px-2 py-1" key={step}>
+              <span className="rounded-full bg-white/10 px-2.5 py-1" key={step}>
                 {step}
               </span>
             ))}
           </span>
         </span>
-        <span className="inline-flex h-9 items-center justify-center gap-2 rounded-control bg-white px-4 text-[11px] font-semibold text-[#26225f] transition group-hover:bg-indigo-50">
-          开始
+        <span className="inline-flex h-10 items-center justify-center gap-2 rounded-control bg-white px-4 text-xs font-semibold text-accent-strong transition-colors duration-150 group-hover:bg-panel-muted">
+          开始完整流程
           <ArrowRight aria-hidden="true" size={13} />
         </span>
       </button>
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-        {secondaryItems.map((item) => {
-          const Icon = item.icon;
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-ink">其他开始方式</h3>
+          <p className="mt-1 text-pretty text-xs text-muted">
+            已有文件、网页或历史稿件时，可直接从对应入口开始。
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {secondaryItems.map((item) => {
+            const Icon = item.icon;
 
-          return (
-            <button
-              className="group flex min-h-16 items-center gap-3 rounded-control border border-line bg-panel p-3 text-left transition hover:border-indigo-200 hover:bg-hover"
-              key={item.label}
-              onClick={() => {
-                if (item.href !== undefined) {
-                  router.push(item.href);
-                  return;
-                }
-                if (item.label === "空白排版") {
+            return (
+              <button
+                className="group flex min-h-[76px] items-center justify-between gap-3 rounded-control bg-panel p-3 text-left shadow-subtle transition-[background-color,color,transform,box-shadow] duration-150 hover:bg-hover hover:shadow-raised active:scale-[0.96]"
+                key={item.label}
+                onClick={() => {
+                  if (item.href !== undefined) {
+                    router.push(item.href);
+                    return;
+                  }
+                  if (item.label === "空白排版") {
+                    router.push("/workspace/articles?new=1");
+                    return;
+                  }
                   router.push("/workspace/articles?new=1");
-                  return;
-                }
-                router.push("/workspace/articles?new=1");
-              }}
-              type="button"
-            >
-              <div className="flex items-center gap-3">
-                <span className="grid size-8 shrink-0 place-items-center rounded-control bg-accent-soft text-accent transition group-hover:bg-accent group-hover:text-white">
-                  <Icon aria-hidden="true" size={17} />
+                }}
+                type="button"
+              >
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-control bg-panel-muted text-muted transition-[background-color,color] duration-150 group-hover:bg-accent-soft group-hover:text-accent">
+                    <Icon aria-hidden="true" size={17} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-semibold text-ink">{item.label}</span>
+                    <span className="mt-0.5 block text-pretty text-[11px] leading-4 text-muted">
+                      {item.description}
+                    </span>
+                  </span>
                 </span>
-                <span>
-                  <span className="block text-[11px] font-semibold text-ink">{item.label}</span>
-                  <span className="mt-0.5 block text-[9px] text-faint">{item.description}</span>
-                </span>
-              </div>
-            </button>
-          );
-        })}
+                {item.shortcut ? (
+                  <span className="hidden shrink-0 text-[11px] font-medium text-muted 2xl:block">
+                    {item.shortcut}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

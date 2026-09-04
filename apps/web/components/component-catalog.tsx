@@ -531,12 +531,14 @@ export function ComponentCatalog() {
   }, [category, query]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[12px] font-medium text-accent">OFFICIAL COMPONENTS</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">组件</h1>
-          <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted">
+          <p className="text-xs font-medium text-accent">OFFICIAL COMPONENTS</p>
+          <h1 className="mt-1 text-balance text-2xl font-semibold tracking-[-0.035em] text-ink">
+            组件
+          </h1>
+          <p className="mt-2 max-w-2xl text-pretty text-[13px] leading-6 text-muted">
             浏览 {V0_COMPONENT_PREVIEWS.length} 个正式组件，包含原创 PNG / SVG
             高级模块、图集、标题、提示、数据与文末。 目录、编辑器和微信输出共用同一份组件 Manifest。
           </p>
@@ -549,7 +551,7 @@ export function ComponentCatalog() {
             size={15}
           />
           <input
-            className="h-10 w-full rounded-control border border-line bg-panel pr-3 pl-9 text-[12px] text-ink outline-none placeholder:text-faint focus:border-accent"
+            className="h-11 w-full rounded-control border border-line bg-panel pr-3 pl-9 text-base text-ink outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted focus:border-accent focus:ring-3 focus:ring-accent/20"
             onChange={(event) => setQuery(event.target.value)}
             placeholder="搜索名称、ID 或用途"
             value={query}
@@ -557,28 +559,28 @@ export function ComponentCatalog() {
         </label>
       </section>
 
-      <section className="flex flex-col gap-3 rounded-card border border-line bg-panel p-4 shadow-subtle sm:flex-row sm:items-center sm:justify-between">
+      <section className="flex flex-col gap-3 rounded-card bg-panel p-4 shadow-subtle sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="grid size-9 shrink-0 place-items-center rounded-control bg-success-soft text-success">
             <ShieldCheck aria-hidden="true" size={16} />
           </span>
           <div>
             <p className="text-[13px] font-semibold text-ink">官方组件已安装</p>
-            <p className="mt-1 text-[11px] leading-5 text-muted">
+            <p className="mt-1 text-pretty text-[11px] leading-5 text-muted">
               每个条目都有固定 ID、版本、插入预设和微信兼容等级，可安全追踪与降级。
             </p>
           </div>
         </div>
-        <span className="shrink-0 rounded-full bg-panel-muted px-3 py-1.5 text-[10px] text-muted">
+        <span className="shrink-0 rounded-full bg-panel-muted px-3 py-1.5 text-[11px] text-muted">
           {V0_COMPONENT_PREVIEWS.length} 个正式组件
         </span>
       </section>
 
-      <div className="flex gap-1 overflow-x-auto" role="tablist">
+      <div aria-label="按组件类型筛选" className="flex gap-1 overflow-x-auto" role="tablist">
         {categories.map((item) => (
           <button
             aria-selected={category === item}
-            className={`shrink-0 rounded-control px-3 py-2 text-[12px] font-medium transition ${
+            className={`min-h-10 shrink-0 rounded-control px-3 py-2 text-xs font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${
               category === item
                 ? "bg-accent-soft text-accent-strong"
                 : "text-muted hover:bg-hover hover:text-ink"
@@ -589,17 +591,29 @@ export function ComponentCatalog() {
             type="button"
           >
             {item}
-            <span className="ml-1.5 text-[10px] opacity-60">{categoryCount(item)}</span>
+            <span className="ml-1.5 text-[11px] opacity-70">{categoryCount(item)}</span>
           </button>
         ))}
       </div>
 
       {visibleComponents.length === 0 ? (
-        <section className="grid min-h-72 place-items-center rounded-card border border-line bg-panel text-center">
+        <section className="grid min-h-72 place-items-center rounded-card bg-panel px-6 text-center shadow-subtle">
           <div>
-            <Blocks aria-hidden="true" className="mx-auto text-faint" size={24} />
-            <p className="mt-3 text-sm font-semibold text-ink">没有匹配的组件</p>
-            <p className="mt-1 text-[12px] text-muted">清除关键词或切换分类后再试。</p>
+            <Blocks aria-hidden="true" className="mx-auto text-muted" size={24} />
+            <p className="mt-3 text-balance text-sm font-semibold text-ink">没有匹配的组件</p>
+            <p className="mt-1 text-pretty text-xs text-muted">
+              清除关键词并回到“全部”，即可继续浏览完整组件库。
+            </p>
+            <button
+              className="mt-4 min-h-10 rounded-control border border-line px-4 py-2 text-xs font-medium text-ink transition-[background-color,border-color,transform] duration-150 hover:bg-hover active:scale-[0.96]"
+              onClick={() => {
+                setCategory("全部");
+                setQuery("");
+              }}
+              type="button"
+            >
+              查看全部组件
+            </button>
           </div>
         </section>
       ) : (
@@ -611,7 +625,7 @@ export function ComponentCatalog() {
                 : layoutIcons[component.layoutKey];
             return (
               <button
-                className="group overflow-hidden rounded-card border border-line bg-panel text-left shadow-subtle transition hover:-translate-y-0.5 hover:border-line-strong hover:shadow-raised"
+                className="group overflow-hidden rounded-card bg-panel text-left shadow-subtle transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-raised active:scale-[0.96]"
                 data-component-card={component.id}
                 key={component.id}
                 onClick={() => setSelected(component)}
@@ -622,20 +636,20 @@ export function ComponentCatalog() {
                 </div>
                 <div className="p-4">
                   <div className="flex items-center gap-2">
-                    <span className="grid size-7 place-items-center rounded-md bg-accent-soft text-accent">
+                    <span className="grid size-8 place-items-center rounded-control bg-accent-soft text-accent">
                       <Icon aria-hidden="true" size={13} />
                     </span>
                     <p className="text-[13px] font-semibold text-ink">{component.name}</p>
                     <ChevronRight
                       aria-hidden="true"
-                      className="ml-auto text-faint transition group-hover:translate-x-0.5"
+                      className="ml-auto text-muted transition-transform duration-150 group-hover:translate-x-0.5"
                       size={14}
                     />
                   </div>
-                  <p className="mt-2 line-clamp-2 text-[11px] leading-5 text-muted">
+                  <p className="mt-2 line-clamp-2 text-pretty text-[11px] leading-5 text-muted">
                     {component.description}
                   </p>
-                  <p className="mt-2 font-mono text-[9px] text-faint">
+                  <p className="mt-2 font-mono text-[11px] text-muted">
                     {component.id} · v{component.version}
                   </p>
                 </div>
@@ -652,20 +666,20 @@ export function ComponentCatalog() {
         open={selected !== null}
       >
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-zinc-950/25 backdrop-blur-[2px]" />
-          <Dialog.Content className="fixed inset-y-0 right-0 z-50 w-[min(420px,100vw)] overflow-y-auto border-l border-line bg-panel p-6 shadow-raised">
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-overlay backdrop-blur-[2px]" />
+          <Dialog.Content className="fixed inset-y-0 right-0 z-50 w-[min(420px,100vw)] overflow-y-auto bg-panel p-6 shadow-raised">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <Dialog.Title className="text-lg font-semibold text-ink">
+                <Dialog.Title className="text-balance text-lg font-semibold text-ink">
                   {selected?.name}
                 </Dialog.Title>
-                <Dialog.Description className="mt-1 text-[12px] text-muted">
+                <Dialog.Description className="mt-1 text-pretty text-xs text-muted">
                   {selected?.category} · 官方正式组件
                 </Dialog.Description>
               </div>
               <Dialog.Close
                 aria-label="关闭组件详情"
-                className="grid size-8 place-items-center rounded-control text-faint hover:bg-hover hover:text-ink"
+                className="grid size-10 place-items-center rounded-control text-muted transition-[background-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-[0.96]"
               >
                 <X aria-hidden="true" size={16} />
               </Dialog.Close>
@@ -675,28 +689,30 @@ export function ComponentCatalog() {
                 <div className="mt-6 overflow-hidden rounded-card border border-line bg-white">
                   <ComponentSample component={selected} />
                 </div>
-                <p className="mt-5 text-[12px] leading-6 text-muted">{selected.description}</p>
+                <p className="mt-5 text-pretty text-xs leading-6 text-muted">
+                  {selected.description}
+                </p>
                 <dl className="mt-6 space-y-3 rounded-control bg-panel-muted p-4 text-[11px]">
                   <div className="flex justify-between">
-                    <dt className="text-faint">组件 ID</dt>
+                    <dt className="text-muted">组件 ID</dt>
                     <dd className="font-mono text-ink">{selected.asset.manifest.componentId}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-faint">版本</dt>
+                    <dt className="text-muted">版本</dt>
                     <dd className="font-mono text-ink">{selected.asset.manifest.version}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-faint">Schema 区块</dt>
+                    <dt className="text-muted">Schema 区块</dt>
                     <dd className="font-mono text-ink">{selected.asset.manifest.nodeType}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-faint">兼容等级</dt>
+                    <dt className="text-muted">兼容等级</dt>
                     <dd className="text-success">
                       {compatibilityLabels[selected.asset.manifest.compatibilityLevel]}
                     </dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-faint">目录状态</dt>
+                    <dt className="text-muted">目录状态</dt>
                     <dd className="text-ink">已安装</dd>
                   </div>
                 </dl>
@@ -704,13 +720,13 @@ export function ComponentCatalog() {
                   <h2 className="text-[11px] font-semibold text-ink">内容槽位</h2>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {selected.asset.manifest.slots.length === 0 ? (
-                      <span className="rounded-full bg-panel-muted px-2 py-1 text-[10px] text-faint">
+                      <span className="rounded-full bg-panel-muted px-2.5 py-1 text-[11px] text-muted">
                         无内容槽位
                       </span>
                     ) : (
                       selected.asset.manifest.slots.map((slot) => (
                         <span
-                          className="rounded-full bg-panel-muted px-2 py-1 text-[10px] text-muted"
+                          className="rounded-full bg-panel-muted px-2.5 py-1 text-[11px] text-muted"
                           key={slot.slotId}
                         >
                           {slot.label} · {slot.kind}
@@ -724,7 +740,7 @@ export function ComponentCatalog() {
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {selected.asset.manifest.variants.map((variant) => (
                       <span
-                        className="rounded-full border border-line px-2 py-1 text-[10px] text-muted"
+                        className="rounded-full border border-line px-2.5 py-1 text-[11px] text-muted"
                         key={variant.variantId}
                       >
                         {variant.name}
@@ -732,14 +748,14 @@ export function ComponentCatalog() {
                     ))}
                   </div>
                 </section>
-                <div className="mt-5 flex gap-2 rounded-control border border-accent/15 bg-accent-soft p-3">
+                <div className="mt-5 flex gap-2 rounded-control bg-accent-soft p-3">
                   <Info aria-hidden="true" className="mt-0.5 shrink-0 text-accent" size={14} />
                   <p className="text-[11px] leading-5 text-muted">
                     组件中心不持有当前文章上下文。请进入文章编辑器，从左侧“组件”标签插入。
                   </p>
                 </div>
                 <Link
-                  className="mt-6 flex h-10 w-full items-center justify-center rounded-control bg-accent text-[12px] font-semibold text-white"
+                  className="mt-6 flex h-10 w-full items-center justify-center rounded-control bg-accent text-xs font-semibold text-white shadow-subtle transition-[background-color,transform,box-shadow] duration-150 hover:bg-accent-strong hover:shadow-raised active:scale-[0.96]"
                   href="/workspace/articles?new=1"
                 >
                   新建文章后使用

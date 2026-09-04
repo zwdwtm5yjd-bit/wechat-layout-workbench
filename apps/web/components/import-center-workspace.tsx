@@ -53,11 +53,11 @@ function ImportOptions({
   readonly onLayoutStrengthChange: (value: LayoutStrength) => void;
 }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid gap-5 sm:grid-cols-2">
       <label className="block">
-        <span className="mb-1.5 block text-[11px] font-medium text-muted">清洗方式</span>
+        <span className="mb-2 block text-[12px] font-medium text-muted">清洗方式</span>
         <select
-          className="h-10 w-full rounded-control border border-line bg-panel-muted px-3 text-[12px] text-ink"
+          className="h-11 w-full rounded-control border border-line bg-panel-sunken px-3 text-base text-ink sm:text-[13px]"
           onChange={(event) => onCleaningModeChange(event.target.value as CleaningMode)}
           value={cleaningMode}
         >
@@ -67,9 +67,9 @@ function ImportOptions({
         </select>
       </label>
       <label className="block">
-        <span className="mb-1.5 block text-[11px] font-medium text-muted">排版强度</span>
+        <span className="mb-2 block text-[12px] font-medium text-muted">排版强度</span>
         <select
-          className="h-10 w-full rounded-control border border-line bg-panel-muted px-3 text-[12px] text-ink"
+          className="h-11 w-full rounded-control border border-line bg-panel-sunken px-3 text-base text-ink sm:text-[13px]"
           onChange={(event) => onLayoutStrengthChange(event.target.value as LayoutStrength)}
           value={layoutStrength}
         >
@@ -88,7 +88,10 @@ function AsyncImportPanel({ mode }: { readonly mode: "docx" | "webpage" }) {
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState("");
   const [pendingJob, setPendingJob] = useState<ImportJob | null>(null);
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const failedJobNotice = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const urlInputRef = useRef<HTMLInputElement | null>(null);
   const [cleaningMode, setCleaningMode] = useState<CleaningMode>("preserve_structure");
   const [layoutStrength, setLayoutStrength] = useState<LayoutStrength>("standard");
   const mutation = useMutation({
@@ -154,14 +157,17 @@ function AsyncImportPanel({ mode }: { readonly mode: "docx" | "webpage" }) {
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (mode === "webpage" && url.trim() === "") {
-      pushToast({
-        title: "请输入网页地址",
-        description: "需要完整的 http:// 或 https:// 地址。",
-        tone: "warning",
-      });
+    if (mode === "docx" && file === null) {
+      setFieldError("请选择一个 DOCX 文件后再开始导入。");
+      fileInputRef.current?.focus();
       return;
     }
+    if (mode === "webpage" && url.trim() === "") {
+      setFieldError("请输入完整的 http:// 或 https:// 网页地址。");
+      urlInputRef.current?.focus();
+      return;
+    }
+    setFieldError(null);
     failedJobNotice.current = null;
     mutation.mutate();
   };
@@ -175,7 +181,7 @@ function AsyncImportPanel({ mode }: { readonly mode: "docx" | "webpage" }) {
 
   return (
     <form className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]" onSubmit={submit}>
-      <section className="rounded-card border border-line bg-panel p-5 shadow-subtle sm:p-7">
+      <section className="ui-surface p-5 sm:p-7">
         <span className="grid size-11 place-items-center rounded-control bg-accent-soft text-accent">
           {mode === "docx" ? (
             <FileUp aria-hidden="true" size={20} />
@@ -192,36 +198,61 @@ function AsyncImportPanel({ mode }: { readonly mode: "docx" | "webpage" }) {
             : "服务端会校验地址、防止访问内网，并优先抽取正文；需要浏览器渲染时会自动切换安全浏览器任务。"}
         </p>
         {mode === "docx" ? (
-          <label className="mt-7 block rounded-card border border-dashed border-line-strong bg-panel-muted p-8 text-center transition hover:border-accent/50">
+          <label className="ui-interactive mt-7 block rounded-card border border-dashed border-line-strong bg-panel-sunken p-8 text-center hover:border-accent/50 hover:bg-accent-soft/40 focus-within:outline-3 focus-within:outline-offset-3 focus-within:outline-[var(--color-border-focus)]">
             <input
               accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              aria-describedby={fieldError === null ? undefined : "async-import-error"}
+              aria-invalid={fieldError !== null}
               className="sr-only"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              name="docxFile"
+              onChange={(event) => {
+                setFile(event.target.files?.[0] ?? null);
+                setFieldError(null);
+              }}
+              ref={fileInputRef}
               type="file"
             />
             <FileUp aria-hidden="true" className="mx-auto text-accent" size={28} />
             <span className="mt-3 block text-[13px] font-semibold text-ink">
               {file?.name ?? "选择 DOCX 文件"}
             </span>
-            <span className="mt-1 block text-[11px] text-faint">
+            <span className="mt-1 block text-[12px] text-faint">
               支持最大 50 MB，重复文件自动复用
             </span>
           </label>
         ) : (
           <label className="mt-7 block">
-            <span className="mb-2 block text-[12px] font-medium text-ink">网页地址</span>
+            <span className="mb-2 block text-[13px] font-medium text-ink">网页地址</span>
             <input
-              className="h-12 w-full rounded-control border border-line bg-panel-muted px-4 text-[13px] text-ink outline-none placeholder:text-faint focus:border-accent focus:ring-3 focus:ring-indigo-100"
-              onChange={(event) => setUrl(event.target.value)}
+              aria-describedby={fieldError === null ? undefined : "async-import-error"}
+              aria-invalid={fieldError !== null}
+              autoComplete="url"
+              className="h-12 w-full rounded-control border border-line bg-panel-sunken px-4 text-base text-ink placeholder:text-faint focus:border-accent sm:text-[14px]"
+              name="webpageUrl"
+              onChange={(event) => {
+                setUrl(event.target.value);
+                setFieldError(null);
+              }}
               placeholder="https://example.com/article"
+              ref={urlInputRef}
+              spellCheck={false}
               type="url"
               value={url}
             />
           </label>
         )}
+        {fieldError === null ? null : (
+          <p
+            className="mt-3 text-[12px] font-medium text-danger"
+            id="async-import-error"
+            role="alert"
+          >
+            {fieldError}
+          </p>
+        )}
       </section>
       <aside className="space-y-4">
-        <section className="rounded-card border border-line bg-panel p-5 shadow-subtle">
+        <section className="ui-surface p-5">
           <h2 className="text-sm font-semibold text-ink">导入设置</h2>
           <div className="mt-4">
             <ImportOptions
@@ -233,8 +264,9 @@ function AsyncImportPanel({ mode }: { readonly mode: "docx" | "webpage" }) {
           </div>
         </section>
         <button
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-control bg-accent px-5 text-[13px] font-semibold text-white shadow-subtle hover:bg-accent-strong disabled:opacity-50"
-          disabled={mutation.isPending || activeJob || (mode === "docx" && file === null)}
+          aria-busy={mutation.isPending || activeJob}
+          className="ui-interactive flex h-12 w-full items-center justify-center gap-2 rounded-control bg-accent px-5 text-[13px] font-semibold text-white shadow-subtle hover:bg-accent-strong disabled:cursor-wait disabled:opacity-60"
+          disabled={mutation.isPending || activeJob}
           type="submit"
         >
           {mutation.isPending || activeJob ? (
@@ -249,13 +281,13 @@ function AsyncImportPanel({ mode }: { readonly mode: "docx" | "webpage" }) {
         </button>
         {pendingJob !== null ? (
           <a
-            className="block text-center text-[10px] font-medium text-accent"
+            className="block text-center text-[12px] font-medium text-accent underline decoration-transparent underline-offset-4 transition-[text-decoration-color,color] hover:decoration-current"
             href={`/workspace/jobs?focus=${encodeURIComponent(pendingJob.jobId)}&article=${encodeURIComponent(pendingJob.articleId)}`}
           >
             查看后台任务详情
           </a>
         ) : null}
-        <p className="flex items-start gap-2 px-1 text-[10px] leading-5 text-faint">
+        <p className="flex items-start gap-2 px-1 text-[12px] leading-5 text-faint">
           <ShieldCheck aria-hidden="true" className="mt-0.5 shrink-0" size={13} />
           导入完成前不会覆盖任何已有文章；后台任务可取消、失败后可重试。
         </p>
@@ -281,14 +313,18 @@ export function ImportCenterWorkspace() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <CreationProgress current={1} />
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[12px] font-medium text-accent">IMPORT CENTER</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-ink">导入文章</h1>
-          <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted">
-            粘贴正文、上传 DOCX 或抓取公开网页，统一进入安全清洗和结构确认工作流。
+          <p className="text-[12px] font-semibold tracking-[0.12em] text-accent uppercase">
+            导入中心
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-ink">
+            从原稿开始创作
+          </h1>
+          <p className="mt-3 max-w-2xl text-[14px] leading-6 text-muted">
+            选择最顺手的方式带入正文和图片，下一步确认结构，再让 AI 生成可继续编辑的版式。
           </p>
         </div>
         <div className="inline-flex items-center gap-2 self-start rounded-full bg-success-soft px-3 py-1.5 text-[11px] font-medium text-success">
@@ -303,20 +339,20 @@ export function ImportCenterWorkspace() {
           return (
             <button
               aria-pressed={active}
-              className={`rounded-card border p-4 text-left shadow-subtle transition ${active ? "border-accent/40 bg-accent-soft" : "border-line bg-panel hover:border-line-strong"}`}
+              className={`ui-interactive min-h-20 rounded-card p-4 text-left shadow-subtle ${active ? "bg-accent-soft shadow-subtle-hover" : "bg-panel hover:-translate-y-0.5 hover:shadow-subtle-hover"}`}
               key={item.id}
               onClick={() => selectMode(item.id)}
               type="button"
             >
               <span className="flex items-center gap-3">
                 <span
-                  className={`grid size-9 place-items-center rounded-control ${active ? "bg-accent text-white" : "bg-panel-muted text-muted"}`}
+                  className={`grid size-10 place-items-center rounded-control ${active ? "bg-accent text-white" : "bg-panel-sunken text-muted"}`}
                 >
                   <Icon aria-hidden="true" size={16} />
                 </span>
                 <span>
-                  <span className="block text-[13px] font-semibold text-ink">{item.label}</span>
-                  <span className="mt-0.5 block text-[10px] text-muted">{item.description}</span>
+                  <span className="block text-[14px] font-semibold text-ink">{item.label}</span>
+                  <span className="mt-1 block text-[12px] text-muted">{item.description}</span>
                 </span>
               </span>
             </button>

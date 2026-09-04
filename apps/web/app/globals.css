@@ -8,16 +8,21 @@
 html {
   min-width: 320px;
   background: var(--ui-canvas);
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--ui-canvas);
+  background:
+    radial-gradient(circle at 12% 0%, rgb(87 71 219 / 5%), transparent 24rem), var(--ui-canvas);
   color: var(--ui-text);
   font-family: var(--ui-font-sans);
   font-size: 14px;
+  line-height: 1.5;
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,
@@ -30,6 +35,7 @@ textarea {
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 button:not(:disabled),
@@ -43,8 +49,81 @@ a {
 }
 
 :focus-visible {
-  outline: 3px solid rgb(79 70 229 / 22%);
-  outline-offset: 2px;
+  outline: 3px solid var(--color-border-focus);
+  outline-offset: 3px;
+}
+
+:target {
+  scroll-margin-top: 80px;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+.ui-skip-link {
+  position: fixed;
+  z-index: 100;
+  inset-block-start: 12px;
+  inset-inline-start: 12px;
+  translate: 0 -180%;
+  border-radius: var(--ui-radius-control);
+  background: var(--color-accent-solid);
+  color: var(--color-text-on-accent);
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 650;
+  box-shadow: var(--ui-shadow-raised);
+  transition: translate 140ms ease-out;
+}
+
+.ui-skip-link:focus {
+  translate: 0;
+}
+
+.ui-surface {
+  border-radius: var(--ui-radius-card);
+  background: var(--color-bg-surface);
+  box-shadow: var(--ui-shadow-subtle);
+}
+
+.ui-interactive {
+  transition:
+    color 120ms ease-out,
+    background-color 120ms ease-out,
+    border-color 120ms ease-out,
+    box-shadow 150ms ease-out,
+    transform 150ms ease-out;
+}
+
+.ui-interactive:not(:disabled):active {
+  transform: scale(0.96);
+}
+
+.ui-media {
+  outline: 1px solid var(--ui-media-outline);
+  outline-offset: -1px;
+}
+
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea,
+  [contenteditable="true"] {
+    font-size: 16px !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
 }
 
 [data-reduce-motion="true"] *,

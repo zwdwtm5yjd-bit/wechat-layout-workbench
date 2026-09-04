@@ -104,7 +104,9 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
   const [plainText, setPlainText] = useState("");
   const [clipboardHtml, setClipboardHtml] = useState<string | undefined>();
   const [images, setImages] = useState<readonly PendingPasteImage[]>([]);
+  const [contentError, setContentError] = useState<string | null>(null);
   const previewUrls = useRef<string[]>([]);
+  const contentInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [cleaningMode, setCleaningMode] = useState<CleaningMode>("preserve_structure");
   const [sourceHint, setSourceHint] = useState<SourceHint>("auto");
   const [layoutStrength, setLayoutStrength] =
@@ -235,20 +237,19 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
     event.preventDefault();
     setClipboardHtml(pastedHtml === "" ? undefined : pastedHtml);
     setPlainText(pastedText || event.currentTarget.value);
+    setContentError(null);
   };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedText = plainText.trim();
     if (normalizedText === "" && clipboardHtml === undefined) {
-      pushToast({
-        title: "还没有可导入的内容",
-        description: "请把 Word、WPS、网页或纯文本内容粘贴到输入框。",
-        tone: "warning",
-      });
+      setContentError("请先把 Word、WPS、网页或纯文本内容粘贴到输入框。");
+      contentInputRef.current?.focus();
       return;
     }
 
+    setContentError(null);
     importMutation.mutate();
   };
 
@@ -273,15 +274,15 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
       )}
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="overflow-hidden rounded-card border border-line bg-panel shadow-subtle">
-          <div className="flex items-center justify-between border-b border-line px-5 py-4">
+        <div className="ui-surface overflow-hidden">
+          <div className="flex items-center justify-between border-b border-line-subtle px-5 py-4">
             <div>
               <h2 className="text-sm font-semibold text-ink">文章内容</h2>
               <p className="mt-1 text-[11px] text-muted">
                 直接在下面粘贴，系统会同时读取剪贴板结构。
               </p>
             </div>
-            <span className="rounded-full bg-panel-muted px-2.5 py-1 text-[10px] text-faint">
+            <span className="rounded-full bg-panel-sunken px-2.5 py-1 text-[12px] tabular-nums text-faint">
               {plainText.length.toLocaleString("zh-CN")} 字符
             </span>
           </div>
@@ -289,21 +290,39 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
             <label className="block">
               <span className="sr-only">粘贴文章内容</span>
               <textarea
+                aria-describedby={
+                  contentError === null ? "paste-content-help" : "paste-content-error"
+                }
+                aria-invalid={contentError !== null}
                 autoFocus
-                className="min-h-[460px] w-full resize-y rounded-control border border-line bg-panel-muted px-5 py-4 text-[14px] leading-7 text-ink outline-none transition placeholder:text-faint focus:border-accent focus:bg-panel focus:ring-3 focus:ring-indigo-100"
+                className="min-h-[460px] w-full resize-y rounded-control border border-line bg-panel-sunken px-5 py-4 text-base leading-7 text-ink transition-[border-color,background-color,box-shadow] placeholder:text-faint focus:border-accent focus:bg-panel sm:text-[14px]"
                 maxLength={500_000}
                 onChange={(event) => {
                   setPlainText(event.target.value);
                   setClipboardHtml(undefined);
+                  setContentError(null);
                 }}
                 onPaste={handlePaste}
                 placeholder={
                   "在这里粘贴文章正文…\n\n支持标题、段落、引用、有序/无序列表、表格文本和外链图片引用。"
                 }
+                ref={contentInputRef}
                 value={plainText}
               />
             </label>
-            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-faint">
+            {contentError === null ? null : (
+              <p
+                className="mt-3 text-[12px] font-medium text-danger"
+                id="paste-content-error"
+                role="alert"
+              >
+                {contentError}
+              </p>
+            )}
+            <div
+              className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-faint"
+              id="paste-content-help"
+            >
               <span className="inline-flex items-center gap-1.5">
                 <Check aria-hidden="true" size={12} />
                 不保存原始 HTML
@@ -319,17 +338,17 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
             </div>
 
             <section
-              className="mt-5 rounded-card border border-line bg-panel p-4"
+              className="mt-6 rounded-card bg-panel-muted p-4 shadow-subtle"
               aria-label="正文图片"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h3 className="text-[12px] font-semibold text-ink">正文图片</h3>
-                  <p className="mt-1 text-[10px] leading-5 text-muted">
+                  <h3 className="text-[13px] font-semibold text-ink">正文图片</h3>
+                  <p className="mt-1 text-[12px] leading-5 text-muted">
                     可批量添加并指定插入位置；图片会保存到素材库并进入下一步 AI 排版。
                   </p>
                 </div>
-                <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-control border border-accent/30 bg-accent-soft px-3 text-[11px] font-semibold text-accent hover:border-accent">
+                <label className="ui-interactive inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-control border border-accent/30 bg-accent-soft px-3 text-[12px] font-semibold text-accent hover:border-accent focus-within:outline-3 focus-within:outline-offset-3 focus-within:outline-[var(--color-border-focus)]">
                   <ImagePlus aria-hidden="true" size={14} />
                   {images.length === 0 ? "添加图片" : "继续添加"}
                   <input
@@ -344,8 +363,8 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
               </div>
 
               {images.length === 0 ? (
-                <div className="mt-4 grid min-h-24 place-items-center rounded-control border border-dashed border-line bg-panel-muted px-4 text-center">
-                  <p className="text-[10px] leading-5 text-faint">
+                <div className="mt-4 grid min-h-24 place-items-center rounded-control border border-dashed border-line bg-panel px-4 text-center">
+                  <p className="text-[12px] leading-5 text-faint">
                     支持 PNG、JPEG、WebP、GIF，单张不超过 20 MB，最多 30 张。
                   </p>
                 </div>
@@ -362,7 +381,7 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
                         ) : (
                           <img
                             alt={image.file.name}
-                            className="h-full w-full object-cover"
+                            className="ui-media h-full w-full object-cover"
                             src={image.previewUrl}
                           />
                         )}
@@ -371,7 +390,7 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
                         </span>
                         <button
                           aria-label={`移除图片 ${index + 1}`}
-                          className="absolute right-2 top-2 grid size-7 place-items-center rounded-full bg-black/65 text-white hover:bg-danger"
+                          className="ui-interactive absolute top-1 right-1 grid size-10 place-items-center rounded-full bg-black/65 text-white hover:bg-danger"
                           onClick={() => removeImage(image.id)}
                           type="button"
                         >
@@ -383,10 +402,10 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
                           {image.file.name}
                         </p>
                         <label className="block">
-                          <span className="mb-1 block text-[9px] text-faint">插入位置</span>
+                          <span className="mb-1 block text-[11px] text-faint">插入位置</span>
                           <select
                             aria-label={`图片 ${index + 1} 插入位置`}
-                            className="h-8 w-full rounded-md border border-line bg-panel-muted px-2 text-[10px] text-ink"
+                            className="h-10 w-full rounded-md border border-line bg-panel-sunken px-2 text-base text-ink sm:text-[12px]"
                             onChange={(event) =>
                               updateImage(image.id, { placementIndex: Number(event.target.value) })
                             }
@@ -406,12 +425,12 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
                           </select>
                         </label>
                         <label className="block">
-                          <span className="mb-1 block text-[9px] text-faint">
+                          <span className="mb-1 block text-[11px] text-faint">
                             图片说明（可选，帮助 AI 理解图片）
                           </span>
                           <input
                             aria-label={`图片 ${index + 1} 说明`}
-                            className="h-8 w-full rounded-md border border-line bg-panel-muted px-2 text-[10px] text-ink outline-none focus:border-accent"
+                            className="h-10 w-full rounded-md border border-line bg-panel-sunken px-2 text-base text-ink focus:border-accent sm:text-[12px]"
                             maxLength={2_000}
                             onChange={(event) =>
                               updateImage(image.id, { caption: event.target.value })
@@ -430,7 +449,7 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
         </div>
 
         <aside className="space-y-4">
-          <section className="rounded-card border border-line bg-panel p-5 shadow-subtle">
+          <section className="ui-surface p-5">
             <div className="flex items-center gap-2">
               <Sparkles aria-hidden="true" className="text-accent" size={16} />
               <h2 className="text-sm font-semibold text-ink">清洗方式</h2>
@@ -438,7 +457,7 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
             <div className="mt-4 space-y-2">
               {cleaningModes.map((mode) => (
                 <label
-                  className={`block cursor-pointer rounded-control border p-3 transition ${
+                  className={`ui-interactive block cursor-pointer rounded-control p-3 shadow-subtle ${
                     cleaningMode === mode.value
                       ? "border-accent/40 bg-accent-soft"
                       : "border-line hover:bg-hover"
@@ -458,7 +477,7 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
                     />
                     <span>
                       <span className="block text-[12px] font-semibold text-ink">{mode.label}</span>
-                      <span className="mt-1 block text-[10px] leading-4 text-muted">
+                      <span className="mt-1 block text-[12px] leading-5 text-muted">
                         {mode.description}
                       </span>
                     </span>
@@ -468,14 +487,14 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
             </div>
           </section>
 
-          <section className="rounded-card border border-line bg-panel p-5 shadow-subtle">
+          <section className="ui-surface p-5">
             <h2 className="text-sm font-semibold text-ink">识别偏好</h2>
             <div className="mt-4 space-y-4">
               <label className="block">
-                <span className="mb-1.5 block text-[11px] font-medium text-muted">内容来源</span>
+                <span className="mb-2 block text-[12px] font-medium text-muted">内容来源</span>
                 <select
                   aria-label="内容来源"
-                  className="h-10 w-full rounded-control border border-line bg-panel-muted px-3 text-[12px] text-ink outline-none focus:border-accent focus:ring-3 focus:ring-indigo-100"
+                  className="h-11 w-full rounded-control border border-line bg-panel-sunken px-3 text-base text-ink focus:border-accent sm:text-[13px]"
                   onChange={(event) => {
                     setSourceHint(event.target.value as SourceHint);
                   }}
@@ -489,10 +508,10 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
                 </select>
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-[11px] font-medium text-muted">排版强度</span>
+                <span className="mb-2 block text-[12px] font-medium text-muted">排版强度</span>
                 <select
                   aria-label="排版强度"
-                  className="h-10 w-full rounded-control border border-line bg-panel-muted px-3 text-[12px] text-ink outline-none focus:border-accent focus:ring-3 focus:ring-indigo-100"
+                  className="h-11 w-full rounded-control border border-line bg-panel-sunken px-3 text-base text-ink focus:border-accent sm:text-[13px]"
                   onChange={(event) => {
                     setLayoutStrength(event.target.value as PasteImportInput["layoutStrength"]);
                   }}
@@ -507,7 +526,8 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
           </section>
 
           <button
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-control bg-accent px-5 text-[13px] font-semibold text-white shadow-subtle transition hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
+            aria-busy={importMutation.isPending}
+            className="ui-interactive flex h-12 w-full items-center justify-center gap-2 rounded-control bg-accent px-5 text-[13px] font-semibold text-white shadow-subtle hover:bg-accent-strong disabled:cursor-wait disabled:opacity-60"
             disabled={importMutation.isPending}
             type="submit"
           >
@@ -524,7 +544,7 @@ export function PasteImportWorkspace({ embedded = false }: { readonly embedded?:
             {importMutation.isPending ? null : <ArrowRight aria-hidden="true" size={15} />}
           </button>
 
-          <p className="flex items-start gap-2 px-1 text-[10px] leading-5 text-faint">
+          <p className="flex items-start gap-2 px-1 text-[12px] leading-5 text-faint">
             <FileText aria-hidden="true" className="mt-0.5 shrink-0" size={13} />
             下一步可逐块检查标题、正文、列表与图片引用；确认前不会进入排版状态。
           </p>
