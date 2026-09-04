@@ -17,7 +17,7 @@ function locationBody(pattern: RegExp): string {
 describe("host Nginx AI layout timeouts", () => {
   it("lets AI layout requests outlive the provider timeout", () => {
     const aiLayoutLocation = locationBody(
-      /location ~ \^\/api\/v1\/articles\/\[\^\/\]\+\/ai-layout\/plan\$ \{([\s\S]*?)\n  \}/,
+      /location ~ \^\/api\/v1\/articles\/\[\^\/\]\+\/ai-layout\/plan\$ \{([\s\S]*?)\n {2}\}/,
     );
 
     expect(aiLayoutLocation).toContain("proxy_connect_timeout 5s;");
@@ -26,7 +26,7 @@ describe("host Nginx AI layout timeouts", () => {
   });
 
   it("keeps the generic API timeout narrow", () => {
-    const genericApiLocation = locationBody(/location \/api\/ \{([\s\S]*?)\n  \}/);
+    const genericApiLocation = locationBody(/location \/api\/ \{([\s\S]*?)\n {2}\}/);
 
     expect(genericApiLocation).toContain("proxy_read_timeout 30s;");
     expect(genericApiLocation).toContain("proxy_send_timeout 30s;");

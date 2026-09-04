@@ -40,7 +40,9 @@ test("completes the authenticated create, autosave, preview, and copy-gate flow"
   const componentBody = "这里放置需要读者提前了解的背景信息。";
 
   await login(page);
-  await expect(page.getByRole("heading", { name: "欢迎回来，继续完成今天的排版" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "把一篇原稿，做成可发布的公众号成稿" }),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: "组件", exact: true }).click();
   await expect(page).toHaveURL(/\/workspace\/components$/);
