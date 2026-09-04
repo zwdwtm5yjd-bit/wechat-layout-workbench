@@ -69,7 +69,9 @@ test("completes the authenticated create, autosave, preview, and copy-gate flow"
     { timeout: 15_000 },
   );
   await page.getByRole("button", { name: /^信息提示/ }).click();
-  await expect(page.getByText(componentBody, { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "文章编辑画布" }).getByText(componentBody, { exact: true }),
+  ).toBeVisible();
   expect((await componentSaveResponse).ok()).toBe(true);
   await expect(page.locator("summary").filter({ hasText: "已保存" })).toBeVisible({
     timeout: 15_000,
